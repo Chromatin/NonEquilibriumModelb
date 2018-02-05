@@ -41,5 +41,10 @@ def write_data(Filename,Headers,Data):
     f.close()
     return "resultsfile generated"
 
+def plot_fe(f_array,z_array,units = 'nm'):
+    plt.scatter(z_array, f_array)
+    plt.xlabel('{} {}'.format('extension', units))
+    plt.ylabel('Force (pN)')
+    return plt.show()
 #LogFile = ReadLog("D:\\Klaas\\Tweezers\\Reconstituted chromatin\\ChromState\\2017_10_20_167x15\\Analysis\\15x167 FC1_data_006_40.log")
 #Lc=FindParam(LogFile,"N nuc")

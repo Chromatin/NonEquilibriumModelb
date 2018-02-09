@@ -6,6 +6,8 @@ Created on Wed Jan  3 13:44:01 2018
 """
 import numpy as np
 import sympy
+import scipy
+from scipy.optimize import curve_fit
 
 kBT = 4.2 #pn/nm 
 #worm-like chain
@@ -103,4 +105,14 @@ def removerelease(ForceSelected,Z_Selected):
     ForceSelected=np.delete(ForceSelected, Pullingtest)
     Z_Selected=np.delete(Z_Selected,Pullingtest)
     return ForceSelected, Z_Selected 
+    
+def pdf(x,step,sigma):
+    return 1-erfaprox((x+step)/sigma*np.sqrt(2))
+    
+def fit_pdf(y):
+    y=np.array([y])
+    y=np.sort(y)
+    x=np.linspace(0,1,np.size(y))
+    return curve_fit(pdf, y, x)
+    
     

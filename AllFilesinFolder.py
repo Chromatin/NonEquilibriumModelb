@@ -12,14 +12,16 @@ from scipy import signal
 import Functions as func
 import Tools
 
-folder = '2018' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder = 'G:\\Klaas\\Tweezers\\Yeast Chromatin\\Regensburg_18S\\2018\\2018_01_25_18S_IgG_wt\\Data\\Good Traces' #folder with chromosome sequence files (note, do not put other files in this folder)
 filenames = os.listdir(folder)
 os.chdir( folder )
 
-Select=1 #1 for Selected Data, 0 for all data
+Select=0 #1 for Selected Data, 0 for all data
 Pulling = 1 #1 for only pulling data
 DelBreaks =1 # 1 for deleting data after tether breaks
-MinForce=2 #only analyze data above this force
+MinForce=1 #only analyze data above this force
+MinZ, MaxZ = 0, True
+Fmax_Hook=7
 steps , stacks = [],[]
 plt.close() #close all references to figures still open
 
@@ -32,19 +34,19 @@ for Filename in filenames:
     p = float(Tools.find_param(LogFile,'p DNA (nm)') )  # persistence length (nm)p DNA (nm)
     S = float(Tools.find_param(LogFile,'S DNA (pN)') ) # stretch modulus (pN) S DNA (pN)
     k = float(Tools.find_param(LogFile,'k folded (pN/nm)') ) # Stiffness of the fiber, in pN/nm => k folded (pN/nm)
-    N = float(Tools.find_param(LogFile,'N nuc') )#number of nucleosomes N nuc
+    N_tot = float(Tools.find_param(LogFile,'N nuc') )#number of nucleosomes N nuc
     N_tetra = float(Tools.find_param(LogFile,'N unfolded [F0]'))
     NRL = float(Tools.find_param(LogFile,'NRL (bp)') )#NRL (bp
     DNAds =  0.34 # rise per basepair (nm)
     kBT = 4.2 #pn/nm 
-    Lmin=Lc-N*NRL+N_tetra*75 # DNA handles in bp
+    Lmin=Lc-(N_tot-N_tetra)*NRL-N_tetra*80 # DNA handles in bp
     if Lmin <0: 
         print('bad fit')
         continue
-    Lmax=Lc-(N+N_tetra)*75 # Max Z of the "beads on a string" conformation in bp
-    Z_fiber = 1 * N #Length of fiber in nm 
-    print(Lmin,Lmax,Lc, Filename)
-    
+    Lmax=Lc-(N_tot)*80 # Max Z of the "beads on a string" conformation in bp
+    Z_fiber = 1 * N_tot #Length of fiber in nm 
+    print(Lmin,Lmax,N_tot, Filename)
+    if MaxZ == True: MaxZ = (Lc+200)*DNAds
     Force = np.array([])
     Time=np.array([])
     Z=np.array([])
@@ -56,6 +58,7 @@ for Filename in filenames:
         Z_Selected=np.append(Z_Selected,float(item.split()[Headers.index('selected z (um)')])*1000)
         Z=np.append(Z,float(item.split()[Headers.index('z (um)')])*1000)
     
+    #### This part removes all datapoints that should not be fitted 
     if Select == 1:                                 #If only the selected column is use do this
         ForceSelected = np.delete(Force, np.argwhere(np.isnan(Z_Selected)))
         Z_Selected=np.delete(Z, np.argwhere(np.isnan(Z_Selected)))
@@ -65,6 +68,8 @@ for Filename in filenames:
     if Pulling ==1: ForceSelected,Z_Selected = func.removerelease(ForceSelected,Z_Selected)
     if DelBreaks ==1: ForceSelected,Z_Selected = func.breaks(ForceSelected,Z_Selected)
     if MinForce > 0: ForceSelected,Z_Selected=func.minforce(ForceSelected,Z_Selected,MinForce)
+    Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, MinZ) #remove data below Z=0
+    if MaxZ==True: Z_Selected, ForceSelected = func.minforce(-Z_Selected, ForceSelected, -Lc*DNAds*1.1) #remove data above Z=1.1*LC
     
     #Generate FE curves for possible states
     PossibleStates = np.arange(Lmin-200,Lc+50,1) #range to fit 
@@ -72,8 +77,8 @@ for Filename in filenames:
     ProbSum=np.array([])
     for x in PossibleStates:
         Ratio=func.ratio(Lmin,Lmax,x)
-        StateExtension=np.array([func.wlc(ForceSelected,p,S)*x*DNAds + func.hook(ForceSelected,k,10)*Ratio*Z_fiber])
-        StateExtension_dF=np.array([func.wlc(ForceSelected+dF,p,S)*x*DNAds + func.hook(ForceSelected+dF,k,10)*Ratio*Z_fiber])
+        StateExtension=np.array([func.wlc(ForceSelected,p,S)*x*DNAds + func.hook(ForceSelected,k,Fmax_Hook)*Ratio*Z_fiber])
+        StateExtension_dF=np.array([func.wlc(ForceSelected+dF,p,S)*x*DNAds + func.hook(ForceSelected+dF,k,Fmax_Hook)*Ratio*Z_fiber])
         LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*(kBT) / dF # fix the units of KBT (pN nm -> pN um)
         DeltaZ=np.subtract(Z_Selected,StateExtension)
         std=abs(np.divide(DeltaZ,np.sqrt(LocalStiffness)))
@@ -98,30 +103,32 @@ for Filename in filenames:
     
     #plotting
     plt.figure(1)
-    plt.xlabel('Extension [nm]')
-    plt.ylabel('Force [pN]')
-    plt.scatter(Z, Force, color='grey',alpha=0.3, marker='+')
-    plt.scatter(Z_Selected,ForceSelected)
-    fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    plt.cla()
+    fig, (ax1, ax2) = plt.subplots(1, 2)
     plt.title(Filename)
-    ax1.set_xlabel('time [sec]'), ax2.set_xlabel('Probability [AU]')
-    ax1.set_ylabel('Extension [bp]')
-    ax1.set_ylim([0,Lc+200])
-    ax1.scatter(Time,Z/DNAds)
-    ax2.plot(ProbSum,PossibleStates)
-    ax2.scatter(Peak,PossibleStates[(PeakInd)])
-    ax2.scatter(ProbSum[(Peaks)],PossibleStates[(Peaks)])
+    ax1.set_xlabel('Extension [nm]'), ax2.set_xlabel('Free basepairs')
+    ax1.set_ylabel('Force [pN]'), ax2.set_ylabel('Probability [AU]')
+    ax1.scatter(Z,Force, color="grey")
+    ax1.scatter(Z_Selected,ForceSelected, color="blue")
+    ax2.set_xlim([0,Lc+50])    
+    ax2.plot(PossibleStates,ProbSum)
+    ax2.scatter(PossibleStates[(PeakInd)],Peak)
+    ax1.set_xlim([-100,Lc/2.8])
+    ax1.set_ylim([-4,25])
     for x in States:
         Ratio=func.ratio(Lmin,Lmax,x)
-        Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,10)*Ratio*Z_fiber)
-        ax1.plot(Time,Fit/DNAds, linestyle=':')
-    plt.savefig(Filename[0:-4]+'_full.png')
+        Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
+        plt.figure(1)
+        ax1.plot(Fit,Force, linestyle=':')
+    fig.savefig(Filename[0:-4]+'FoEx.png')
     #plt.show()
-    
-plt.clf()
-plt.cla()
-plt.hist(steps,  bins = 100, range = [0,200] )
-plt.hist(stacks, bins = 100, range = [0,200])
+    plt.close()
+
+#Stepsize,Sigma=func.fit_pdf(steps)
+plt.close()
+plt.figure(2)
+plt.hist(steps,  bins = 40, range = [0,200] )
+plt.hist(stacks, bins = 40, range = [0,200])
 plt.xlabel('stepsize (bp)')
 plt.ylabel('Count')
 plt.title("Histogram stepsizes in bp")

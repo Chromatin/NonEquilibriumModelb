@@ -7,7 +7,6 @@ Created on Fri Jan 26 16:56:10 2018
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import signal
 import Functions as func
 import Tools
 

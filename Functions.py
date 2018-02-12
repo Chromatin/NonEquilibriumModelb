@@ -113,6 +113,7 @@ def fit_pdf(y):
     y=np.array([y])
     y=np.sort(y)
     x=np.linspace(0,1,np.size(y))
-    return curve_fit(pdf, y, x)
+    #popt = curve_fit(lambda f, p: Fit_Pss(f,p),Fit_F,Fit_Z,p0=0.6)
+    return curve_fit(lambda x, step: pdf(x), y, x)
     
     

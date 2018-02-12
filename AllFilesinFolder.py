@@ -12,7 +12,7 @@ from scipy import signal
 import Functions as func
 import Tools
 
-folder = 'G:\\Klaas\\Tweezers\\Yeast Chromatin\\Regensburg_18S\\2018\\2018_01_25_18S_IgG_wt\\Data\\Good Traces' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder = 'G:\\Klaas\\Tweezers\\Yeast Chromatin\\Regensburg_18S\\2018\\dUAF_all' #folder with chromosome sequence files (note, do not put other files in this folder)
 filenames = os.listdir(folder)
 os.chdir( folder )
 
@@ -125,12 +125,13 @@ for Filename in filenames:
     plt.close()
 
 #Stepsize,Sigma=func.fit_pdf(steps)
-plt.close()
-plt.figure(2)
+plt.clf()
+plt.cla()
+plt.figure(1)
 plt.hist(steps,  bins = 40, range = [0,200] )
 plt.hist(stacks, bins = 40, range = [0,200])
 plt.xlabel('stepsize (bp)')
 plt.ylabel('Count')
 plt.title("Histogram stepsizes in bp")
 plt.savefig('hist.png')
-plt.show()
+#plt.show()

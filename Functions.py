@@ -66,7 +66,7 @@ def ratio(Lmin,Lmax,x):
         Ratio = 1
     return Ratio
 
-def fjc(f, k_pN_nm = 0.1, b = None,  L_nm = 1, S_pN = 1e3):
+def fjcold(f, k_pN_nm = 0.1, b = None,  L_nm = 1, S_pN = 1e3):
     if b == None:
         b = 3 * kBT / (k_pN_nm * L_nm)
     x = f*b/kBT
@@ -75,6 +75,17 @@ def fjc(f, k_pN_nm = 0.1, b = None,  L_nm = 1, S_pN = 1e3):
         z=np.append(z,L_nm*(sympy.coth(xi) -1/xi))
     z += L_nm*f/S_pN
     return z
+
+def fjc(f, par =None,  Lmax = 20):
+    p = par.valuesdict()
+    b = 3 * kBT / (p['k_pN_nm']*Lmax)
+    x = f*b/kBT
+    exp_x = np.exp(x)
+    z = (exp_x +1/exp_x)/(exp_x - 1/exp_x) -1/x
+    z *= Lmax
+    #w = (exp_x - 1/exp_x)/2*x
+    return np.asarray(z) #np.asarray(w)
+
 
 def minforce(tested_array,array2,test):
     Curingtest=np.array([])

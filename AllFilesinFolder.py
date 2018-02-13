@@ -12,17 +12,18 @@ from scipy import signal
 import Functions as func
 import Tools
 
-folder = 'G:\\Klaas\\Tweezers\\Yeast Chromatin\\Regensburg_18S\\2018\\dUAF_all' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder = 'P:\\NonEqData\\H1_197\\Best Traces' #folder with chromosome sequence files (note, do not put other files in this folder)
 filenames = os.listdir(folder)
 os.chdir( folder )
 
 Select=0 #1 for Selected Data, 0 for all data
 Pulling = 1 #1 for only pulling data
 DelBreaks =1 # 1 for deleting data after tether breaks
-MinForce=1 #only analyze data above this force
+MinForce=2.5 #only analyze data above this force
 MinZ, MaxZ = 0, True
-Fmax_Hook=7
-steps , stacks = [],[]
+Fmax_Hook=10
+Err=0     #
+steps , stacks = [],[] #used to save data
 plt.close() #close all references to figures still open
 
 for Filename in filenames:
@@ -66,23 +67,23 @@ for Filename in filenames:
         ForceSelected=Force
         Z_Selected=Z
     if Pulling ==1: ForceSelected,Z_Selected = func.removerelease(ForceSelected,Z_Selected)
-    if DelBreaks ==1: ForceSelected,Z_Selected = func.breaks(ForceSelected,Z_Selected)
+    if DelBreaks ==1: ForceSelected,Z_Selected = func.breaks(ForceSelected,Z_Selected, 1000)
     if MinForce > 0: ForceSelected,Z_Selected=func.minforce(ForceSelected,Z_Selected,MinForce)
     Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, MinZ) #remove data below Z=0
     if MaxZ==True: Z_Selected, ForceSelected = func.minforce(-Z_Selected, ForceSelected, -Lc*DNAds*1.1) #remove data above Z=1.1*LC
     
     #Generate FE curves for possible states
-    PossibleStates = np.arange(Lmin-200,Lc+50,1) #range to fit 
+    PossibleStates = np.arange(Lmin-200,Lc+50,2) #range to fit 
     dF=0.1 #Used to calculate local stiffness
     ProbSum=np.array([])
     for x in PossibleStates:
         Ratio=func.ratio(Lmin,Lmax,x)
-        StateExtension=np.array([func.wlc(ForceSelected,p,S)*x*DNAds + func.hook(ForceSelected,k,Fmax_Hook)*Ratio*Z_fiber])
-        StateExtension_dF=np.array([func.wlc(ForceSelected+dF,p,S)*x*DNAds + func.hook(ForceSelected+dF,k,Fmax_Hook)*Ratio*Z_fiber])
+        StateExtension=np.array(func.wlc(ForceSelected,p,S)*x*DNAds + func.hook(ForceSelected,k,Fmax_Hook)*Ratio*Z_fiber)
+        StateExtension_dF=np.array(func.wlc(ForceSelected+dF,p,S)*x*DNAds + func.hook(ForceSelected+dF,k,Fmax_Hook)*Ratio*Z_fiber)
         LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*(kBT) / dF # fix the units of KBT (pN nm -> pN um)
-        DeltaZ=np.subtract(Z_Selected,StateExtension)
-        std=abs(np.divide(DeltaZ,np.sqrt(LocalStiffness)))
-        Pz=np.array([1-func.erfaprox(std)])
+        DeltaZ=abs(np.subtract(Z_Selected,StateExtension))+Err
+        std=np.divide(DeltaZ,np.sqrt(LocalStiffness))
+        Pz=np.array((1-func.erfaprox(std))*np.sqrt(ForceSelected))
         ProbSum=np.append(ProbSum,np.sum(Pz)) 
     PeakInd,Peak=func.findpeaks(ProbSum, 25)
     Peaks = signal.find_peaks_cwt(ProbSum, np.arange(5,30)) #numpy peakfinder, finds too many peaks, not used plot anyway
@@ -102,6 +103,7 @@ for Filename in filenames:
     Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
     
     #plotting
+    # this plots the FE curve
     plt.figure(1)
     plt.cla()
     fig, (ax1, ax2) = plt.subplots(1, 2)
@@ -115,23 +117,44 @@ for Filename in filenames:
     ax2.scatter(PossibleStates[(PeakInd)],Peak)
     ax1.set_xlim([-100,Lc/2.8])
     ax1.set_ylim([-4,25])
+
+    #plotting
+    # this plots the Timetrace    
+    plt.figure(2)    
+    fig, (ax3, ax4) = plt.subplots(1, 2, sharey=True)
+    plt.title(Filename)
+    ax3.set_xlabel('time [sec]'), ax4.set_xlabel('Probability [AU]')
+    ax3.set_ylabel('Extension [bp nm]')
+    ax3.set_ylim([0,Lc*DNAds+200*DNAds])
+    ax3.scatter(Time,Z)
+    ax4.plot(ProbSum,PossibleStates*DNAds)
+    ax4.scatter(Peak,PossibleStates[(PeakInd)]*DNAds)
+    ax4.legend(label=States)
+    
     for x in States:
         Ratio=func.ratio(Lmin,Lmax,x)
         Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
         plt.figure(1)
         ax1.plot(Fit,Force, linestyle=':')
-    fig.savefig(Filename[0:-4]+'FoEx.png')
-    #plt.show()
+        plt.figure(2)
+        ax3.plot(Time,Fit, linestyle=':')
+    
+    plt.figure(1)
+    fig.savefig(Filename[0:-4]+'FoEx_all.png')
+    plt.figure(2)
+    fig.savefig(Filename[0:-4]+'Time_all.png')    
+    plt.show()
     plt.close()
-
+    
 #Stepsize,Sigma=func.fit_pdf(steps)
 plt.clf()
 plt.cla()
 plt.figure(1)
-plt.hist(steps,  bins = 40, range = [0,200] )
-plt.hist(stacks, bins = 40, range = [0,200])
+plt.hist(steps,  bins = 50, range = [50,250] )
+plt.hist(stacks, bins = 50, range = [50,250])
 plt.xlabel('stepsize (bp)')
 plt.ylabel('Count')
 plt.title("Histogram stepsizes in bp")
+plt.legend(['25 nm steps', 'Stacking transitions'])
 plt.savefig('hist.png')
 #plt.show()

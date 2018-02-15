@@ -11,8 +11,9 @@ from scipy import signal
 #from scipy.special import erf
 import Functions as func
 import Tools
+import peakdetect as pk
 
-folder = 'P:\\NonEqData\\H1_197\\Best Traces' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder = 'P:\\NonEqData\\H1_197\\test' #folder with chromosome sequence files (note, do not put other files in this folder)
 filenames = os.listdir(folder)
 os.chdir( folder )
 
@@ -22,7 +23,7 @@ DelBreaks =1 # 1 for deleting data after tether breaks
 MinForce=2.5 #only analyze data above this force
 MinZ, MaxZ = 0, True
 Fmax_Hook=10
-Err=10     #
+Err=5    #
 steps , stacks = [],[] #used to save data
 plt.close() #close all references to figures still open
 
@@ -73,7 +74,7 @@ for Filename in filenames:
     if MaxZ==True: Z_Selected, ForceSelected = func.minforce(-Z_Selected, ForceSelected, -Lc*DNAds*1.1) #remove data above Z=1.1*LC
     
     #Generate FE curves for possible states
-    PossibleStates = np.arange(Lmin-200,Lc+50,2) #range to fit 
+    PossibleStates = np.arange(Lmin-200,Lc+50,1) #range to fit 
     dF=0.1 #Used to calculate local stiffness
     ProbSum=np.array([])
     for x in PossibleStates:
@@ -86,8 +87,14 @@ for Filename in filenames:
         Pz=np.array((1-func.erfaprox(std))*np.sqrt(ForceSelected))
         ProbSum=np.append(ProbSum,np.sum(Pz)) 
     PeakInd,Peak=func.findpeaks(ProbSum, 25)
-    Peaks = signal.find_peaks_cwt(ProbSum, np.arange(5,30)) #numpy peakfinder, finds too many peaks, not used plot anyway
+    #Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30), max_distances=np.linspace(75,75,len(ProbSum))) #numpy peakfinder, finds too many peaks, not used plot anyway
+
+    Peaks = pk.peakdetect(ProbSum, PossibleStates, 42)[0]
+    Peaks = np.array(Peaks)
+    #Peaks=Peaks.astype(int)
+    
     States=PossibleStates[PeakInd]
+    States2 = Peaks[:,0]
     
     Unwrapsteps=[]
     Stacksteps=[]
@@ -105,7 +112,6 @@ for Filename in filenames:
     #plotting
     # this plots the FE curve
     plt.figure(1)
-    plt.cla()
     fig, (ax1, ax2) = plt.subplots(1, 2)
     plt.title(Filename)
     ax1.set_xlabel('Extension [nm]'), ax2.set_xlabel('Free basepairs')
@@ -114,8 +120,8 @@ for Filename in filenames:
     ax1.scatter(Z_Selected,ForceSelected, color="blue")
     ax2.set_xlim([0,Lc+50])    
     ax2.plot(PossibleStates,ProbSum)
-    ax2.scatter(PossibleStates[(PeakInd)],Peak)
-    ax2.scatter(PossibleStates[(Peaks)], ProbSum[(Peaks)] )
+    #ax2.scatter(PossibleStates[(PeakInd)],Peak)
+    ax2.scatter(Peaks[:,0],Peaks[:,1], color="orange")
     ax1.set_xlim([-100,Lc/2.8])
     ax1.set_ylim([-4,25])
 
@@ -135,6 +141,14 @@ for Filename in filenames:
     for x in States:
         Ratio=func.ratio(Lmin,Lmax,x)
         Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
+        #plt.figure(1)
+        #ax1.plot(Fit,Force, alpha=0.5, linestyle='-.')
+        plt.figure(2)
+        ax3.plot(Time,Fit, alpha=0.5, linestyle='-.')
+    
+    for x in States2:
+        Ratio=func.ratio(Lmin,Lmax,x)
+        Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
         plt.figure(1)
         ax1.plot(Fit,Force, linestyle=':')
         plt.figure(2)
@@ -142,15 +156,15 @@ for Filename in filenames:
     
     plt.figure(1)
     fig.savefig(Filename[0:-4]+'FoEx_all.png')
+    plt.show()
     plt.figure(2)
     fig.savefig(Filename[0:-4]+'Time_all.png')    
     plt.show()
-    plt.close()
     
 #Stepsize,Sigma=func.fit_pdf(steps)
 plt.clf()
 plt.cla()
-plt.figure(1)
+#plt.figure(3)
 plt.hist(steps,  bins = 50, range = [50,250] )
 plt.hist(stacks, bins = 50, range = [50,250])
 plt.xlabel('stepsize (bp)')

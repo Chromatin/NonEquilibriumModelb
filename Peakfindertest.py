@@ -143,17 +143,13 @@ for Filename in filenames:
     for x in States:
         Ratio=func.ratio(Lmin,Lmax,x)
         Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
-        #plt.figure(1)
         #ax1.plot(Fit,Force, alpha=0.5, linestyle='-.')
-        plt.figure(2)
         ax3.plot(Time,Fit, alpha=0.5, linestyle='-.')
     """
     for x in States2:
         Ratio=func.ratio(Lmin,Lmax,x)
         Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
-        plt.figure(1)
         ax1.plot(Fit,Force, linestyle=':')
-        plt.figure(2)
         ax3.plot(Time,Fit, linestyle=':')
     """
     fig1.savefig(Filename[0:-4]+'FoEx_all.png')

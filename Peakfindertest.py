@@ -87,14 +87,14 @@ for Filename in filenames:
         Pz=np.array((1-func.erfaprox(std))*np.sqrt(ForceSelected))
         ProbSum=np.append(ProbSum,np.sum(Pz)) 
     PeakInd,Peak=func.findpeaks(ProbSum, 25)
-    #Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30), max_distances=np.linspace(75,75,len(ProbSum))) #numpy peakfinder, finds too many peaks, not used plot anyway
+    Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30), max_distances=np.linspace(75,75,len(ProbSum))) #numpy peakfinder, finds too many peaks, not used plot anyway
 
-    Peaks = pk.peakdetect(ProbSum, PossibleStates, 42)[0]
-    Peaks = np.array(Peaks)
+    #Peaks = pk.peakdetect(ProbSum, PossibleStates, 42)[0]
+    #Peaks = np.array(Peaks)
     #Peaks=Peaks.astype(int)
     
     States=PossibleStates[PeakInd]
-    States2 = Peaks[:,0]
+    #States2 = Peaks[:,0]
     
     Unwrapsteps=[]
     Stacksteps=[]
@@ -111,9 +111,10 @@ for Filename in filenames:
     
     #plotting
     # this plots the FE curve
-    plt.figure(1)
-    fig, (ax1, ax2) = plt.subplots(1, 2)
-    plt.title(Filename)
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(1, 2, 1)
+    ax2 = fig1.add_subplot(1, 2, 2)
+    ax1.set_title(Filename, x=1)
     ax1.set_xlabel('Extension [nm]'), ax2.set_xlabel('Free basepairs')
     ax1.set_ylabel('Force [pN]'), ax2.set_ylabel('Probability [AU]')
     ax1.scatter(Z,Force, color="grey")
@@ -127,9 +128,10 @@ for Filename in filenames:
 
     #plotting
     # this plots the Timetrace    
-    plt.figure(2)    
-    fig, (ax3, ax4) = plt.subplots(1, 2, sharey=True)
-    plt.title(Filename)
+    fig2 = plt.figure()    
+    ax3 = fig2.add_subplot(1, 2, 1)
+    ax4 = fig2.add_subplot(1, 2, 2)
+    ax3.set_title(Filename, x=1)
     ax3.set_xlabel('time [sec]'), ax4.set_xlabel('Probability [AU]')
     ax3.set_ylabel('Extension [bp nm]')
     ax3.set_ylim([0,Lc*DNAds+200*DNAds])
@@ -145,7 +147,7 @@ for Filename in filenames:
         #ax1.plot(Fit,Force, alpha=0.5, linestyle='-.')
         plt.figure(2)
         ax3.plot(Time,Fit, alpha=0.5, linestyle='-.')
-    
+    """
     for x in States2:
         Ratio=func.ratio(Lmin,Lmax,x)
         Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
@@ -153,23 +155,20 @@ for Filename in filenames:
         ax1.plot(Fit,Force, linestyle=':')
         plt.figure(2)
         ax3.plot(Time,Fit, linestyle=':')
-    
-    plt.figure(1)
-    fig.savefig(Filename[0:-4]+'FoEx_all.png')
-    plt.show()
-    plt.figure(2)
-    fig.savefig(Filename[0:-4]+'Time_all.png')    
-    plt.show()
+    """
+    fig1.savefig(Filename[0:-4]+'FoEx_all.png')
+    fig1.show()
+    fig2.savefig(Filename[0:-4]+'Time_all.png')    
+    fig2.show()
     
 #Stepsize,Sigma=func.fit_pdf(steps)
-plt.clf()
-plt.cla()
-#plt.figure(3)
-plt.hist(steps,  bins = 50, range = [50,250] )
-plt.hist(stacks, bins = 50, range = [50,250])
-plt.xlabel('stepsize (bp)')
-plt.ylabel('Count')
-plt.title("Histogram stepsizes in bp")
-plt.legend(['25 nm steps', 'Stacking transitions'])
-plt.savefig('hist.png')
-#plt.show()
+fig3 = plt.figure()
+ax5 = fig3.add_subplot(1,1,1)
+ax5.hist(steps,  bins = 50, range = [50,250] )
+ax5.hist(stacks, bins = 50, range = [50,250])
+ax5.set_xlabel('stepsize (bp)')
+ax5.set_ylabel('Count')
+ax5.set_title("Histogram stepsizes in bp")
+ax5.legend(['25 nm steps', 'Stacking transitions'])
+fig3.savefig('hist.png')
+fig3.show()

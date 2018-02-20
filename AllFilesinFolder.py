@@ -22,7 +22,7 @@ DelBreaks =1 # 1 for deleting data after tether breaks
 MinForce=2.5 #only analyze data above this force
 MinZ, MaxZ = 0, True
 Fmax_Hook=10
-Err=10     #
+Err=0     #
 steps , stacks = [],[] #used to save data
 plt.close() #close all references to figures still open
 
@@ -44,9 +44,9 @@ for Filename in filenames:
     if Lmin <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
-    Lmax=Lc-(N_tot)*80 # Max Z of the "beads on a string" conformation in bp
+    Lmax=Lc-(N_tot)*79 # Max Z of the "beads on a string" conformation in bp
     Z_fiber = 1 * N_tot #Length of fiber in nm 
-    print(Lmin,Lmax,N_tot, Filename)
+    print(Lmin,Lmax,N_tot-N_tetra, N_tot, Filename)
     if MaxZ == True: MaxZ = (Lc+200)*DNAds
     Force = np.array([])
     Time=np.array([])
@@ -92,20 +92,22 @@ for Filename in filenames:
     Unwrapsteps=[]
     Stacksteps=[]
     for x in States:
-        if x >= Lmax:
+        if x > Lmax+50:
             Unwrapsteps.append(x)
         else:
             Stacksteps.append(x)
+    Unwrapsteps=np.insert(Unwrapsteps,0,np.amax(Stacksteps)) #add "startstate" into unwrap array
     Stacksteps=func.state2step(Stacksteps)
     Unwrapsteps=func.state2step(Unwrapsteps)
+    print(Stacksteps)
     if len(Unwrapsteps)>0: steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: stacks.extend(Stacksteps)
     Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
     
     #plotting
     # this plots the FE curve
+    plt.close()
     plt.figure(1)
-    plt.cla()
     fig, (ax1, ax2) = plt.subplots(1, 2)
     plt.title(Filename)
     ax1.set_xlabel('Extension [nm]'), ax2.set_xlabel('Free basepairs')
@@ -119,7 +121,6 @@ for Filename in filenames:
     ax1.set_xlim([-100,Lc/2.8])
     ax1.set_ylim([-4,25])
 
-    #plotting
     # this plots the Timetrace    
     plt.figure(2)    
     fig, (ax3, ax4) = plt.subplots(1, 2, sharey=True)
@@ -145,17 +146,16 @@ for Filename in filenames:
     plt.figure(2)
     fig.savefig(Filename[0:-4]+'Time_all.png')    
     plt.show()
-    plt.close()
+
     
 #Stepsize,Sigma=func.fit_pdf(steps)
-plt.clf()
-plt.cla()
-plt.figure(1)
-plt.hist(steps,  bins = 50, range = [50,250] )
-plt.hist(stacks, bins = 50, range = [50,250])
+plt.close()
+plt.figure(3)
+plt.hist(steps,  bins = 50, range = [50,350] )
+plt.hist(stacks, bins = 50, range = [50,350])
 plt.xlabel('stepsize (bp)')
 plt.ylabel('Count')
 plt.title("Histogram stepsizes in bp")
 plt.legend(['25 nm steps', 'Stacking transitions'])
 plt.savefig('hist.png')
-#plt.show()
+plt.show()

@@ -13,7 +13,7 @@ import Functions as func
 import Tools
 import peakdetect as pk
 
-folder = 'P:\\NonEqData\\H1_197\\test' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder = 'N:\\Rick\\Tweezer data\\2018_02_19_15x167 DNA\\data_013_Fit' #folder with chromosome sequence files (note, do not put other files in this folder)
 filenames = os.listdir(folder)
 os.chdir( folder )
 
@@ -114,49 +114,53 @@ for Filename in filenames:
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(1, 2, 1)
     ax2 = fig1.add_subplot(1, 2, 2)
-    ax1.set_title(Filename, x=1)
+    fig1.suptitle(Filename, y=1)
     ax1.set_xlabel('Extension [nm]'), ax2.set_xlabel('Free basepairs')
     ax1.set_ylabel('Force [pN]'), ax2.set_ylabel('Probability [AU]')
-    ax1.scatter(Z,Force, color="grey")
-    ax1.scatter(Z_Selected,ForceSelected, color="blue")
-    ax2.set_xlim([0,Lc+50])    
+    ax1.scatter(Z,Force, color="grey",s=1)
+    ax1.scatter(Z_Selected,ForceSelected, color="blue", s=1)
+    #ax2.set_xlim([0,Lc+50])    
     ax2.plot(PossibleStates,ProbSum)
-    #ax2.scatter(PossibleStates[(PeakInd)],Peak)
-    ax2.scatter(Peaks[:,0],Peaks[:,1], color="orange")
-    ax1.set_xlim([-100,Lc/2.8])
-    ax1.set_ylim([-4,25])
+    ax2.scatter(PossibleStates[(PeakInd)],Peak)
+    #ax2.scatter(Peaks[:,0],Peaks[:,1], color="orange")
+    #ax1.set_xlim([-100,Lc/2.8])
+    #ax1.set_ylim([-4,25])
 
     #plotting
     # this plots the Timetrace    
     fig2 = plt.figure()    
     ax3 = fig2.add_subplot(1, 2, 1)
     ax4 = fig2.add_subplot(1, 2, 2)
-    ax3.set_title(Filename, x=1)
+    fig2.suptitle(Filename, y=1)
     ax3.set_xlabel('time [sec]'), ax4.set_xlabel('Probability [AU]')
     ax3.set_ylabel('Extension [bp nm]')
-    ax3.set_ylim([0,Lc*DNAds+200*DNAds])
-    ax3.scatter(Time,Z)
+    #ax3.set_ylim([0,Lc*DNAds+200*DNAds])
+    ax3.scatter(Time,Z, s=1)
     ax4.plot(ProbSum,PossibleStates*DNAds)
-    ax4.scatter(Peak,PossibleStates[(PeakInd)]*DNAds)
+    ax4.scatter(Peak,PossibleStates[(PeakInd)]*DNAds, s=1)
     ax4.legend(label=States)
     
     for x in States:
         Ratio=func.ratio(Lmin,Lmax,x)
         Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
-        #ax1.plot(Fit,Force, alpha=0.5, linestyle='-.')
+        ax1.plot(Fit,Force, alpha=0.5, linestyle='-.')
         ax3.plot(Time,Fit, alpha=0.5, linestyle='-.')
-    """
-    for x in States2:
+        
+        """ 
+        for x in States2:
         Ratio=func.ratio(Lmin,Lmax,x)
         Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
         ax1.plot(Fit,Force, linestyle=':')
         ax3.plot(Time,Fit, linestyle=':')
-    """
-    fig1.savefig(Filename[0:-4]+'FoEx_all.png')
+        """    
+
+    fig1.tight_layout()
+    fig1.savefig(Filename[0:-4]+'FoEx_all.png', dpi=800)
     fig1.show()
-    fig2.savefig(Filename[0:-4]+'Time_all.png')    
+    fig2.tight_layout()
+    fig2.savefig(Filename[0:-4]+'Time_all.png', dpi=800)    
     fig2.show()
-    
+
 #Stepsize,Sigma=func.fit_pdf(steps)
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,1,1)

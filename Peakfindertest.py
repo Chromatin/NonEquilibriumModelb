@@ -130,7 +130,7 @@ for Filename in filenames:
     # this plots the Timetrace    
     fig2 = plt.figure()    
     ax3 = fig2.add_subplot(1, 2, 1)
-    ax4 = fig2.add_subplot(1, 2, 2)
+    ax4 = fig2.add_subplot(1, 2, 2, sharey=ax3)
     fig2.suptitle(Filename, y=1)
     ax3.set_xlabel('time [sec]'), ax4.set_xlabel('Probability [AU]')
     ax3.set_ylabel('Extension [bp nm]')

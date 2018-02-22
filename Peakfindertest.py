@@ -13,17 +13,19 @@ import Functions as func
 import Tools
 import peakdetect as pk
 
-folder = 'N:\\Rick\\Tweezer data\\2018_02_19_15x167 DNA\\data_013_Fit' #folder with chromosome sequence files (note, do not put other files in this folder)
+#folder = 'N:\\Rick\\Tweezer data\\2018_02_19_15x167 DNA\\data_013_Fit' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder = 'P:\\NonEqData\\H1_197'
 filenames = os.listdir(folder)
 os.chdir( folder )
 
-Select=0 #1 for Selected Data, 0 for all data
+Select=1 #1 for Selected Data, 0 for all data
 Pulling = 1 #1 for only pulling data
 DelBreaks =1 # 1 for deleting data after tether breaks
 MinForce=2.5 #only analyze data above this force
 MinZ, MaxZ = 0, True
+Denoise,Window = False , 5 #Median filter, rolling window with size
 Fmax_Hook=10
-Err=5    #
+Err=0    #
 steps , stacks = [],[] #used to save data
 plt.close() #close all references to figures still open
 
@@ -70,8 +72,9 @@ for Filename in filenames:
     if Pulling ==1: ForceSelected,Z_Selected = func.removerelease(ForceSelected,Z_Selected)
     if DelBreaks ==1: ForceSelected,Z_Selected = func.breaks(ForceSelected,Z_Selected, 1000)
     if MinForce > 0: ForceSelected,Z_Selected=func.minforce(ForceSelected,Z_Selected,MinForce)
-    Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, MinZ) #remove data below Z=0
-    if MaxZ==True: Z_Selected, ForceSelected = func.minforce(-Z_Selected, ForceSelected, -Lc*DNAds*1.1) #remove data above Z=1.1*LC
+#    Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, MinZ) #remove data below Z=0
+    if MaxZ: Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, -Lc*DNAds*1.1) #remove data above Z=1.1*LC
+    if Denoise: Z_Selected=signal.medfilt(Z_Selected,Window)
     
     #Generate FE curves for possible states
     PossibleStates = np.arange(Lmin-200,Lc+50,1) #range to fit 
@@ -86,14 +89,28 @@ for Filename in filenames:
         std=np.divide(DeltaZ,np.sqrt(LocalStiffness))
         Pz=np.array((1-func.erfaprox(std))*np.sqrt(ForceSelected))
         ProbSum=np.append(ProbSum,np.sum(Pz)) 
+    
+   
     PeakInd,Peak=func.findpeaks(ProbSum, 25)
     Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30), max_distances=np.linspace(75,75,len(ProbSum))) #numpy peakfinder, finds too many peaks, not used plot anyway
 
     #Peaks = pk.peakdetect(ProbSum, PossibleStates, 42)[0]
     #Peaks = np.array(Peaks)
     #Peaks=Peaks.astype(int)
-    
+     
+    #find state for each datapoint
     States=PossibleStates[PeakInd]
+    
+    Ratio=func.ratio(Lmin,Lmax,States)
+    ZState=np.array(np.multiply(func.wlc(ForceSelected,p,S).reshape(len(func.wlc(ForceSelected,p,S)),1),(States*DNAds)) + np.multiply(func.hook(ForceSelected,k,Fmax_Hook).reshape(len(func.hook(ForceSelected,k,Fmax_Hook)),1),(Ratio*Z_fiber))) 
+    ZminState=np.subtract(ZState,Z_Selected.reshape(len(Z_Selected),1)) 
+    MinMask=np.argmin(abs(ZminState),1)
+    Mask=np.zeros((np.shape(ZminState)))
+    Dataarray=np.zeros((np.shape(ZminState)))
+    for i,x in enumerate(States):
+        Mask[:,i] = MinMask == i
+        Dataarray[:,i] = (MinMask == i)*Z_Selected
+    
     #States2 = Peaks[:,0]
     
     Unwrapsteps=[]
@@ -155,10 +172,10 @@ for Filename in filenames:
         """    
 
     fig1.tight_layout()
-    fig1.savefig(Filename[0:-4]+'FoEx_all.png', dpi=800)
+    #fig1.savefig(Filename[0:-4]+'FoEx_all.png', dpi=800)
     fig1.show()
     fig2.tight_layout()
-    fig2.savefig(Filename[0:-4]+'Time_all.png', dpi=800)    
+    #fig2.savefig(Filename[0:-4]+'Time_all.png', dpi=800)    
     fig2.show()
 
 #Stepsize,Sigma=func.fit_pdf(steps)
@@ -170,5 +187,5 @@ ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
 ax5.set_title("Histogram stepsizes in bp")
 ax5.legend(['25 nm steps', 'Stacking transitions'])
-fig3.savefig('hist.png')
+#fig3.savefig('hist.png')
 fig3.show()

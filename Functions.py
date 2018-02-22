@@ -60,11 +60,16 @@ def state2step(States):
 def ratio(Lmin,Lmax,x):
     FiberLength=Lmax-Lmin
     Ratio=((FiberLength-(x-Lmin))/(FiberLength) )   
-    if Ratio <=0 :
-        Ratio = 0
-    if Ratio >=1:
-        Ratio = 1
-    return Ratio
+    ratiomin = Ratio >=0
+    Ratio*=ratiomin
+    ratiomin = Ratio >=1
+    Ratio = Ratio * (Ratio <=1)
+    Eindratio = ratiomin + Ratio
+#    if Ratio <=0 :
+#        Ratio = 0
+#    if Ratio >=1:
+#        Ratio = 1
+    return Eindratio
 
 def fjcold(f, k_pN_nm = 0.1, b = None,  L_nm = 1, S_pN = 1e3):
     if b == None:

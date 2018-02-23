@@ -8,13 +8,14 @@ import os #filenames
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
+from scipy import stats
 #from scipy.special import erf
 import Functions as func
 import Tools
 import peakdetect as pk
 
 #folder = 'N:\\Rick\\Tweezer data\\2018_02_19_15x167 DNA\\data_013_Fit' #folder with chromosome sequence files (note, do not put other files in this folder)
-folder = 'P:\\NonEqData\\H1_197'
+folder = 'P:\\NonEqData\\H1_197\\Best Traces'
 filenames = os.listdir(folder)
 os.chdir( folder )
 
@@ -41,6 +42,7 @@ for Filename in filenames:
     N_tot = float(Tools.find_param(LogFile,'N nuc') )#number of nucleosomes N nuc
     N_tetra = float(Tools.find_param(LogFile,'N unfolded [F0]'))
     NRL = float(Tools.find_param(LogFile,'NRL (bp)') )#NRL (bp
+    Z_fiber= float(Tools.find_param(LogFile,'l folded (nm)') )# Length of the fiber at F=0 per nucleosome
     DNAds =  0.34 # rise per basepair (nm)
     kBT = 4.2 #pn/nm 
     Lmin=Lc-(N_tot-N_tetra)*NRL-N_tetra*80 # DNA handles in bp
@@ -48,8 +50,7 @@ for Filename in filenames:
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
     Lmax=Lc-(N_tot)*80 # Max Z of the "beads on a string" conformation in bp
-    Z_fiber = 1 * N_tot #Length of fiber in nm 
-    print(Lmin,Lmax,N_tot, Filename)
+    print(N_tot, Filename)
     if MaxZ == True: MaxZ = (Lc+200)*DNAds
     Force = np.array([])
     Time=np.array([])
@@ -78,19 +79,8 @@ for Filename in filenames:
     
     #Generate FE curves for possible states
     PossibleStates = np.arange(Lmin-200,Lc+50,1) #range to fit 
-    dF=0.1 #Used to calculate local stiffness
-    ProbSum=np.array([])
-    for x in PossibleStates:
-        Ratio=func.ratio(Lmin,Lmax,x)
-        StateExtension=np.array(func.wlc(ForceSelected,p,S)*x*DNAds + func.hook(ForceSelected,k,Fmax_Hook)*Ratio*Z_fiber)
-        StateExtension_dF=np.array(func.wlc(ForceSelected+dF,p,S)*x*DNAds + func.hook(ForceSelected+dF,k,Fmax_Hook)*Ratio*Z_fiber)
-        LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*(kBT) / dF # fix the units of KBT (pN nm -> pN um)
-        DeltaZ=abs(np.subtract(Z_Selected,StateExtension))+Err
-        std=np.divide(DeltaZ,np.sqrt(LocalStiffness))
-        Pz=np.array((1-func.erfaprox(std))*np.sqrt(ForceSelected))
-        ProbSum=np.append(ProbSum,np.sum(Pz)) 
-    
-   
+    ProbSum=func.probsum(ForceSelected,Z_Selected,Lmin,Lmax,Lc,p,S,Z_fiber,k)
+
     PeakInd,Peak=func.findpeaks(ProbSum, 25)
     Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30), max_distances=np.linspace(75,75,len(ProbSum))) #numpy peakfinder, finds too many peaks, not used plot anyway
 
@@ -101,16 +91,20 @@ for Filename in filenames:
     #find state for each datapoint
     States=PossibleStates[PeakInd]
     
+    # Merging states that are have similar mean/variance according to Welch test
     Ratio=func.ratio(Lmin,Lmax,States)
     ZState=np.array(np.multiply(func.wlc(ForceSelected,p,S).reshape(len(func.wlc(ForceSelected,p,S)),1),(States*DNAds)) + np.multiply(func.hook(ForceSelected,k,Fmax_Hook).reshape(len(func.hook(ForceSelected,k,Fmax_Hook)),1),(Ratio*Z_fiber))) 
     ZminState=np.subtract(ZState,Z_Selected.reshape(len(Z_Selected),1)) 
     MinMask=np.argmin(abs(ZminState),1)
     Mask=np.zeros((np.shape(ZminState)))
     Dataarray=np.zeros((np.shape(ZminState)))
+    T_test=np.array([])                             #array for p values comparing different states
     for i,x in enumerate(States):
         Mask[:,i] = MinMask == i
         Dataarray[:,i] = (MinMask == i)*Z_Selected
-    
+        if i >0: 
+            Prob=stats.ttest_ind((MinMask==i)*Z_Selected,(MinMask==i-1)*Z_Selected, equal_var=False) #get two arrays for t_test
+            T_test=np.append(T_test,Prob[1])
     #States2 = Peaks[:,0]
     
     Unwrapsteps=[]

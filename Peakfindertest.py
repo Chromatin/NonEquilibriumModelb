@@ -12,21 +12,22 @@ from scipy import stats
 #from scipy.special import erf
 import Functions as func
 import Tools
-import peakdetect as pk
+#import peakdetect as pk
+from scipy.optimize import curve_fit
 
 #folder = 'N:\\Rick\\Tweezer data\\2018_02_19_15x167 DNA\\data_013_Fit' #folder with chromosome sequence files (note, do not put other files in this folder)
 folder = 'P:\\NonEqData\\H1_197\\Best Traces'
+folder = 'C:\\Users\\Klaas\\Documents\\NonEquilibriumModel\\Test'
 filenames = os.listdir(folder)
 os.chdir( folder )
 
-Select=1 #1 for Selected Data, 0 for all data
+Select=0 #1 for Selected Data, 0 for all data
 Pulling = 1 #1 for only pulling data
 DelBreaks =1 # 1 for deleting data after tether breaks
 MinForce=2.5 #only analyze data above this force
 MinZ, MaxZ = 0, True
 Denoise,Window = False , 5 #Median filter, rolling window with size
 Fmax_Hook=10
-Err=0    #
 steps , stacks = [],[] #used to save data
 plt.close() #close all references to figures still open
 
@@ -67,46 +68,78 @@ for Filename in filenames:
     if Select == 1:                                 #If only the selected column is use do this
         ForceSelected = np.delete(Force, np.argwhere(np.isnan(Z_Selected)))
         Z_Selected=np.delete(Z, np.argwhere(np.isnan(Z_Selected)))
+    if len(Z_Selected)==0: 
+        print(Filename,'==> Nothing Selected!')
+        continue    
     if Select==0:
         ForceSelected=Force
         Z_Selected=Z
-    if Pulling ==1: ForceSelected,Z_Selected = func.removerelease(ForceSelected,Z_Selected)
-    if DelBreaks ==1: ForceSelected,Z_Selected = func.breaks(ForceSelected,Z_Selected, 1000)
+    if Pulling: ForceSelected,Z_Selected = func.removerelease(ForceSelected,Z_Selected)
+    if DelBreaks: ForceSelected,Z_Selected = func.breaks(ForceSelected,Z_Selected, 1000)
     if MinForce > 0: ForceSelected,Z_Selected=func.minforce(ForceSelected,Z_Selected,MinForce)
 #    Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, MinZ) #remove data below Z=0
     if MaxZ: Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, -Lc*DNAds*1.1) #remove data above Z=1.1*LC
     if Denoise: Z_Selected=signal.medfilt(Z_Selected,Window)
-    
+    if len(Z_Selected)==0: 
+        print(Filename,'==> No data points left after filtering!')
+        continue
+
     #Generate FE curves for possible states
-    PossibleStates = np.arange(Lmin-200,Lc+50,1) #range to fit 
-    ProbSum=func.probsum(ForceSelected,Z_Selected,Lmin,Lmax,Lc,p,S,Z_fiber,k)
-
-    PeakInd,Peak=func.findpeaks(ProbSum, 25)
+    PossibleStates = np.arange(Lmin-200,Lc+50,1)                                #range to fit 
+    ProbSum=func.probsum(ForceSelected,Z_Selected,Lmin,Lmax,Lc,p,S,Z_fiber,k)   #Calculate probability landscape
+    PeakInd,Peak=func.findpeaks(ProbSum, 25)                                    #Find Pesk
     Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30), max_distances=np.linspace(75,75,len(ProbSum))) #numpy peakfinder, finds too many peaks, not used plot anyway
-
     #Peaks = pk.peakdetect(ProbSum, PossibleStates, 42)[0]
     #Peaks = np.array(Peaks)
     #Peaks=Peaks.astype(int)
-     
-    #find state for each datapoint
+    #States2 = Peaks[:,0] 
+    #Defines state for each peak
     States=PossibleStates[PeakInd]
     
     # Merging states that are have similar mean/variance according to Welch test
+    MergeStates=0
+    if len(States) >1 : MergeStates=1
+    P_Cutoff=0.05                                   #Significance for merging states
+    T_test=np.array([])                             #array for p values comparing different states
+    
+
+    #Calculates which State is closest for each data point
+    #while MergeStates == 1: #removes all unsignificant states
     Ratio=func.ratio(Lmin,Lmax,States)
     ZState=np.array(np.multiply(func.wlc(ForceSelected,p,S).reshape(len(func.wlc(ForceSelected,p,S)),1),(States*DNAds)) + np.multiply(func.hook(ForceSelected,k,Fmax_Hook).reshape(len(func.hook(ForceSelected,k,Fmax_Hook)),1),(Ratio*Z_fiber))) 
     ZminState=np.subtract(ZState,Z_Selected.reshape(len(Z_Selected),1)) 
     MinMask=np.argmin(abs(ZminState),1)
-    Mask=np.zeros((np.shape(ZminState)))
+    
+    #Mask=np.zeros((np.shape(ZminState)))
     Dataarray=np.zeros((np.shape(ZminState)))
-    T_test=np.array([])                             #array for p values comparing different states
+    
+    #Calculates the p-value of neighboring states with Welch test
     for i,x in enumerate(States):
-        Mask[:,i] = MinMask == i
+        #Mask[:,i] = MinMask == i
         Dataarray[:,i] = (MinMask == i)*Z_Selected
         if i >0: 
             Prob=stats.ttest_ind((MinMask==i)*Z_Selected,(MinMask==i-1)*Z_Selected, equal_var=False) #get two arrays for t_test
             T_test=np.append(T_test,Prob[1])
-    #States2 = Peaks[:,0]
     
+    #Merges states that are most similar, and are above the p_cutoff
+    HighP=np.argmax(T_test)
+    if T_test[HighP] > P_Cutoff:                            #Merge the highest p-value states
+        States=np.delete(States,HighP+1)    
+        MinMask=MinMask-(MinMask==HighP+1)
+        Z_NewState=(MinMask==HighP)*Z_Selected
+        MergeStates=1
+    else: MergeStates=0
+    
+    PossibleStates = np.arange(Lmin-200,Lc+50,1)
+    StateProbSum=func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],Lmin,Lmax,Lc,p,S,Z_fiber,k) 
+    
+    #find value for merged state with gaus fit / mean
+    States[HighP-1]=np.mean(PossibleStates*StateProbSum)
+    #    mean = sum(PossibleStates*StateProbSum)/len(StateProbSum)                   
+    #    sigma = sum(PossibleStates*(StateProbSum-mean)**2)/len(StateProbSum)
+    #    popt,pcov = curve_fit(func.gaus,PossibleStates,StateProbSum,p0=[1,mean,sigma])
+
+    #Calculates stepsize
     Unwrapsteps=[]
     Stacksteps=[]
     for x in States:
@@ -118,7 +151,7 @@ for Filename in filenames:
     Unwrapsteps=func.state2step(Unwrapsteps)
     if len(Unwrapsteps)>0: steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: stacks.extend(Stacksteps)
-    Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
+    #Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
     
     #plotting
     # this plots the FE curve

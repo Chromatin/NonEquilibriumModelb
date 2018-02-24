@@ -6,7 +6,6 @@ Created on Wed Jan  3 13:44:01 2018
 """
 import numpy as np
 import sympy
-import scipy
 from scipy.optimize import curve_fit
 
 kBT = 4.2 #pn/nm 
@@ -67,15 +66,11 @@ def ratio(Lmin,Lmax,x):
     Imputs can be arrays"""
     FiberLength=Lmax-Lmin
     Ratio=((FiberLength-(x-Lmin))/(FiberLength) )   
-    ratiomin = Ratio >=0
-    Ratio*=ratiomin
-    ratiomin = Ratio >=1
-    Ratio = Ratio * (Ratio <=1)
-    Eindratio = ratiomin + Ratio
-#    if Ratio <=0 :
-#        Ratio = 0
-#    if Ratio >=1:
-#        Ratio = 1
+    Ratiomin = Ratio >=0
+    Ratio*=Ratiomin         #removes values below 0, makes them 0
+    Ratiomin = Ratio >=1
+    Ratio = Ratio * (Ratio <=1) #removes values above 1, makes them 1
+    Eindratio = Ratiomin + Ratio
     return Eindratio
 
 def minforce(tested_array,array2,test):
@@ -112,12 +107,11 @@ def probsum(F,Z,LFiber_min,LFiber_max,DNALength,p=50, S=1000, Z_fiber=10, k=1, D
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
     Z is the Extension Data (needs to have the same size as F)
-    Stepsize is the size of individual steps used for """
+    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
     
     PossibleStates = np.arange(LFiber_min-200,DNALength+50,Stepsize) #range to fit 
     States=np.tile(PossibleStates,(len(F),1))
     States=np.transpose(States)
-    dF=0.1 #Used to calculate local stiffness
     ProbSum=np.array([])
     Ratio=ratio(LFiber_min,LFiber_max,PossibleStates)
     Ratio=np.tile(Ratio,(len(F),1))
@@ -131,6 +125,10 @@ def probsum(F,Z,LFiber_min,LFiber_max,DNALength,p=50, S=1000, Z_fiber=10, k=1, D
     Pz=np.array(np.multiply((1-erfaprox(std)),np.sqrt(F)))
     ProbSum=np.sum(Pz, axis=1) 
     return ProbSum
+
+def gaus(x,amp,x0,sigma):
+    """1D Gaussian"""
+    return amp*np.exp(-(x-x0)**2/(2*sigma**2))
 
 #These functions do not work yet    
 def fjcold(f, k_pN_nm = 0.1, b = None,  L_nm = 1, S_pN = 1e3):
@@ -153,7 +151,8 @@ def fjc(f, par =None,  Lmax = 20):
     #w = (exp_x - 1/exp_x)/2*x
     return np.asarray(z) #np.asarray(w)
 
-def pdf(x,step,sigma):
+def pdf(x,step=79,sigma=15):
+    """calculates the probability distribution function for a mean of size step""" 
     return 1-erfaprox((x+step)/sigma*np.sqrt(2))
     
 def fit_pdf(y):

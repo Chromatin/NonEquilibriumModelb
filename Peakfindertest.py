@@ -99,47 +99,40 @@ for Filename in filenames:
     # Merging states that are have similar mean/variance according to Welch test
     MergeStates=0
     if len(States) >1 : MergeStates=1
-    P_Cutoff=0.05                                   #Significance for merging states
+    P_Cutoff=0.05                                       #Significance for merging states
 
-    
-
-    #Calculates which State is closest for each data point
-    while MergeStates == 1: #removes all unsignificant states
+   while MergeStates == True:                           #remove states untill all states are significantly different
         T_test=np.array([])                             #array for p values comparing different states
-        
+        #Calculate for each datapoint which state it most likely belongs too 
         Ratio=func.ratio(Lmin,Lmax,States)
         ZState=np.array(np.multiply(func.wlc(ForceSelected,p,S).reshape(len(func.wlc(ForceSelected,p,S)),1),(States*DNAds)) + np.multiply(func.hook(ForceSelected,k,Fmax_Hook).reshape(len(func.hook(ForceSelected,k,Fmax_Hook)),1),(Ratio*Z_fiber))) 
         ZminState=np.subtract(ZState,Z_Selected.reshape(len(Z_Selected),1)) 
         StateMask=np.argmin(abs(ZminState),1)
         
-        #Mask=np.zeros((np.shape(ZminState)))
-        Dataarray=np.zeros((np.shape(ZminState)))
-        
         #Calculates the p-value of neighboring states with Welch test
         for i,x in enumerate(States):
-            #Mask[:,i] = MinMask == i
-            Dataarray[:,i] = (StateMask == i)*Z_Selected
             if i >0: 
                 Prob=stats.ttest_ind((StateMask==i)*Z_Selected,(StateMask==i-1)*Z_Selected, equal_var=False) #get two arrays for t_test
                 T_test=np.append(T_test,Prob[1])
         
-        #Merges states that are most similar, and are above the p_cutoff
+        #Merges states that are most similar, and are above the p_cutoff minimal significance t-test value
         HighP=np.argmax(T_test)
         if T_test[HighP] > P_Cutoff:                            #Merge the highest p-value states
-            States=np.delete(States,HighP+1)    
-            StateMask=StateMask-(StateMask==HighP+1)*1
-            Z_NewState=(StateMask==HighP)*Z_Selected
-            MergeStates=1
-        else: MergeStates=0
+            States=np.delete(States,HighP+1)                    #deletes the state in the state array
+            StateMask=StateMask-int(StateMask==HighP+1)         #merges the states in the mask
+            Z_NewState=(StateMask==HighP)*Z_Selected            #Get all the data for this state to recalculate mean
+            MergeStates=True
+        else: MergeStates=False
         
-        PossibleStates = np.arange(Lmin-200,Lc+50,1)
-        StateProbSum=func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],Lmin,Lmax,Lc,p,S,Z_fiber,k) 
-        
-        #find value for merged state with gaus fit / mean
-        States[HighP+1]=np.mean(PossibleStates*StateProbSum)
-        #    mean = sum(PossibleStates*StateProbSum)/len(StateProbSum)                   
-        #    sigma = sum(PossibleStates*(StateProbSum-mean)**2)/len(StateProbSum)
-        #    popt,pcov = curve_fit(func.gaus,PossibleStates,StateProbSum,p0=[1,mean,sigma])
+        #calculate the number of L_unrwap for the new state
+        if MergeStates:
+            PossibleStates = np.arange(Lmin-200,Lc+50,1)
+            StateProbSum=func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],Lmin,Lmax,Lc,p,S,Z_fiber,k) 
+            #find value for merged state with gaus fit / mean
+            States[HighP]=np.mean(PossibleStates*StateProbSum)
+            #    mean = sum(PossibleStates*StateProbSum)/len(StateProbSum)                   
+            #    sigma = sum(PossibleStates*(StateProbSum-mean)**2)/len(StateProbSum)
+            #    popt,pcov = curve_fit(func.gaus,PossibleStates,StateProbSum,p0=[1,mean,sigma])
 
     #Calculates stepsize
     Unwrapsteps=[]

@@ -13,15 +13,15 @@ from scipy import stats
 import Functions as func
 import Tools
 #import peakdetect as pk
-from scipy.optimize import curve_fit
+#from scipy.optimize import curve_fit
 
 #folder = 'N:\\Rick\\Tweezer data\\2018_02_19_15x167 DNA\\data_013_Fit' #folder with chromosome sequence files (note, do not put other files in this folder)
 folder = 'P:\\NonEqData\\H1_197\\Best Traces'
-folder = 'C:\\Users\\Klaas\\Documents\\NonEquilibriumModel\\Test'
+#folder = 'C:\\Users\\Klaas\\Documents\\NonEquilibriumModel\\Test'
 filenames = os.listdir(folder)
 os.chdir( folder )
 
-Select=0 #1 for Selected Data, 0 for all data
+Select=1 #1 for Selected Data, 0 for all data
 Pulling = 1 #1 for only pulling data
 DelBreaks =1 # 1 for deleting data after tether breaks
 MinForce=2.5 #only analyze data above this force
@@ -100,44 +100,46 @@ for Filename in filenames:
     MergeStates=0
     if len(States) >1 : MergeStates=1
     P_Cutoff=0.05                                   #Significance for merging states
-    T_test=np.array([])                             #array for p values comparing different states
+
     
 
     #Calculates which State is closest for each data point
-    #while MergeStates == 1: #removes all unsignificant states
-    Ratio=func.ratio(Lmin,Lmax,States)
-    ZState=np.array(np.multiply(func.wlc(ForceSelected,p,S).reshape(len(func.wlc(ForceSelected,p,S)),1),(States*DNAds)) + np.multiply(func.hook(ForceSelected,k,Fmax_Hook).reshape(len(func.hook(ForceSelected,k,Fmax_Hook)),1),(Ratio*Z_fiber))) 
-    ZminState=np.subtract(ZState,Z_Selected.reshape(len(Z_Selected),1)) 
-    MinMask=np.argmin(abs(ZminState),1)
-    
-    #Mask=np.zeros((np.shape(ZminState)))
-    Dataarray=np.zeros((np.shape(ZminState)))
-    
-    #Calculates the p-value of neighboring states with Welch test
-    for i,x in enumerate(States):
-        #Mask[:,i] = MinMask == i
-        Dataarray[:,i] = (MinMask == i)*Z_Selected
-        if i >0: 
-            Prob=stats.ttest_ind((MinMask==i)*Z_Selected,(MinMask==i-1)*Z_Selected, equal_var=False) #get two arrays for t_test
-            T_test=np.append(T_test,Prob[1])
-    
-    #Merges states that are most similar, and are above the p_cutoff
-    HighP=np.argmax(T_test)
-    if T_test[HighP] > P_Cutoff:                            #Merge the highest p-value states
-        States=np.delete(States,HighP+1)    
-        MinMask=MinMask-(MinMask==HighP+1)
-        Z_NewState=(MinMask==HighP)*Z_Selected
-        MergeStates=1
-    else: MergeStates=0
-    
-    PossibleStates = np.arange(Lmin-200,Lc+50,1)
-    StateProbSum=func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],Lmin,Lmax,Lc,p,S,Z_fiber,k) 
-    
-    #find value for merged state with gaus fit / mean
-    States[HighP-1]=np.mean(PossibleStates*StateProbSum)
-    #    mean = sum(PossibleStates*StateProbSum)/len(StateProbSum)                   
-    #    sigma = sum(PossibleStates*(StateProbSum-mean)**2)/len(StateProbSum)
-    #    popt,pcov = curve_fit(func.gaus,PossibleStates,StateProbSum,p0=[1,mean,sigma])
+    while MergeStates == 1: #removes all unsignificant states
+        T_test=np.array([])                             #array for p values comparing different states
+        
+        Ratio=func.ratio(Lmin,Lmax,States)
+        ZState=np.array(np.multiply(func.wlc(ForceSelected,p,S).reshape(len(func.wlc(ForceSelected,p,S)),1),(States*DNAds)) + np.multiply(func.hook(ForceSelected,k,Fmax_Hook).reshape(len(func.hook(ForceSelected,k,Fmax_Hook)),1),(Ratio*Z_fiber))) 
+        ZminState=np.subtract(ZState,Z_Selected.reshape(len(Z_Selected),1)) 
+        StateMask=np.argmin(abs(ZminState),1)
+        
+        #Mask=np.zeros((np.shape(ZminState)))
+        Dataarray=np.zeros((np.shape(ZminState)))
+        
+        #Calculates the p-value of neighboring states with Welch test
+        for i,x in enumerate(States):
+            #Mask[:,i] = MinMask == i
+            Dataarray[:,i] = (StateMask == i)*Z_Selected
+            if i >0: 
+                Prob=stats.ttest_ind((StateMask==i)*Z_Selected,(StateMask==i-1)*Z_Selected, equal_var=False) #get two arrays for t_test
+                T_test=np.append(T_test,Prob[1])
+        
+        #Merges states that are most similar, and are above the p_cutoff
+        HighP=np.argmax(T_test)
+        if T_test[HighP] > P_Cutoff:                            #Merge the highest p-value states
+            States=np.delete(States,HighP+1)    
+            StateMask=StateMask-(StateMask==HighP+1)*1
+            Z_NewState=(StateMask==HighP)*Z_Selected
+            MergeStates=1
+        else: MergeStates=0
+        
+        PossibleStates = np.arange(Lmin-200,Lc+50,1)
+        StateProbSum=func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],Lmin,Lmax,Lc,p,S,Z_fiber,k) 
+        
+        #find value for merged state with gaus fit / mean
+        States[HighP+1]=np.mean(PossibleStates*StateProbSum)
+        #    mean = sum(PossibleStates*StateProbSum)/len(StateProbSum)                   
+        #    sigma = sum(PossibleStates*(StateProbSum-mean)**2)/len(StateProbSum)
+        #    popt,pcov = curve_fit(func.gaus,PossibleStates,StateProbSum,p0=[1,mean,sigma])
 
     #Calculates stepsize
     Unwrapsteps=[]

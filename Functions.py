@@ -63,6 +63,8 @@ def state2step(States):
 
 def ratio(Lmin,Lmax,x):
     """Calculates the number of Nuclesomes in the fiber, where 1 = All nucs in fiber and 0 is no Nucs in fiber. 
+    Lmin = Unwrapped bp with fiber fully folded
+    Lmax = Countour length of the DNA in the beads on a string conformation, where the remaining nucleosomes are still attached
     Imputs can be arrays"""
     FiberLength=Lmax-Lmin
     Ratio=((FiberLength-(x-Lmin))/(FiberLength) )   
@@ -112,7 +114,6 @@ def probsum(F,Z,LFiber_min,LFiber_max,DNALength,p=50, S=1000, Z_fiber=10, k=1, D
     PossibleStates = np.arange(LFiber_min-200,DNALength+50,Stepsize) #range to fit 
     States=np.tile(PossibleStates,(len(F),1))
     States=np.transpose(States)
-    ProbSum=np.array([])
     Ratio=ratio(LFiber_min,LFiber_max,PossibleStates)
     Ratio=np.tile(Ratio,(len(F),1))
     Ratio=np.transpose(Ratio)
@@ -131,6 +132,26 @@ def gaus(x,amp,x0,sigma):
     return amp*np.exp(-(x-x0)**2/(2*sigma**2))
 
 #These functions do not work yet    
+def probsum2(F,Z,PossibleStates,DNALength,p=50, S=1000, Z_fiber=10, k=1, DNAds=0.34, LFiber_min=DNALength,LFiber_max=DNALength, Fmax_Hook=10, Stepsize=1,dF=0.1):
+    """Calculates the probability landscape of the intermediate states. 
+    F is the Force Data, 
+    Z is the Extension Data (needs to have the same size as F)
+    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
+    States=np.tile(PossibleStates,(len(F),1))
+    States=np.transpose(States)
+    Ratio=ratio(LFiber_min,LFiber_max,PossibleStates)
+    Ratio=np.tile(Ratio,(len(F),1))
+    Ratio=np.transpose(Ratio)
+    
+    StateExtension=np.array(np.multiply(wlc(F,p,S),States)*DNAds + np.multiply(hook(F,k,Fmax_Hook),Ratio)*Z_fiber)
+    StateExtension_dF=np.array(np.multiply(wlc(F+dF,p,S),States)*DNAds + np.multiply(hook(F+dF,k,Fmax_Hook),Ratio)*Z_fiber)
+    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*(kBT) / dF # fix the units of KBT (pN nm -> pN um)
+    DeltaZ=abs(np.subtract(StateExtension,Z))
+    Std=np.divide(DeltaZ,np.sqrt(LocalStiffness))
+    Pz=np.array(np.multiply((1-erfaprox(Std)),np.sqrt(F)))
+    ProbSum=np.sum(Pz, axis=1) 
+    return ProbSum
+
 def fjcold(f, k_pN_nm = 0.1, b = None,  L_nm = 1, S_pN = 1e3):
     if b == None:
         b = 3 * kBT / (k_pN_nm * L_nm)

@@ -67,6 +67,8 @@ def ratio(Lmin,Lmax,x):
     Lmax = Countour length of the DNA in the beads on a string conformation, where the remaining nucleosomes are still attached
     Imputs can be arrays"""
     FiberLength=Lmax-Lmin
+    if FiberLength<0:
+        return x*0
     Ratio=((FiberLength-(x-Lmin))/(FiberLength) )   
     Ratiomin = Ratio >=0
     Ratio*=Ratiomin         #removes values below 0, makes them 0
@@ -132,7 +134,7 @@ def gaus(x,amp,x0,sigma):
     return amp*np.exp(-(x-x0)**2/(2*sigma**2))
 
 #These functions do not work yet    
-def probsum2(F,Z,PossibleStates,DNALength,p=50, S=1000, Z_fiber=10, k=1, DNAds=0.34, LFiber_min=DNALength,LFiber_max=DNALength, Fmax_Hook=10, Stepsize=1,dF=0.1):
+def probsum2(F,Z,PossibleStates,DNALength,p=50, S=1000, Z_fiber=10, k=1, DNAds=0.34, LFiber_min = 0, LFiber_max = 0, Fmax_Hook=10, Stepsize=1,dF=0.1):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
     Z is the Extension Data (needs to have the same size as F)

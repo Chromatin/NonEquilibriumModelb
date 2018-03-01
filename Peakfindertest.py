@@ -21,7 +21,7 @@ folder = 'P:\\NonEqData\\H1_197\\Best Traces'
 filenames = os.listdir(folder)
 os.chdir( folder )
 
-Select=1 #1 for Selected Data, 0 for all data
+Select=0 #1 for Selected Data, 0 for all data
 Pulling = 1 #1 for only pulling data
 DelBreaks =1 # 1 for deleting data after tether breaks
 MinForce=2.5 #only analyze data above this force
@@ -97,11 +97,11 @@ for Filename in filenames:
     States=PossibleStates[PeakInd]
     
     # Merging states that are have similar mean/variance according to Welch test
-    MergeStates=0
-    if len(States) >1 : MergeStates=1
+    MergeStates=True
+    if len(States) <1 : MergeStates=False
     P_Cutoff=0.05                                       #Significance for merging states
-
-   while MergeStates == True:                           #remove states untill all states are significantly different
+    
+    while MergeStates == True:                           #remove states untill all states are significantly different
         T_test=np.array([])                             #array for p values comparing different states
         #Calculate for each datapoint which state it most likely belongs too 
         Ratio=func.ratio(Lmin,Lmax,States)
@@ -119,17 +119,17 @@ for Filename in filenames:
         HighP=np.argmax(T_test)
         if T_test[HighP] > P_Cutoff:                            #Merge the highest p-value states
             States=np.delete(States,HighP+1)                    #deletes the state in the state array
-            StateMask=StateMask-int(StateMask==HighP+1)         #merges the states in the mask
+            StateMask=StateMask-(StateMask==HighP+1)*1          #merges the states in the mask
             Z_NewState=(StateMask==HighP)*Z_Selected            #Get all the data for this state to recalculate mean
             MergeStates=True
-        else: MergeStates=False
+        else: MergeStates=False                                 #Stop merging states
         
         #calculate the number of L_unrwap for the new state
         if MergeStates:
             PossibleStates = np.arange(Lmin-200,Lc+50,1)
-            StateProbSum=func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],Lmin,Lmax,Lc,p,S,Z_fiber,k) 
+            StateProbSum = func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],Lmin,Lmax,Lc,p,S,Z_fiber,k)
             #find value for merged state with gaus fit / mean
-            States[HighP]=np.mean(PossibleStates*StateProbSum)
+            States[HighP] = np.mean(PossibleStates*StateProbSum) * DNAds
             #    mean = sum(PossibleStates*StateProbSum)/len(StateProbSum)                   
             #    sigma = sum(PossibleStates*(StateProbSum-mean)**2)/len(StateProbSum)
             #    popt,pcov = curve_fit(func.gaus,PossibleStates,StateProbSum,p0=[1,mean,sigma])

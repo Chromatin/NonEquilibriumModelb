@@ -16,12 +16,12 @@ import Tools
 #from scipy.optimize import curve_fit
 
 #folder = 'N:\\Rick\\Tweezer data\\2018_02_19_15x167 DNA\\data_013_Fit' #folder with chromosome sequence files (note, do not put other files in this folder)
-folder = 'P:\\NonEqData\\H1_197\\Best Traces'
-#folder = 'C:\\Users\\Klaas\\Documents\\NonEquilibriumModel\\Test'
+#folder = 'P:\\NonEqData\\H1_197\\Best Traces'
+folder = 'C:\\Users\\Klaas\\Documents\\NonEquilibriumModel\\2018'
 filenames = os.listdir(folder)
 os.chdir( folder )
 
-Select=0 #1 for Selected Data, 0 for all data
+Select=1 #1 for Selected Data, 0 for all data
 Pulling = 1 #1 for only pulling data
 DelBreaks =1 # 1 for deleting data after tether breaks
 MinForce=2.5 #only analyze data above this force
@@ -36,23 +36,13 @@ for Filename in filenames:
         continue
     Headers,Data = Tools.read_data(Filename)
     LogFile=Tools.read_log(Filename[:-4]+'.log')
-    Lc = float(Tools.find_param(LogFile,'L DNA (bp)')) # contour length (bp)
-    p = float(Tools.find_param(LogFile,'p DNA (nm)') )  # persistence length (nm)p DNA (nm)
-    S = float(Tools.find_param(LogFile,'S DNA (pN)') ) # stretch modulus (pN) S DNA (pN)
-    k = float(Tools.find_param(LogFile,'k folded (pN/nm)') ) # Stiffness of the fiber, in pN/nm => k folded (pN/nm)
-    N_tot = float(Tools.find_param(LogFile,'N nuc') )#number of nucleosomes N nuc
-    N_tetra = float(Tools.find_param(LogFile,'N unfolded [F0]'))
-    NRL = float(Tools.find_param(LogFile,'NRL (bp)') )#NRL (bp
-    Z_fiber= float(Tools.find_param(LogFile,'l folded (nm)') )# Length of the fiber at F=0 per nucleosome
-    DNAds =  0.34 # rise per basepair (nm)
-    kBT = 4.2 #pn/nm 
-    Lmin=Lc-(N_tot-N_tetra)*NRL-N_tetra*80 # DNA handles in bp
-    if Lmin <0: 
+    
+    Pars=Tools.log_pars(LogFile)        #Reads in all the parameters from the logfile
+    if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
-    Lmax=Lc-(N_tot)*80 # Max Z of the "beads on a string" conformation in bp
-    print(N_tot, Filename)
-    if MaxZ == True: MaxZ = (Lc+200)*DNAds
+    print(Pars['N_tot'], Filename)
+
     Force = np.array([])
     Time=np.array([])
     Z=np.array([])
@@ -78,15 +68,17 @@ for Filename in filenames:
     if DelBreaks: ForceSelected,Z_Selected = func.breaks(ForceSelected,Z_Selected, 1000)
     if MinForce > 0: ForceSelected,Z_Selected=func.minforce(ForceSelected,Z_Selected,MinForce)
 #    Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, MinZ) #remove data below Z=0
-    if MaxZ: Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, -Lc*DNAds*1.1) #remove data above Z=1.1*LC
+    if MaxZ == True:  #Remove all datapoints after max extension
+        MaxZ = (Pars['L_bp']+100)*Pars['DNAds_nm']
+        Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
     if Denoise: Z_Selected=signal.medfilt(Z_Selected,Window)
     if len(Z_Selected)==0: 
         print(Filename,'==> No data points left after filtering!')
         continue
 
     #Generate FE curves for possible states
-    PossibleStates = np.arange(Lmin-200,Lc+50,1)                                #range to fit 
-    ProbSum=func.probsum(ForceSelected,Z_Selected,Lmin,Lmax,Lc,p,S,Z_fiber,k)   #Calculate probability landscape
+    PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)                                #range to fit 
+    ProbSum=func.probsum(ForceSelected, Z_Selected, PossibleStates, Pars)#Lmin,Lmax, Pars['L_bp'],p,S,Z_fiber,par['k0_pN_nm'])   #Calculate probability landscape
     PeakInd,Peak=func.findpeaks(ProbSum, 25)                                    #Find Pesk
     Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30), max_distances=np.linspace(75,75,len(ProbSum))) #numpy peakfinder, finds too many peaks, not used plot anyway
     #Peaks = pk.peakdetect(ProbSum, PossibleStates, 42)[0]
@@ -97,15 +89,15 @@ for Filename in filenames:
     States=PossibleStates[PeakInd]
     
     # Merging states that are have similar mean/variance according to Welch test
-    MergeStates=True
+    MergeStates=False
     if len(States) <1 : MergeStates=False
     P_Cutoff=0.05                                       #Significance for merging states
     
     while MergeStates == True:                           #remove states untill all states are significantly different
         T_test=np.array([])                             #array for p values comparing different states
         #Calculate for each datapoint which state it most likely belongs too 
-        Ratio=func.ratio(Lmin,Lmax,States)
-        ZState=np.array(np.multiply(func.wlc(ForceSelected,p,S).reshape(len(func.wlc(ForceSelected,p,S)),1),(States*DNAds)) + np.multiply(func.hook(ForceSelected,k,Fmax_Hook).reshape(len(func.hook(ForceSelected,k,Fmax_Hook)),1),(Ratio*Z_fiber))) 
+        Ratio=func.ratio(States,Pars)
+        ZState=np.array(np.multiply(func.wlc(ForceSelected,Pars).reshape(len(func.wlc(ForceSelected,Pars)),1),(States*Pars['DNAds_nm'])) + np.multiply(func.hook(ForceSelected,k,Fmax_Hook).reshape(len(func.hook(ForceSelected,k,Fmax_Hook)),1),(Ratio*Z_fiber))) 
         ZminState=np.subtract(ZState,Z_Selected.reshape(len(Z_Selected),1)) 
         StateMask=np.argmin(abs(ZminState),1)
         
@@ -126,19 +118,18 @@ for Filename in filenames:
         
         #calculate the number of L_unrwap for the new state
         if MergeStates:
-            PossibleStates = np.arange(Lmin-200,Lc+50,1)
-            StateProbSum = func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],Lmin,Lmax,Lc,p,S,Z_fiber,k)
+            StateProbSum = func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],Pars)
             #find value for merged state with gaus fit / mean
-            States[HighP] = np.mean(PossibleStates*StateProbSum) * DNAds
+            States[HighP] = np.mean(PossibleStates*StateProbSum) * Pars['DNAds']
             #    mean = sum(PossibleStates*StateProbSum)/len(StateProbSum)                   
             #    sigma = sum(PossibleStates*(StateProbSum-mean)**2)/len(StateProbSum)
             #    popt,pcov = curve_fit(func.gaus,PossibleStates,StateProbSum,p0=[1,mean,sigma])
 
-    #Calculates stepsize
+    #Ca Pars['L_bp']ulates stepsize
     Unwrapsteps=[]
     Stacksteps=[]
     for x in States:
-        if x >= Lmax:
+        if x >= Pars['Fiber0_bp']:
             Unwrapsteps.append(x)
         else:
             Stacksteps.append(x)
@@ -158,11 +149,11 @@ for Filename in filenames:
     ax1.set_ylabel('Force [pN]'), ax2.set_ylabel('Probability [AU]')
     ax1.scatter(Z,Force, color="grey",s=1)
     ax1.scatter(Z_Selected,ForceSelected, color="blue", s=1)
-    #ax2.set_xlim([0,Lc+50])    
+    #ax2.set_xlim([0, Pars['L_bp']+50])    
     ax2.plot(PossibleStates,ProbSum)
     ax2.scatter(PossibleStates[(PeakInd)],Peak)
     #ax2.scatter(Peaks[:,0],Peaks[:,1], color="orange")
-    #ax1.set_xlim([-100,Lc/2.8])
+    #ax1.set_xlim([-100, Pars['L_bp']/2.8])
     #ax1.set_ylim([-4,25])
 
     #plotting
@@ -173,15 +164,15 @@ for Filename in filenames:
     fig2.suptitle(Filename, y=1)
     ax3.set_xlabel('time [sec]'), ax4.set_xlabel('Probability [AU]')
     ax3.set_ylabel('Extension [bp nm]')
-    #ax3.set_ylim([0,Lc*DNAds+200*DNAds])
+    #ax3.set_ylim([0, Pars['L_bp']*DNAds+200*DNAds])
     ax3.scatter(Time,Z, s=1)
-    ax4.plot(ProbSum,PossibleStates*DNAds)
-    ax4.scatter(Peak,PossibleStates[(PeakInd)]*DNAds, s=1)
+    ax4.plot(ProbSum,PossibleStates*Pars['DNAds_nm'])
+    ax4.scatter(Peak,PossibleStates[(PeakInd)]*Pars['DNAds_nm'], s=1)
     ax4.legend(label=States)
     
     for x in States:
-        Ratio=func.ratio(Lmin,Lmax,x)
-        Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
+        Ratio=func.ratio(x,Pars)
+        Fit=np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'],Fmax_Hook)*Ratio*Pars['ZFiber_nm'])
         ax1.plot(Fit,Force, alpha=0.5, linestyle='-.')
         ax3.plot(Time,Fit, alpha=0.5, linestyle='-.')
         

@@ -10,10 +10,11 @@ from scipy.optimize import curve_fit
 
 kBT = 4.2 #pn/nm 
 #worm-like chain
-def wlc(force,p=50,S=1000): #in nm/pN, as fraction of L
+def wlc(force,par): #in nm/pN, as fraction of L
     """Calculates WLC in nm/pN, as a fraction the Contour Length """
     f=np.array(force)
-    return 1 - 0.5*(np.sqrt(kBT/(f*p)))+(f/S)#returns Z_WLC as fraction of L
+    WLC = 1 - 0.5*(np.sqrt(par['kBT_pN_nm']/(f*par['P_nm'])))+(f/par['S_pN'])
+    return WLC#returns Z_WLC as fraction of L 
 
 def hook(force,k=1,fmax=10):
     """Calculates Hookian in nm/pN"""
@@ -61,15 +62,14 @@ def state2step(States):
         return States[1:]-States[0:-1]
     else: return []
 
-def ratio(Lmin,Lmax,x):
+def ratio(x, Par):
     """Calculates the number of Nuclesomes in the fiber, where 1 = All nucs in fiber and 0 is no Nucs in fiber. 
     Lmin = Unwrapped bp with fiber fully folded
     Lmax = Countour length of the DNA in the beads on a string conformation, where the remaining nucleosomes are still attached
     Imputs can be arrays"""
-    FiberLength=Lmax-Lmin
-    if FiberLength<0:
+    if Par['LFiber_bp']<0:
         return x*0
-    Ratio=((FiberLength-(x-Lmin))/(FiberLength) )   
+    Ratio=((Par['LFiber_bp']-(x-Par['Fiber0_bp']))/(Par['LFiber_bp']) )   
     Ratiomin = Ratio >=0
     Ratio*=Ratiomin         #removes values below 0, makes them 0
     Ratiomin = Ratio >=1
@@ -107,52 +107,30 @@ def removerelease(ForceSelected,Z_Selected):
     Z_Selected=np.delete(Z_Selected,Pullingtest)
     return ForceSelected, Z_Selected 
 
-def probsum(F,Z,LFiber_min,LFiber_max,DNALength,p=50, S=1000, Z_fiber=10, k=1, DNAds=0.34, Fmax_Hook=10, Stepsize=1,dF=0.1):
+def probsum(F,Z,PossibleStates,Par):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
     Z is the Extension Data (needs to have the same size as F)
     Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
-    
-    PossibleStates = np.arange(LFiber_min-200,DNALength+50,Stepsize) #range to fit 
+    Fmax_Hook=10
     States=np.tile(PossibleStates,(len(F),1))
     States=np.transpose(States)
-    Ratio=ratio(LFiber_min,LFiber_max,PossibleStates)
+    Ratio=ratio(PossibleStates, Par)
     Ratio=np.tile(Ratio,(len(F),1))
     Ratio=np.transpose(Ratio)
-    
-    StateExtension=np.array(np.multiply(wlc(F,p,S),States)*DNAds + np.multiply(hook(F,k,Fmax_Hook),Ratio)*Z_fiber)
-    StateExtension_dF=np.array(np.multiply(wlc(F+dF,p,S),States)*DNAds + np.multiply(hook(F+dF,k,Fmax_Hook),Ratio)*Z_fiber)
-    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*(kBT) / dF # fix the units of KBT (pN nm -> pN um)
+    dF=0.1          #delta used to calculate the RC of the curve
+    StateExtension=np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
+    StateExtension_dF=np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
+    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
     DeltaZ=abs(np.subtract(StateExtension,Z))
-    std=np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    Pz=np.array(np.multiply((1-erfaprox(std)),np.sqrt(F)))
+    Std=np.divide(DeltaZ,np.sqrt(LocalStiffness))
+    Pz=np.array(np.multiply((1-erfaprox(Std)),np.sqrt(F)))
     ProbSum=np.sum(Pz, axis=1) 
     return ProbSum
 
 def gaus(x,amp,x0,sigma):
     """1D Gaussian"""
     return amp*np.exp(-(x-x0)**2/(2*sigma**2))
-
-#These functions do not work yet    
-def probsum2(F,Z,PossibleStates,DNALength,p=50, S=1000, Z_fiber=10, k=1, DNAds=0.34, LFiber_min = 0, LFiber_max = 0, Fmax_Hook=10, Stepsize=1,dF=0.1):
-    """Calculates the probability landscape of the intermediate states. 
-    F is the Force Data, 
-    Z is the Extension Data (needs to have the same size as F)
-    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
-    States=np.tile(PossibleStates,(len(F),1))
-    States=np.transpose(States)
-    Ratio=ratio(LFiber_min,LFiber_max,PossibleStates)
-    Ratio=np.tile(Ratio,(len(F),1))
-    Ratio=np.transpose(Ratio)
-    
-    StateExtension=np.array(np.multiply(wlc(F,p,S),States)*DNAds + np.multiply(hook(F,k,Fmax_Hook),Ratio)*Z_fiber)
-    StateExtension_dF=np.array(np.multiply(wlc(F+dF,p,S),States)*DNAds + np.multiply(hook(F+dF,k,Fmax_Hook),Ratio)*Z_fiber)
-    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*(kBT) / dF # fix the units of KBT (pN nm -> pN um)
-    DeltaZ=abs(np.subtract(StateExtension,Z))
-    Std=np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    Pz=np.array(np.multiply((1-erfaprox(Std)),np.sqrt(F)))
-    ProbSum=np.sum(Pz, axis=1) 
-    return ProbSum
 
 def fjcold(f, k_pN_nm = 0.1, b = None,  L_nm = 1, S_pN = 1e3):
     if b == None:

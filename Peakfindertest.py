@@ -16,12 +16,12 @@ import Tools
 #from scipy.optimize import curve_fit
 
 #folder = 'N:\\Rick\\Tweezer data\\2018_02_19_15x167 DNA\\data_013_Fit' #folder with chromosome sequence files (note, do not put other files in this folder)
-#folder = 'P:\\NonEqData\\H1_197\\Best Traces'
-folder = 'C:\\Users\\Klaas\\Documents\\NonEquilibriumModel\\2018'
+folder = 'P:\\NonEqData\\H1_197'
+#folder = 'C:\\Users\\Klaas\\Documents\\NonEquilibriumModel\\2018'
 filenames = os.listdir(folder)
 os.chdir( folder )
 
-Select=1 #1 for Selected Data, 0 for all data
+Select=0 #1 for Selected Data, 0 for all data
 Pulling = 1 #1 for only pulling data
 DelBreaks =1 # 1 for deleting data after tether breaks
 MinForce=2.5 #only analyze data above this force
@@ -78,53 +78,61 @@ for Filename in filenames:
 
     #Generate FE curves for possible states
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)                                #range to fit 
-    ProbSum=func.probsum(ForceSelected, Z_Selected, PossibleStates, Pars)#Lmin,Lmax, Pars['L_bp'],p,S,Z_fiber,par['k0_pN_nm'])   #Calculate probability landscape
-    PeakInd,Peak=func.findpeaks(ProbSum, 25)                                    #Find Pesk
-    Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30), max_distances=np.linspace(75,75,len(ProbSum))) #numpy peakfinder, finds too many peaks, not used plot anyway
+    ProbSum=func.probsum(ForceSelected, Z_Selected, PossibleStates, Pars)   #Calculate probability landscape
+    PeakInd,Peak=func.findpeaks(ProbSum, 5)                                #Find Peaks
+    Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30))               #numpy peakfinder
     #Peaks = pk.peakdetect(ProbSum, PossibleStates, 42)[0]
     #Peaks = np.array(Peaks)
     #Peaks=Peaks.astype(int)
     #States2 = Peaks[:,0] 
     #Defines state for each peak
     States=PossibleStates[PeakInd]
+    #States=PossibleStates[Peaks]
+    UnMergedStates=States
     
     # Merging states that are have similar mean/variance according to Welch test
-    MergeStates=False
+    MergeStates=True
     if len(States) <1 : MergeStates=False
     P_Cutoff=0.05                                       #Significance for merging states
     
-    while MergeStates == True:                           #remove states untill all states are significantly different
+    #Calculate for each datapoint which state it most likely belongs too 
+    Ratio=func.ratio(States,Pars)
+    WLC=func.wlc(ForceSelected,Pars).reshape(len(func.wlc(ForceSelected,Pars)),1)
+    Hook=func.hook(ForceSelected,Pars['k_pN_nm'],Fmax_Hook).reshape(len(func.hook(ForceSelected,Pars['k_pN_nm'],Fmax_Hook)),1)
+    ZState=np.array( np.multiply(WLC,(States*Pars['DNAds_nm'])) + np.multiply(Hook,(Ratio*Pars['ZFiber_nm'])) )
+    ZminState=np.subtract(ZState,Z_Selected.reshape(len(Z_Selected),1)) 
+    StateMask=np.argmin(abs(ZminState),1)        #Calculates the p-value of neighboring states with Welch test
+    
+    while MergeStates == True:                          #remove states untill all states are significantly different
         T_test=np.array([])                             #array for p values comparing different states
-        #Calculate for each datapoint which state it most likely belongs too 
-        Ratio=func.ratio(States,Pars)
-        ZState=np.array(np.multiply(func.wlc(ForceSelected,Pars).reshape(len(func.wlc(ForceSelected,Pars)),1),(States*Pars['DNAds_nm'])) + np.multiply(func.hook(ForceSelected,k,Fmax_Hook).reshape(len(func.hook(ForceSelected,k,Fmax_Hook)),1),(Ratio*Z_fiber))) 
-        ZminState=np.subtract(ZState,Z_Selected.reshape(len(Z_Selected),1)) 
-        StateMask=np.argmin(abs(ZminState),1)
-        
-        #Calculates the p-value of neighboring states with Welch test
+   
         for i,x in enumerate(States):
             if i >0: 
                 Prob=stats.ttest_ind((StateMask==i)*Z_Selected,(StateMask==i-1)*Z_Selected, equal_var=False) #get two arrays for t_test
                 T_test=np.append(T_test,Prob[1])
         
         #Merges states that are most similar, and are above the p_cutoff minimal significance t-test value
-        HighP=np.argmax(T_test)
-        if T_test[HighP] > P_Cutoff:                            #Merge the highest p-value states
-            States=np.delete(States,HighP+1)                    #deletes the state in the state array
-            StateMask=StateMask-(StateMask==HighP+1)*1          #merges the states in the mask
-            Z_NewState=(StateMask==HighP)*Z_Selected            #Get all the data for this state to recalculate mean
-            MergeStates=True
-        else: MergeStates=False                                 #Stop merging states
-        
+        HighP = np.argmax(T_test)
+        if T_test[HighP] > P_Cutoff:  # Merge the highest p-value states
+            DelState = HighP
+            if sum((StateMask == HighP + 1) * 1) < sum((StateMask == HighP) * 1): DelState = HighP + 1
+            States = np.delete(States, DelState)  # deletes the state with the fewest datapoints from the state array
+            StateMask = StateMask - (StateMask > HighP) * 1  # merges the states in the mask
+            Z_NewState = (StateMask == HighP) * Z_Selected  # Get all the data for this state to recalculate mean
+            MergeStates = True
+        else:
+            MergeStates = False  # Stop merging states
+                   
         #calculate the number of L_unrwap for the new state
         if MergeStates:
-            StateProbSum = func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],Pars)
             #find value for merged state with gaus fit / mean
-            States[HighP] = np.mean(PossibleStates*StateProbSum) * Pars['DNAds']
-            #    mean = sum(PossibleStates*StateProbSum)/len(StateProbSum)                   
-            #    sigma = sum(PossibleStates*(StateProbSum-mean)**2)/len(StateProbSum)
-            #    popt,pcov = curve_fit(func.gaus,PossibleStates,StateProbSum,p0=[1,mean,sigma])
-
+            StateProbSum = func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
+            States[HighP] = PossibleStates[np.argmax(StateProbSum)]
+            #InsertState = np.sum(PossibleStates*(StateProbSum/np.sum(StateProbSum)))
+#            mean = sum(PossibleStates[StateProbSum != 0]*StateProbSum[StateProbSum != 0])/len(StateProbSum[StateProbSum != 0])                   
+#            sigma = sum(PossibleStates[StateProbSum != 0]*(StateProbSum[StateProbSum != 0]-mean)**2)/len(StateProbSum[StateProbSum != 0])
+#            popt,pcov = curve_fit(func.gaus,PossibleStates,StateProbSum,p0=[1,mean,sigma])
+                        
     #Ca Pars['L_bp']ulates stepsize
     Unwrapsteps=[]
     Stacksteps=[]
@@ -149,7 +157,7 @@ for Filename in filenames:
     ax1.set_ylabel('Force [pN]'), ax2.set_ylabel('Probability [AU]')
     ax1.scatter(Z,Force, color="grey",s=1)
     ax1.scatter(Z_Selected,ForceSelected, color="blue", s=1)
-    #ax2.set_xlim([0, Pars['L_bp']+50])    
+    ax2.set_xlim([0, Pars['L_bp']+50])    
     ax2.plot(PossibleStates,ProbSum)
     ax2.scatter(PossibleStates[(PeakInd)],Peak)
     #ax2.scatter(Peaks[:,0],Peaks[:,1], color="orange")
@@ -164,7 +172,7 @@ for Filename in filenames:
     fig2.suptitle(Filename, y=1)
     ax3.set_xlabel('time [sec]'), ax4.set_xlabel('Probability [AU]')
     ax3.set_ylabel('Extension [bp nm]')
-    #ax3.set_ylim([0, Pars['L_bp']*DNAds+200*DNAds])
+    ax3.set_ylim([0, Pars['L_bp']*Pars['DNAds_nm']+100])
     ax3.scatter(Time,Z, s=1)
     ax4.plot(ProbSum,PossibleStates*Pars['DNAds_nm'])
     ax4.scatter(Peak,PossibleStates[(PeakInd)]*Pars['DNAds_nm'], s=1)
@@ -173,16 +181,15 @@ for Filename in filenames:
     for x in States:
         Ratio=func.ratio(x,Pars)
         Fit=np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'],Fmax_Hook)*Ratio*Pars['ZFiber_nm'])
-        ax1.plot(Fit,Force, alpha=0.5, linestyle='-.')
-        ax3.plot(Time,Fit, alpha=0.5, linestyle='-.')
+        ax1.plot(Fit,Force, alpha=0.9, linestyle='-.')
+        ax3.plot(Time,Fit, alpha=0.9, linestyle='-.')
         
-        """ 
-        for x in States2:
-        Ratio=func.ratio(Lmin,Lmax,x)
-        Fit=np.array(func.wlc(Force,p,S)*x*DNAds + func.hook(Force,k,Fmax_Hook)*Ratio*Z_fiber)
-        ax1.plot(Fit,Force, linestyle=':')
-        ax3.plot(Time,Fit, linestyle=':')
-        """    
+    for x in UnMergedStates:
+        Ratio=func.ratio(x,Pars)
+        Fit=np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'],Fmax_Hook)*Ratio*Pars['ZFiber_nm'])
+        ax1.plot(Fit,Force, alpha=0.1, linestyle=':')
+        ax3.plot(Time,Fit, alpha=0.1, linestyle=':')
+   
 
     fig1.tight_layout()
     #fig1.savefig(Filename[0:-4]+'FoEx_all.png', dpi=800)

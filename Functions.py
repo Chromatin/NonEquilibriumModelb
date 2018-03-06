@@ -29,7 +29,7 @@ def forcecalib(Pos,FMax=85): #Calculates Force from magnet position
     f0=0.01 #force-offset (pN)    
     return FMax*(0.7*np.exp(-Pos/l1)+0.3*np.exp(-Pos/l2))+f0
 
-def findpeaks(y,n=15): #Finds y peaks at position x in xy graph
+def findpeaks(y,n=10): #Finds y peaks at position x in xy graph
     """Peakfinder writen with Thomas Brouwer"""
     y=np.array(y)
     Yy = np.append(y[:-1],y[::-1])
@@ -124,7 +124,7 @@ def probsum(F,Z,PossibleStates,Par):
     LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
     DeltaZ=abs(np.subtract(StateExtension,Z))
     Std=np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    Pz=np.array(np.multiply((1-erfaprox(Std)),np.sqrt(F)))
+    Pz=np.array(np.multiply((1-erfaprox(Std)),F))
     ProbSum=np.sum(Pz, axis=1) 
     return ProbSum
 
@@ -142,7 +142,7 @@ def fjcold(f, k_pN_nm = 0.1, b = None,  L_nm = 1, S_pN = 1e3):
     z += L_nm*f/S_pN
     return z
 
-def fjc(f, par =None,  Lmax = 20):
+def fjcold2(f, par =None,  Lmax = 20):
     p = par.valuesdict()
     b = 3 * kBT / (p['k_pN_nm']*Lmax)
     x = f*b/kBT
@@ -151,6 +151,18 @@ def fjc(f, par =None,  Lmax = 20):
     z *= Lmax
     #w = (exp_x - 1/exp_x)/2*x
     return np.asarray(z) #np.asarray(w)
+
+def fjc(f, par): 
+    L_nm = par['L_bp']*par['DNAds_nm']
+    b = 3 * par['kBT_pN_nm'] / (par['k_pN_nm']*L_nm)
+    x = f * b / par['kBT_pN_nm']
+    # coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
+    exp_x = np.exp(x)
+    z = (exp_x + 1 / exp_x) / (exp_x - 1 / exp_x) - 1 / x
+    z *= par['L_bp']*par['DNAds_nm']
+    #z_df = (par['kBT_pN_nm'] / b) * (np.log(np.sinh(x)) - np.log(x))  #*L_nm #  + constant --> integrate over f (finish it
+    #w = f * z - z_df
+    return z
 
 def pdf(x,step=79,sigma=15):
     """calculates the probability distribution function for a mean of size step""" 

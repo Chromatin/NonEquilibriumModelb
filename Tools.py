@@ -51,7 +51,7 @@ def plot_fe(f_array,z_array, units = 'nm'):
     plt.show()
 
 def default_pars():
-    par = {'Pars' : True}
+    par = {}
     par['L_bp']=3040
     par['P_nm'] =50
     par['S_pN'] =1000
@@ -64,10 +64,14 @@ def default_pars():
     par['G2_kT'] =4
     par['DNAds_nm']= 0.34 # rise per basepair (nm)
     par['kBT_pN_nm']= 4.2 #pn/nm 
+    par['Innerwrap_bp'] = 79 #number of basepairs in the inner turn wrap
+    par['Fiber0_bp']=par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
+    par['LFiber_bp']=(par['N_tot']-par['N4'])*(par['NRL_bp']-par['Innerwrap_bp'])  #total number of bp in the fiber
+    par['FiberStart_bp']=par['Fiber0_bp']-par['LFiber_bp'] #DNA handles
     return par
 
 def log_pars(LogFile):
-    par = {'Pars' : True}
+    par = {}
     par['L_bp'] =float(find_param(LogFile, 'L DNA (bp)'))
     par['P_nm'] =float(find_param(LogFile, 'p DNA (nm)'))
     par['S_pN'] =float(find_param(LogFile, 'S DNA (pN)'))

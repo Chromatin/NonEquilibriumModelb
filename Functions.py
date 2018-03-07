@@ -5,7 +5,6 @@ Created on Wed Jan  3 13:44:01 2018
 @author: nhermans
 """
 import numpy as np
-import sympy
 from scipy.optimize import curve_fit
 
 kBT = 4.2 #pn/nm 
@@ -107,18 +106,17 @@ def removerelease(ForceSelected,Z_Selected):
     Z_Selected=np.delete(Z_Selected,Pullingtest)
     return ForceSelected, Z_Selected 
 
-def probsum(F,Z,PossibleStates,Par):
+def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
     Z is the Extension Data (needs to have the same size as F)
     Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
-    Fmax_Hook=10
     States=np.tile(PossibleStates,(len(F),1))
     States=np.transpose(States)
     Ratio=ratio(PossibleStates, Par)
     Ratio=np.tile(Ratio,(len(F),1))
     Ratio=np.transpose(Ratio)
-    dF=0.1          #delta used to calculate the RC of the curve
+    dF=0.01          #delta used to calculate the RC of the curve
     StateExtension=np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
     StateExtension_dF=np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
     LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
@@ -132,26 +130,35 @@ def gaus(x,amp,x0,sigma):
     """1D Gaussian"""
     return amp*np.exp(-(x-x0)**2/(2*sigma**2))
 
-def fjcold(f, k_pN_nm = 0.1, b = None,  L_nm = 1, S_pN = 1e3):
-    if b == None:
-        b = 3 * kBT / (k_pN_nm * L_nm)
-    x = f*b/kBT
-    z = np.array([])
-    for xi in x:
-        z=np.append(z,L_nm*(sympy.coth(xi) -1/xi))
-    z += L_nm*f/S_pN
-    return z
+def removestates(StateMask, n=2):
+    """Removes states with less than n data points, returns indexes of states to be removed"""
+    RemoveStates=np.array([])
+    for i in np.arange(0,np.amax(StateMask),1):
+        if sum(StateMask == i) < n:
+            RemoveStates=np.append(RemoveStates,i)
+    return RemoveStates
 
-def fjcold2(f, par =None,  Lmax = 20):
-    p = par.valuesdict()
-    b = 3 * kBT / (p['k_pN_nm']*Lmax)
-    x = f*b/kBT
-    exp_x = np.exp(x)
-    z = (exp_x +1/exp_x)/(exp_x - 1/exp_x) -1/x
-    z *= Lmax
-    #w = (exp_x - 1/exp_x)/2*x
-    return np.asarray(z) #np.asarray(w)
-
+def mergestates(States,MergeStates):         
+    """Merges states as specied in the second array. If two consequtive states are to be merged, only one is removed
+    Returns a new State array"""
+    old=0
+    for i,x in enumerate(MergeStates):
+        if x-old != 1: 
+            States = np.delete(States, x)
+            old=x
+    return States    
+        
+def attribute2state(F,Z,States,Pars,Fmax_Hook=10):
+    """Calculates for each datapoint which state it most likely belongs too
+    Return an array with indexes referring to the State array"""
+    Ratio=ratio(States,Pars)
+    WLC=wlc(F,Pars).reshape(len(wlc(F,Pars)),1)
+    Hook=hook(F,Pars['k_pN_nm'],Fmax_Hook).reshape(len(hook(F,Pars['k_pN_nm'],Fmax_Hook)),1)
+    ZState=np.array( np.multiply(WLC,(States*Pars['DNAds_nm'])) + np.multiply(Hook,(Ratio*Pars['ZFiber_nm'])) )
+    ZminState=np.subtract(ZState,Z.reshape(len(Z),1)) 
+    StateMask=np.argmin(abs(ZminState),1)        
+    return StateMask    
+    
 def fjc(f, par): 
     L_nm = par['L_bp']*par['DNAds_nm']
     b = 3 * par['kBT_pN_nm'] / (par['k_pN_nm']*L_nm)

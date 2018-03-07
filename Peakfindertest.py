@@ -16,7 +16,7 @@ import Tools
 #from scipy.optimize import curve_fit
 
 #folder = 'N:\\Rick\\Tweezer data\\2018_02_19_15x167 DNA\\data_013_Fit' #folder with chromosome sequence files (note, do not put other files in this folder)
-folder = 'P:\\NonEqData\\H1_197'
+folder = 'P:\\NonEqData\\H1_197\\Best Traces'
 #folder = 'C:\\Users\\Klaas\\Documents\\NonEquilibriumModel\\2018'
 filenames = os.listdir(folder)
 os.chdir( folder )
@@ -90,26 +90,27 @@ for Filename in filenames:
     #States=PossibleStates[Peaks]
     UnMergedStates=States
     
+    #Calculate for each datapoint which state it most likely belongs too 
+    StateMask=func.attribute2state(ForceSelected,Z_Selected,States,Pars)
+    
+    #Remove states with fewer than 3 datapoints
+    RemoveStates=func.removestates(StateMask)
+    if len(RemoveStates)>0: 
+        States=func.mergestates(States,RemoveStates)
+        StateMask=func.attribute2state(ForceSelected,Z_Selected,States,Pars)
+    
     # Merging states that are have similar mean/variance according to Welch test
     MergeStates=True
     if len(States) <1 : MergeStates=False
-    P_Cutoff=0.05                                       #Significance for merging states
-    
-    #Calculate for each datapoint which state it most likely belongs too 
-    Ratio=func.ratio(States,Pars)
-    WLC=func.wlc(ForceSelected,Pars).reshape(len(func.wlc(ForceSelected,Pars)),1)
-    Hook=func.hook(ForceSelected,Pars['k_pN_nm'],Fmax_Hook).reshape(len(func.hook(ForceSelected,Pars['k_pN_nm'],Fmax_Hook)),1)
-    ZState=np.array( np.multiply(WLC,(States*Pars['DNAds_nm'])) + np.multiply(Hook,(Ratio*Pars['ZFiber_nm'])) )
-    ZminState=np.subtract(ZState,Z_Selected.reshape(len(Z_Selected),1)) 
-    StateMask=np.argmin(abs(ZminState),1)        #Calculates the p-value of neighboring states with Welch test
+    P_Cutoff=0.05                                       #Significance for merging states    
     
     while MergeStates == True:                          #remove states untill all states are significantly different
         T_test=np.array([])                             #array for p values comparing different states
-   
+                    
         for i,x in enumerate(States):
             if i >0: 
-                Prob=stats.ttest_ind((StateMask==i)*Z_Selected,(StateMask==i-1)*Z_Selected, equal_var=False) #get two arrays for t_test
-                T_test=np.append(T_test,Prob[1])
+                Prob=stats.ttest_ind((StateMask==i)*Z_Selected,(StateMask==i-1)*Z_Selected, equal_var=True) #get two arrays for t_test
+                T_test=np.append(T_test,Prob[1])       #Calculates the p-value of neighboring states with Welch test
         
         #Merges states that are most similar, and are above the p_cutoff minimal significance t-test value
         HighP = np.argmax(T_test)

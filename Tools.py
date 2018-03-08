@@ -114,6 +114,7 @@ def handle_data(Force,Z,Z_Selected, Handles, Pars= default_pars(), Window=5):
         Z_Selected=np.delete(Z, np.argwhere(np.isnan(Z_Selected)))
     if len(Z_Selected)==0: 
         print('==> Nothing Selected!')
+        return [], []
     if Handles['Select']==0:
         ForceSelected=Force
         Z_Selected=Z
@@ -125,8 +126,6 @@ def handle_data(Force,Z,Z_Selected, Handles, Pars= default_pars(), Window=5):
         Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
         Z_Selected, ForceSelected = minforce(Z_Selected, ForceSelected, - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
     if Handles['Denoise']: Z_Selected = signal.medfilt(Z_Selected,Window)
-    if len(Z_Selected)==0: 
-        print('==> No data points left after filtering!')
     return Z_Selected, ForceSelected
 
 def minforce(tested_array,array2,test):

@@ -15,11 +15,11 @@ import Tools
 #from scipy.optimize import curve_fit
 
 #folder = 'N:\\Rick\\Tweezer data\\2018_02_19_15x167 DNA\\data_013_Fit' #folder with chromosome sequence files (note, do not put other files in this folder)
-folder = 'P:\\NonEqData\\H1_197\\Best Traces'
+folder = 'N:\\Rick\\Tweezer data\\2018_03_07 15x197 Chromatin H1\\Fit'
 #folder = 'C:\\Users\\Klaas\\Documents\\NonEquilibriumModel\\2018'
 filenames = os.listdir(folder)
 os.chdir(folder)
-Handles = {'Select':0,'Pulling':1,'DelBreaks':1,'MinForce':2.5,'MinZ':0,'MaxZ':True,'Denoise':False} 
+Handles = {'Select':1,'Pulling':1,'DelBreaks':1,'MinForce':2.5,'MinZ':0,'MaxZ':True,'Denoise':False} 
 Fmax_Hook=10
 steps , stacks = [],[] #used to save data
 plt.close() #close all references to figures still open
@@ -38,6 +38,7 @@ for Filename in filenames:
     
     #### Remove all datapoints that should not be fitted 
     Z_Selected,ForceSelected = Tools.handle_data(Force,Z,Z_Selected, Handles, Pars)
+    print (len(Z_Selected))    
     if len(Z_Selected)==0: 
         print(Filename,'==> No data points left after filtering!')
         continue

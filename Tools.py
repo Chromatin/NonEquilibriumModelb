@@ -7,6 +7,9 @@ Created on Wed Jan  3 14:52:17 2018
 #from lmfit import Parameters
 
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy import signal
+
 ##Open .dat/.fit files from magnetic tweezers
 def read_data(Filename):
     f = open(Filename, 'r')
@@ -17,7 +20,16 @@ def read_data(Filename):
     f.seek(0) #seek to beginning of the file
     data=f.readlines()[1:]
     f.close()
-    return headers,data
+    Force = np.array([])
+    Time=np.array([])
+    Z=np.array([])
+    Z_Selected=np.array([])
+    for idx,item in enumerate(data):                #Get all the data from the fitfile
+        Force=np.append(Force,float(item.split()[headers.index('F (pN)')]))
+        Time=np.append(Time,float(item.split()[headers.index('t (s)')]))
+        Z_Selected=np.append(Z_Selected,float(item.split()[headers.index('selected z (um)')])*1000)
+        Z=np.append(Z,float(item.split()[headers.index('z (um)')])*1000)
+    return Force,Time,Z,Z_Selected
 
 def read_log(Filename):
     f = open(Filename, 'r')
@@ -51,6 +63,7 @@ def plot_fe(f_array,z_array, units = 'nm'):
     plt.show()
 
 def default_pars():
+    """Default fitting parameters, returns a {dict} with 'key'= paramvalue"""
     par = {}
     par['L_bp']=3040
     par['P_nm'] =50
@@ -59,6 +72,7 @@ def default_pars():
     par['z0_nm'] =0
     par['N_tot'] =0
     par['N4'] =0
+    par['NRL_bp'] =167
     par['k_pN_nm'] =1
     par['G1_kT'] =3
     par['G2_kT'] =4
@@ -71,6 +85,7 @@ def default_pars():
     return par
 
 def log_pars(LogFile):
+    """Reads in parameters from the logfile generate by the labview fitting program, returns a {dict} with 'key'= paramvalue"""
     par = {}
     par['L_bp'] =float(find_param(LogFile, 'L DNA (bp)'))
     par['P_nm'] =float(find_param(LogFile, 'p DNA (nm)'))
@@ -92,5 +107,56 @@ def log_pars(LogFile):
     par['FiberStart_bp']=par['Fiber0_bp']-par['LFiber_bp']
     return par
 
+def handle_data(Force,Z,Z_Selected, Handles, Pars= default_pars(), Window=5):
+    """Reads in parameters from the logfile generate by the labview fitting program"""
+    if Handles['Select'] == 1:                                 #If only the selected column is use do this
+        ForceSelected = np.delete(Force, np.argwhere(np.isnan(Z_Selected)))
+        Z_Selected=np.delete(Z, np.argwhere(np.isnan(Z_Selected)))
+    if len(Z_Selected)==0: 
+        print('==> Nothing Selected!')
+    if Handles['Select']==0:
+        ForceSelected=Force
+        Z_Selected=Z
+    if Handles['Pulling']: ForceSelected,Z_Selected = removerelease(ForceSelected,Z_Selected)
+    if Handles['DelBreaks']: ForceSelected,Z_Selected = breaks(ForceSelected,Z_Selected, 1000)
+    if Handles['MinForce'] > 0: ForceSelected,Z_Selected = minforce(ForceSelected,Z_Selected,Handles['MinForce'])
+#    Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, MinZ) #remove data below Z=0
+    if Handles['MaxZ'] == True:  #Remove all datapoints after max extension
+        Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
+        Z_Selected, ForceSelected = minforce(Z_Selected, ForceSelected, - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
+    if Handles['Denoise']: Z_Selected = signal.medfilt(Z_Selected,Window)
+    if len(Z_Selected)==0: 
+        print('==> No data points left after filtering!')
+    return Z_Selected, ForceSelected
+
+def minforce(tested_array,array2,test):
+    Curingtest=np.array([])
+    for i,x in enumerate(tested_array):
+        if x < test:
+            Curingtest=np.append(Curingtest,i)
+    tested_array=np.delete(tested_array, Curingtest)
+    array2=np.delete(array2,Curingtest)
+    return tested_array,array2
+
+def breaks(ForceSelected,Z_Selected, test=500):
+    test=Z_Selected[0]
+    for i,x in enumerate(Z_Selected[1:]):
+        if abs(x - test) > 500 :
+            ForceSelected=ForceSelected[:i]
+            Z_Selected=Z_Selected[:i] 
+            break
+        test=x
+    return ForceSelected, Z_Selected 
+
+def removerelease(ForceSelected,Z_Selected):
+    test=0
+    Pullingtest=np.array([])
+    for i,x in enumerate(ForceSelected):
+        if x < test:
+            Pullingtest=np.append(Pullingtest,i)
+        test=x
+    ForceSelected=np.delete(ForceSelected, Pullingtest)
+    Z_Selected=np.delete(Z_Selected,Pullingtest)
+    return ForceSelected, Z_Selected 
 #LogFile = ReadLog("D:\\Klaas\\Tweezers\\Reconstituted chromatin\\ChromState\\2017_10_20_167x15\\Analysis\\15x167 FC1_data_006_40.log")
 #Lc=FindParam(LogFile,"N nuc")

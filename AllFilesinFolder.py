@@ -4,12 +4,11 @@ Created on Mon Jan 22 11:52:49 2018
 
 @author: nhermans
 """
-import os #filenames
+import os 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 from scipy import stats
-#from scipy.special import erf
 import Functions as func
 import Tools
 #import peakdetect as pk
@@ -19,14 +18,8 @@ import Tools
 folder = 'P:\\NonEqData\\H1_197\\Best Traces'
 #folder = 'C:\\Users\\Klaas\\Documents\\NonEquilibriumModel\\2018'
 filenames = os.listdir(folder)
-os.chdir( folder )
-
-Select=0 #1 for Selected Data, 0 for all data
-Pulling = 1 #1 for only pulling data
-DelBreaks =1 # 1 for deleting data after tether breaks
-MinForce=2.5 #only analyze data above this force
-MinZ, MaxZ = 0, True
-Denoise,Window = False , 5 #Median filter, rolling window with size
+os.chdir(folder)
+Handles = {'Select':0,'Pulling':1,'DelBreaks':1,'MinForce':2.5,'MinZ':0,'MaxZ':True,'Denoise':False} 
 Fmax_Hook=10
 steps , stacks = [],[] #used to save data
 plt.close() #close all references to figures still open
@@ -34,44 +27,17 @@ plt.close() #close all references to figures still open
 for Filename in filenames:
     if Filename[-4:] != '.fit' :
         continue
-    Headers,Data = Tools.read_data(Filename)
-    LogFile=Tools.read_log(Filename[:-4]+'.log')
+    Force,Time,Z,Z_Selected = Tools.read_data(Filename)        #loads the data from the filename
+    LogFile=Tools.read_log(Filename[:-4]+'.log')    #loads the log file with the same name
+    Pars=Tools.log_pars(LogFile)                    #Reads in all the parameters from the logfile
     
-    Pars=Tools.log_pars(LogFile)        #Reads in all the parameters from the logfile
     if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
     print(Pars['N_tot'], Filename)
-
-    Force = np.array([])
-    Time=np.array([])
-    Z=np.array([])
-    Z_Selected=np.array([])
     
-    for idx,item in enumerate(Data):                #Get all the data from the fitfile
-        Force=np.append(Force,float(item.split()[Headers.index('F (pN)')]))
-        Time=np.append(Time,float(item.split()[Headers.index('t (s)')]))
-        Z_Selected=np.append(Z_Selected,float(item.split()[Headers.index('selected z (um)')])*1000)
-        Z=np.append(Z,float(item.split()[Headers.index('z (um)')])*1000)
-    
-    #### This part removes all datapoints that should not be fitted 
-    if Select == 1:                                 #If only the selected column is use do this
-        ForceSelected = np.delete(Force, np.argwhere(np.isnan(Z_Selected)))
-        Z_Selected=np.delete(Z, np.argwhere(np.isnan(Z_Selected)))
-    if len(Z_Selected)==0: 
-        print(Filename,'==> Nothing Selected!')
-        continue    
-    if Select==0:
-        ForceSelected=Force
-        Z_Selected=Z
-    if Pulling: ForceSelected,Z_Selected = func.removerelease(ForceSelected,Z_Selected)
-    if DelBreaks: ForceSelected,Z_Selected = func.breaks(ForceSelected,Z_Selected, 1000)
-    if MinForce > 0: ForceSelected,Z_Selected=func.minforce(ForceSelected,Z_Selected,MinForce)
-#    Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, MinZ) #remove data below Z=0
-    if MaxZ == True:  #Remove all datapoints after max extension
-        MaxZ = (Pars['L_bp']+100)*Pars['DNAds_nm']
-        Z_Selected, ForceSelected = func.minforce(Z_Selected, ForceSelected, - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
-    if Denoise: Z_Selected=signal.medfilt(Z_Selected,Window)
+    #### Remove all datapoints that should not be fitted 
+    Z_Selected,ForceSelected = Tools.handle_data(Force,Z,Z_Selected, Handles, Pars)
     if len(Z_Selected)==0: 
         print(Filename,'==> No data points left after filtering!')
         continue
@@ -80,13 +46,9 @@ for Filename in filenames:
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)                                #range to fit 
     ProbSum=func.probsum(ForceSelected, Z_Selected, PossibleStates, Pars)   #Calculate probability landscape
     PeakInd,Peak=func.findpeaks(ProbSum, 25)                                #Find Peaks
-    Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30))               #numpy peakfinder
+    #Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30))               #numpy peakfinder
     #Peaks = pk.peakdetect(ProbSum, PossibleStates, 42)[0]
-    #Peaks = np.array(Peaks)
-    #Peaks=Peaks.astype(int)
-    #States2 = Peaks[:,0] 
-    #Defines state for each peak
-    States=PossibleStates[PeakInd]
+    States=PossibleStates[PeakInd]                                          #Defines state for each peak
     #States=PossibleStates[Peaks]
         
     #Calculate for each datapoint which state it most likely belongs too 
@@ -128,8 +90,8 @@ for Filename in filenames:
         if MergeStates:
             #find value for merged state with gaus fit / mean
             StateProbSum = func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
-            States[HighP] = PossibleStates[np.argmax(StateProbSum)]
-            #InsertState = np.sum(PossibleStates*(StateProbSum/np.sum(StateProbSum)))
+            States[HighP] = PossibleStates[np.argmax(StateProbSum)]                     #Takes the highest value of the probability landscape
+            #InsertState = np.sum(PossibleStates*(StateProbSum/np.sum(StateProbSum)))    #Calculates the mean
             #Fit a Guass:
 #            mean = sum(PossibleStates[StateProbSum != 0]*StateProbSum[StateProbSum != 0])/len(StateProbSum[StateProbSum != 0])                   
 #            sigma = sum(PossibleStates[StateProbSum != 0]*(StateProbSum[StateProbSum != 0]-mean)**2)/len(StateProbSum[StateProbSum != 0])
@@ -141,7 +103,7 @@ for Filename in filenames:
             StateProbSum = func.probsum(ForceSelected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
             States[i] = PossibleStates[np.argmax(StateProbSum)]
     
-    #Ca Pars['L_bp']ulates stepsize
+    #Calculates stepsize
     Unwrapsteps=[]
     Stacksteps=[]
     for x in States:

@@ -6,6 +6,7 @@ Created on Wed Jan  3 13:44:01 2018
 """
 import numpy as np
 from scipy.optimize import curve_fit
+import sys
 
 kBT = 4.2 #pn/nm 
 #worm-like chain
@@ -76,36 +77,6 @@ def ratio(x, Par):
     Eindratio = Ratiomin + Ratio
     return Eindratio
 
-def minforce(tested_array,array2,test):
-    Curingtest=np.array([])
-    for i,x in enumerate(tested_array):
-        if x < test:
-            Curingtest=np.append(Curingtest,i)
-    tested_array=np.delete(tested_array, Curingtest)
-    array2=np.delete(array2,Curingtest)
-    return tested_array,array2
-
-def breaks(ForceSelected,Z_Selected, test=500):
-    test=Z_Selected[0]
-    for i,x in enumerate(Z_Selected[1:]):
-        if abs(x - test) > 500 :
-            ForceSelected=ForceSelected[:i]
-            Z_Selected=Z_Selected[:i] 
-            break
-        test=x
-    return ForceSelected, Z_Selected 
-
-def removerelease(ForceSelected,Z_Selected):
-    test=0
-    Pullingtest=np.array([])
-    for i,x in enumerate(ForceSelected):
-        if x < test:
-            Pullingtest=np.append(Pullingtest,i)
-        test=x
-    ForceSelected=np.delete(ForceSelected, Pullingtest)
-    Z_Selected=np.delete(Z_Selected,Pullingtest)
-    return ForceSelected, Z_Selected 
-
 def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
@@ -151,6 +122,10 @@ def mergestates(States,MergeStates):
 def attribute2state(F,Z,States,Pars,Fmax_Hook=10):
     """Calculates for each datapoint which state it most likely belongs too
     Return an array with indexes referring to the State array"""
+    if len(States) <1:
+        print('No States were found')
+        return False
+        #sys.exit('No States were found')
     Ratio=ratio(States,Pars)
     WLC=wlc(F,Pars).reshape(len(wlc(F,Pars)),1)
     Hook=hook(F,Pars['k_pN_nm'],Fmax_Hook).reshape(len(hook(F,Pars['k_pN_nm'],Fmax_Hook)),1)
@@ -160,6 +135,7 @@ def attribute2state(F,Z,States,Pars,Fmax_Hook=10):
     return StateMask    
     
 def fjc(f, par): 
+    """calculates a Freely Jointed Chain with a kungslength of b""" 
     L_nm = par['L_bp']*par['DNAds_nm']
     b = 3 * par['kBT_pN_nm'] / (par['k_pN_nm']*L_nm)
     x = f * b / par['kBT_pN_nm']

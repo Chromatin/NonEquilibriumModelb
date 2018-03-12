@@ -82,8 +82,7 @@ def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
     F is the Force Data, 
     Z is the Extension Data (needs to have the same size as F)
     Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
-    States = np.tile(PossibleStates,(len(F),1))
-    States = np.transpose(States)
+    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
     Ratio = ratio(PossibleStates, Par)
     Ratio = np.tile(Ratio,(len(F),1))
     Ratio = np.transpose(Ratio)
@@ -101,7 +100,7 @@ def gaus(x,amp,x0,sigma):
     """1D Gaussian"""
     return amp*np.exp(-(x-x0)**2/(2*sigma**2))
 
-def removestates(StateMask, n=2):
+def removestates(StateMask, n=5):
     """Removes states with less than n data points, returns indexes of states to be removed"""
     RemoveStates = np.array([])
     for i in np.arange(0,np.amax(StateMask),1):
@@ -125,13 +124,12 @@ def attribute2state(F,Z,States,Pars,Fmax_Hook=10):
     if len(States) <1:
         print('No States were found')
         return False
-        #sys.exit('No States were found')
     Ratio = ratio(States,Pars)
     WLC = wlc(F,Pars).reshape(len(wlc(F,Pars)),1)
     Hook = hook(F,Pars['k_pN_nm'],Fmax_Hook).reshape(len(hook(F,Pars['k_pN_nm'],Fmax_Hook)),1)
     ZState = np.array( np.multiply(WLC,(States*Pars['DNAds_nm'])) + np.multiply(Hook,(Ratio*Pars['ZFiber_nm'])) )
     ZminState = np.subtract(ZState,Z.reshape(len(Z),1)) 
-    StateMask = np.argmin(abs(ZminState),1)        
+    StateMask = np.argmin(abs(ZminState),1)       
     return StateMask    
     
 def fjc(f, par): 

@@ -69,16 +69,17 @@ for Filename in filenames:
     P_Cutoff = 0.05                                                             #Significance for merging states    
     
     while MergeStates:                                                          #remove states untill all states are significantly different
-        T_test = np.array([])                                                   #array for p values comparing different states
+        T_test = np.array([])
+        CrossCor = np.array([])                                                 #array for Crosscorr values comparing different states
         for i,j in enumerate(States):
             if i > 0:               
                 Prob = stats.ttest_ind((StateMask==i)*Z_Selected,(StateMask==i-1)*Z_Selected, equal_var=False) #get two arrays for t_test
                 T_test = np.append(T_test,Prob[1])                             #Calculates the p-value of neighboring states with Welch test
-             
+
         if len(T_test)==0: 
             MergeStates = False            
             continue
-        
+                      
         #Merges states that are most similar, and are above the p_cutoff minimal significance t-test value
         HighP = np.argmax(T_test)
         if T_test[HighP] > P_Cutoff:                                            #Merge the highest p-value states
@@ -91,9 +92,7 @@ for Filename in filenames:
             Z_NewState = (StateMask == HighP) * Z_Selected                      #Get all the data for this state to recalculate mean    
         else:
             MergeStates = False  # Stop merging states
-        
-
-        """                  
+               
         #calculate the number of L_unrwap for the new state
         if MergeStates:
             #find value for merged state with gaus fit / mean
@@ -106,7 +105,7 @@ for Filename in filenames:
             Z_NewState = (StateMask == i) * Z_Selected    
             StateProbSum = func.probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
             States[i] = PossibleStates[np.argmax(StateProbSum)]
-        """
+
     
     #Calculates stepsize
     Unwrapsteps = []

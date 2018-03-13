@@ -96,7 +96,7 @@ def default_pars():
     par['DNAds_nm']= 0.34 # rise per basepair (nm)
     par['kBT_pN_nm']= 4.2 #pn/nm 
     par['Innerwrap_bp'] = 79 #number of basepairs in the inner turn wrap
-    par['Fiber0_bp']  =par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
+    par['Fiber0_bp']  = par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
     par['LFiber_bp'] = (par['N_tot']-par['N4'])*(par['NRL_bp']-par['Innerwrap_bp'])  #total number of bp in the fiber
     par['FiberStart_bp'] = par['Fiber0_bp']-par['LFiber_bp'] #DNA handles
     return par

@@ -5,6 +5,9 @@ Created on Mon Jan 22 11:52:49 2018
 @author: nhermans
 """
 import os 
+import matplotlib
+matplotlib.rcParams['text.usetex'] = True
+matplotlib.rcParams['text.latex.unicode'] = True
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
@@ -121,34 +124,35 @@ for Filename in filenames:
     if len(Stacksteps)>0: stacks.extend(Stacksteps)
     #Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
     
-    # this plots the FE curve
+    # this plots the Force-Extension curve
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(1, 2, 1)
     ax2 = fig1.add_subplot(1, 2, 2)
     fig1.suptitle(Filename, y=1)
-    ax1.set_xlabel('Extension [nm]'), ax2.set_xlabel('Free basepairs')
-    ax1.set_ylabel('Force [pN]'), ax2.set_ylabel('Probability [AU]')
-    ax1.scatter(Z,Force, color="grey",s=1)
-    ax1.scatter(Z_Selected,F_Selected, color="blue", s=1)
-    ax2.set_xlim([0, Pars['L_bp']+50])    
+    ax1.set_xlabel(r"\textbf{Extension} (nm)"), ax2.set_xlabel(r"Free base pair")
+    ax1.set_ylabel(r'Force (pN)'), ax2.set_ylabel(r'Probability (AU)')
+    ax1.scatter(Z,Force, c=Time, cmap='gray', lw=0.1, s=5)
+    ax1.scatter(Z_Selected,F_Selected, color="blue", s=1)   
     ax2.plot(PossibleStates,ProbSum)
     ax2.scatter(PossibleStates[(PeakInd)],Peak)
-    #ax2.scatter(Peaks[:,0],Peaks[:,1], color="orange")
-    #ax1.set_xlim([-100, Pars['L_bp']/2.8])
-    #ax1.set_ylim([-4,25])
+    ax1.set_xlim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
+    ax1.set_ylim([np.min(Force)-0.1*np.max(Force), np.max(Force)+0.1*np.max(Force)])
+    ax2.set_xlim([np.min(PossibleStates)-0.1*np.max(PossibleStates), np.max(PossibleStates)+0.1*np.max(PossibleStates)])
 
     # this plots the Timetrace    
     fig2 = plt.figure()    
     ax3 = fig2.add_subplot(1, 2, 1)
     ax4 = fig2.add_subplot(1, 2, 2, sharey=ax3)
     fig2.suptitle(Filename, y=1)
-    ax3.set_xlabel('time [sec]'), ax4.set_xlabel('Probability [AU]')
-    ax3.set_ylabel('Extension [bp nm]')
+    ax3.set_xlabel(r'time (s)'), ax4.set_xlabel(r'Probability (AU)')
+    ax3.set_ylabel(r'Extension (bp nm)')
     ax3.set_ylim([0, Pars['L_bp']*Pars['DNAds_nm']+100])
-    ax3.scatter(Time,Z, color='grey', s=1)
+    ax3.scatter(Time,Z,  c=Time, cmap='gray', lw=0.1, s=5)
     ax3.scatter(T_Selected, Z_Selected, color='blue', s=1)
     ax4.plot(ProbSum,PossibleStates*Pars['DNAds_nm'])
     ax4.scatter(Peak,PossibleStates[(PeakInd)]*Pars['DNAds_nm'], color='blue', s=1)
+    ax3.set_xlim([np.min(Time)-0.1*np.max(Time), np.max(Time)+0.1*np.max(Time)])
+    ax3.set_ylim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
     
     for x in States:
         Ratio = func.ratio(x,Pars)
@@ -163,7 +167,6 @@ for Filename in filenames:
         ax1.plot(Fit,Force, alpha=0.1, linestyle=':')
         ax3.plot(Time,Fit, alpha=0.1, linestyle=':')
 
-   
     fig1.tight_layout()
     #fig1.savefig(Filename[0:-4]+'FoEx_all.png', dpi=800)
     fig1.show()

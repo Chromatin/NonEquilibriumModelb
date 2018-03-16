@@ -48,7 +48,7 @@ for Filename in filenames:
     ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars)     #Calculate probability landscape
     PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks
     States = PossibleStates[PeakInd]                                            #Defines state for each peak
-    
+     
     """The numpy peakfinder may find more peaks"""
     #Peaks = signal.find_peaks_cwt(ProbSum, np.arange(2.5,30))                  #numpy peakfinder    
     #States=PossibleStates[Peaks]
@@ -62,6 +62,64 @@ for Filename in filenames:
         States = np.delete(States, RemoveStates)
         StateMask = func.attribute2state(F_Selected, Z_Selected, States, Pars)
     
+    """
+    ######################################################################################
+    ####################Trying to define groups of datapoints    
+    UnMergedStates = States       
+    
+    Z_Dist = np.array([])
+    Z_Selected_Sorted = np.sort(Z_Selected)                                     #Sort from low to high Z
+    F_Selected_Sorted = np.sort(F_Selected)    
+    for i, j in enumerate(Z_Selected):                                          #Calc relative Z
+            Z_Dist = np.append(Z_Dist, Z_Selected_Sorted[i] - Z_Selected_Sorted[i-1])
+    
+    Z_DistMask = (abs(Z_Dist) < 6)*1                                            #if dZ < 6 its a 'jump'
+    
+    fig0 = plt.figure() 
+    ax0 = fig0.add_subplot(1,1,1)
+    ax0.scatter(Z,Force, c=Time, cmap='gray', lw=0.1, s=5)    
+    ax0.scatter(Z_DistMask*np.max(Z_Selected), F_Selected, s=4, lw=0, color='blue', label=r'D \< 5')
+    ax0.scatter(Z_Selected, F_Selected, s=4, lw=0, color='red', label=r'Z_Selected/600')
+    l = 0
+    NewStates = np.array([])    
+    for i,j in enumerate(Z_DistMask):
+        if j==0:
+            plt.hlines(F_Selected[i], 0, np.max(Z_Selected), linestyles=':')
+            k=i
+            if len(Z_Selected[l:k])>8:                                         #Number of datapoints in a state
+                State = States[np.argmin(np.abs(States*Pars['DNAds_nm']-np.average(Z_Selected_Sorted[l:k])))]            
+                plt.vlines(np.average(Z_Selected_Sorted[l:k]), np.min(F_Selected_Sorted[l:k]), np.max(F_Selected_Sorted[l:k]), linestyles=':', color='blue', lw=5)
+                plt.hlines(np.average(F_Selected_Sorted[l:k]), np.min(Z_Selected_Sorted[l:k]), np.max(Z_Selected_Sorted[l:k]), linestyles=':', color='blue', lw=5)
+                print(np.abs(States*Pars['DNAds_nm']-np.average(Z_Selected_Sorted[l:k])))                
+                NewStates = np.append(NewStates, State)
+            l=i
+    if len(Z_Selected_Sorted[l:])>10:
+        plt.vlines(np.average(Z_Selected_Sorted[l:k]), np.min(F_Selected_Sorted[l:]), np.max(F_Selected_Sorted[l:]), linestyles=':', color='blue', lw=5)
+        plt.hlines(np.average(F_Selected_Sorted[l:k]), np.min(Z_Selected_Sorted[l:]), np.max(Z_Selected_Sorted[l:]), linestyles=':', color='blue', lw=5)
+        State = States[np.argmin(np.abs(States*Pars['DNAds_nm']-np.average(Z_Selected_Sorted[l:])))]
+        NewStates = np.append(NewStates, State)        
+    
+    for x in NewStates:
+        Ratio = func.ratio(x,Pars)
+        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        ax0.plot(Fit,Force, alpha=0.9, linestyle='-.')
+    
+    for x in UnMergedStates:
+        Ratio = func.ratio(x,Pars)
+        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        ax0.plot(Fit,Force, alpha=0.1, linestyle=':')
+            
+    ax0.legend()
+    ax0.set_ylabel(r'\textbf{Force} (pN)')
+    ax0.set_xlabel(r"\textbf{Extension} (nm)")    
+    ax0.set_title('Finding groups by looking at distances')
+    ax0.set_ylim(0,10)
+    ax0.set_xlim(0,1200)
+    
+    fig0.show()    
+    #######################################################################################
+    """   
+    
     # Merging states that are have similar mean/variance according to Welch test
     UnMergedStates = States                                                     #Used to co-plot the initial states found
     if len(States) > 1:
@@ -70,7 +128,7 @@ for Filename in filenames:
         MergeStates = False
     
     P_Cutoff = 0.05                                                             #Significance for merging states    
-    
+
     while MergeStates:                                                          #remove states untill all states are significantly different
         T_test = np.array([])
         CrossCor = np.array([])                                                 #array for Crosscorr values comparing different states
@@ -108,8 +166,7 @@ for Filename in filenames:
             Z_NewState = (StateMask == i) * Z_Selected    
             StateProbSum = func.probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
             States[i] = PossibleStates[np.argmax(StateProbSum)]
-
-    
+            
     #Calculates stepsize
     Unwrapsteps = []
     Stacksteps = []
@@ -123,21 +180,22 @@ for Filename in filenames:
     if len(Unwrapsteps)>0: steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: stacks.extend(Stacksteps)
     #Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
-    
+        
     # this plots the Force-Extension curve
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(1, 2, 1)
-    ax2 = fig1.add_subplot(1, 2, 2)
+    ax2 = fig1.add_subplot(1, 2, 2, sharex=ax1)
     fig1.suptitle(Filename, y=1)
-    ax1.set_xlabel(r"\textbf{Extension} (nm)"), ax2.set_xlabel(r"\textbf{Free base pair}")
-    ax1.set_ylabel(r'\textbf{Force} (pN)'), ax2.set_ylabel(r'Probability (AU)')
+    ax1.set_xlabel(r"\textbf{Extension} (nm)"), ax2.set_xlabel(r"\textbf{Free base pair} (nm)") #(nm) should be removed
+    ax1.set_ylabel(r'\textbf{Force} (pN)'), ax2.set_ylabel(r'\textbf{Probability} (AU)')
     ax1.scatter(Z,Force, c=Time, cmap='gray', lw=0.1, s=5)
     ax1.scatter(Z_Selected,F_Selected, color="blue", s=1)   
-    ax2.plot(PossibleStates,ProbSum)
-    ax2.scatter(PossibleStates[(PeakInd)],Peak)
+    ax2.plot(0.34*PossibleStates,ProbSum)                                       #*0.34 should be removed
+    ax2.scatter(0.34*PossibleStates[(PeakInd)],Peak)                            #*0.34 should be removed
     ax1.set_xlim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
     ax1.set_ylim([np.min(Force)-0.1*np.max(Force), np.max(Force)+0.1*np.max(Force)])
-    ax2.set_xlim([np.min(PossibleStates)-0.1*np.max(PossibleStates), np.max(PossibleStates)+0.1*np.max(PossibleStates)])
+    #ax2.set_xlim([np.min(PossibleStates)-0.1*np.max(PossibleStates), np.max(PossibleStates)+0.1*np.max(PossibleStates)])
+    
 
     # this plots the Timetrace    
     fig2 = plt.figure()    
@@ -169,7 +227,7 @@ for Filename in filenames:
 
     fig1.tight_layout()
     #fig1.savefig(Filename[0:-4]+'FoEx_all.png', dpi=800)
-    fig1.show()
+    fig1.show()  
     fig2.tight_layout()
     #fig2.savefig(Filename[0:-4]+'Time_all.png', dpi=800)    
     fig2.show()
@@ -180,11 +238,11 @@ for Filename in filenames:
 #Stepsize,Sigma=func.fit_pdf(steps)
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,1,1)
-ax5.hist(steps,  bins = 50, range = [50,250] )
-ax5.hist(stacks, bins = 50, range = [50,250])
+ax5.hist(steps,  bins = 50, range = [50,250], label='25 nm steps')
+ax5.hist(stacks, bins = 50, range = [50,250], label='Stacking transitions')
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
 ax5.set_title("Histogram stepsizes in bp")
-ax5.legend(['25 nm steps', 'Stacking transitions'])
+ax5.legend()
 #fig3.savefig('hist.png')
 fig3.show()

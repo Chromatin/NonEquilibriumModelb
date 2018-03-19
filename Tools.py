@@ -60,11 +60,11 @@ def log_pars(LogFile):
     par['N_tot'] = float(find_param(LogFile, 'N nuc'))
     par['N4'] = float(find_param(LogFile, 'N unfolded [F0]'))
     par['NRL_bp'] = float(find_param(LogFile, 'NRL (bp)'))
-    par['ZFiber_nm']= float(find_param(LogFile, 'l folded (nm)'))
+    par['ZFiber_nm'] = float(find_param(LogFile, 'l folded (nm)'))
     par['G1_kT'] = 3
     par['G2_kT'] = 4
-    par['DNAds_nm']= 0.34 # rise per basepair (nm)
-    par['kBT_pN_nm']= 4.2 #pn/nm 
+    par['DNAds_nm'] = 0.34 # rise per basepair (nm)
+    par['kBT_pN_nm'] = 4.2 #pn/nm 
     par['Innerwrap_bp'] = 79 #number of basepairs in the inner turn wrap
     par['Fiber0_bp'] = par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
     par['LFiber_bp'] = (par['N_tot']-par['N4'])*(par['NRL_bp']-par['Innerwrap_bp'])  #total number of bp in the fiber
@@ -93,8 +93,8 @@ def default_pars():
     par['k_pN_nm'] = 1
     par['G1_kT'] = 3
     par['G2_kT'] = 4
-    par['DNAds_nm']= 0.34 # rise per basepair (nm)
-    par['kBT_pN_nm']= 4.2 #pn/nm 
+    par['DNAds_nm'] = 0.34 # rise per basepair (nm)
+    par['kBT_pN_nm'] = 4.2 #pn/nm 
     par['Innerwrap_bp'] = 79 #number of basepairs in the inner turn wrap
     par['Fiber0_bp']  = par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
     par['LFiber_bp'] = (par['N_tot']-par['N4'])*(par['NRL_bp']-par['Innerwrap_bp'])  #total number of bp in the fiber
@@ -141,7 +141,7 @@ def removerelease(ForceSelected,Z_Selected):
     return ForceSelected, Z_Selected 
 
 def breaks(ForceSelected,Z_Selected, test=500):
-    test=Z_Selected[0]
+    test = Z_Selected[0]
     for i,x in enumerate(Z_Selected[1:]):
         if abs(x - test) > 500 :
             ForceSelected = ForceSelected[:i]

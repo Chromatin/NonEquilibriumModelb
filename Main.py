@@ -42,10 +42,12 @@ for Filename in filenames:
     if len(Z_Selected)<10:  
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
+    
+    Filename = Filename.replace('_', '\_')                                      #Right format for the plot headers
 
     #Generate FE curves for possible states
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)    #range to fit 
-    ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars)     #Calculate probability landscape
+    ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars)        #Calculate probability landscape
     PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks
     States = PossibleStates[PeakInd]                                            #Defines state for each peak
      
@@ -61,41 +63,44 @@ for Filename in filenames:
     if len(RemoveStates)>0:
         States = np.delete(States, RemoveStates)
         StateMask = func.attribute2state(F_Selected, Z_Selected, States, Pars)
-    
-    """
-    ######################################################################################
-    ####################Trying to define groups of datapoints    
+
+    ###########################################################################################################################
+    ##############################Trying to define groups of datapoints manually
     UnMergedStates = States       
     
     Z_Dist = np.array([])
     Z_Selected_Sorted = np.sort(Z_Selected)                                     #Sort from low to high Z
     F_Selected_Sorted = np.sort(F_Selected)    
-    for i, j in enumerate(Z_Selected):                                          #Calc relative Z
+    ZF_Selected = np.vstack((Z_Selected, F_Selected)).T
+    
+    for i, j in enumerate(Z_Selected_Sorted):                                   #Calc relative Z
             Z_Dist = np.append(Z_Dist, Z_Selected_Sorted[i] - Z_Selected_Sorted[i-1])
     
-    Z_DistMask = (abs(Z_Dist) < 6)*1                                            #if dZ < 6 its a 'jump'
+    Z_DistMask = (abs(Z_Dist) < 6)*1                                            #if dZ > 6 its a 'jump' to a different state
+    
     
     fig0 = plt.figure() 
-    ax0 = fig0.add_subplot(1,1,1)
-    ax0.scatter(Z,Force, c=Time, cmap='gray', lw=0.1, s=5)    
+    ax0 = fig0.add_subplot(1,2,1)
+    ax00 = fig0.add_subplot(1,2,2, sharex=ax0, sharey=ax0)
+    ax0.scatter(Z, Force, color='grey', lw=0.1, s=5, alpha=0.5)    
     ax0.scatter(Z_DistMask*np.max(Z_Selected), F_Selected, s=4, lw=0, color='blue', label=r'D \< 5')
-    ax0.scatter(Z_Selected, F_Selected, s=4, lw=0, color='red', label=r'Z_Selected/600')
+    ax0.scatter(Z_Selected, F_Selected, s=4, lw=0, color='red', label=r'Z_{Selected}')
+    ax0.scatter(Z_Selected_Sorted, F_Selected_Sorted, s=4, lw=0, color='orange', label=r'Z_{Selected_{sorted}}')
     l = 0
     NewStates = np.array([])    
     for i,j in enumerate(Z_DistMask):
         if j==0:
-            plt.hlines(F_Selected[i], 0, np.max(Z_Selected), linestyles=':')
+            ax0.hlines(F_Selected[i], 0, np.max(Z_Selected), linestyles=':')
             k=i
-            if len(Z_Selected[l:k])>8:                                         #Number of datapoints in a state
+            if len(Z_Selected[l:k])>=5:                                         #Minimum number of datapoints in a state
                 State = States[np.argmin(np.abs(States*Pars['DNAds_nm']-np.average(Z_Selected_Sorted[l:k])))]            
-                plt.vlines(np.average(Z_Selected_Sorted[l:k]), np.min(F_Selected_Sorted[l:k]), np.max(F_Selected_Sorted[l:k]), linestyles=':', color='blue', lw=5)
-                plt.hlines(np.average(F_Selected_Sorted[l:k]), np.min(Z_Selected_Sorted[l:k]), np.max(Z_Selected_Sorted[l:k]), linestyles=':', color='blue', lw=5)
-                print(np.abs(States*Pars['DNAds_nm']-np.average(Z_Selected_Sorted[l:k])))                
+                ax0.vlines(np.average(Z_Selected_Sorted[l:k]), np.min(F_Selected_Sorted[l:k]), np.max(F_Selected_Sorted[l:k]), linestyles=':', color='blue', lw=2)
+                ax0.hlines(np.average(F_Selected_Sorted[l:k]), np.min(Z_Selected_Sorted[l:k]), np.max(Z_Selected_Sorted[l:k]), linestyles=':', color='blue', lw=2)              
                 NewStates = np.append(NewStates, State)
             l=i
-    if len(Z_Selected_Sorted[l:])>10:
-        plt.vlines(np.average(Z_Selected_Sorted[l:k]), np.min(F_Selected_Sorted[l:]), np.max(F_Selected_Sorted[l:]), linestyles=':', color='blue', lw=5)
-        plt.hlines(np.average(F_Selected_Sorted[l:k]), np.min(Z_Selected_Sorted[l:]), np.max(Z_Selected_Sorted[l:]), linestyles=':', color='blue', lw=5)
+    if len(Z_Selected_Sorted[l:])>=5:
+        ax0.vlines(np.average(Z_Selected_Sorted[l:k]), np.min(F_Selected_Sorted[l:]), np.max(F_Selected_Sorted[l:]), linestyles=':', color='blue', lw=2)
+        ax0.hlines(np.average(F_Selected_Sorted[l:k]), np.min(Z_Selected_Sorted[l:]), np.max(Z_Selected_Sorted[l:]), linestyles=':', color='blue', lw=2)
         State = States[np.argmin(np.abs(States*Pars['DNAds_nm']-np.average(Z_Selected_Sorted[l:])))]
         NewStates = np.append(NewStates, State)        
     
@@ -109,16 +114,63 @@ for Filename in filenames:
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ax0.plot(Fit,Force, alpha=0.1, linestyle=':')
             
+
+    ##############################Using DBSCAN to find groups of datapoints
+    from sklearn.cluster import DBSCAN
+
+    # Compute DBSCAN
+    db = DBSCAN(eps=10, min_samples=7).fit(ZF_Selected)
+    core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+    core_samples_mask[db.core_sample_indices_] = True
+    labels = db.labels_
+    
+    unique_labels = set(labels)
+
+    Av = np.empty(shape=[0, 2])
+
+    colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
+    for k, col in zip(unique_labels, colors):
+        if k == -1:
+           col = [0, 0, 0, 1] # Black used for noise.  
+    
+        class_member_mask = (labels == k)
+    
+        xy = ZF_Selected[class_member_mask & core_samples_mask]
+        ax00.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=7)
+        
+        Av = np.append(Av, [np.array([np.average(xy[:,0]),np.average(xy[:, 1])])], axis=0)
+
+        xy = ZF_Selected[class_member_mask & ~core_samples_mask]
+        ax00.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=4)
+    
+ 
+    Av = np.delete(Av, -1, 0)                                                   #Remove NAN in last row
+
+    ax00.scatter(Av[:,0], Av[:,1], s=500, marker='x', zorder=1)    
+    ax00.scatter(Z,Force, color='grey', lw=0.1, s=5, alpha=0.5)    
+    
+    for x in States:
+        Ratio = func.ratio(x,Pars)
+        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        ax00.plot(Fit,Force, alpha=0.9, linestyle=':')
+    
+    
+    ax00.set_title(r'Clusters Bound by DBscan')
+    ax00.set_ylabel(r'\textbf{Force} (pN)')
+    ax00.set_xlabel(r"\textbf{Extension} (nm)")     
+    
     ax0.legend()
     ax0.set_ylabel(r'\textbf{Force} (pN)')
     ax0.set_xlabel(r"\textbf{Extension} (nm)")    
-    ax0.set_title('Finding groups by looking at distances')
-    ax0.set_ylim(0,10)
-    ax0.set_xlim(0,1200)
+    ax0.set_title('Clusters Found Manually')
+    ax0.set_ylim(0,np.max(F_Selected)+.1*np.max(F_Selected))
+    ax0.set_xlim(0,np.max(Z_Selected)+.1*np.max(Z_Selected))
     
-    fig0.show()    
-    #######################################################################################
-    """   
+    fig0.suptitle(Filename, y=.99)
+    fig0.show()  
+    
+    ###########################################################################################################################
+  
     
     # Merging states that are have similar mean/variance according to Welch test
     UnMergedStates = States                                                     #Used to co-plot the initial states found
@@ -185,7 +237,9 @@ for Filename in filenames:
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(1, 2, 1)
     ax2 = fig1.add_subplot(1, 2, 2, sharex=ax1)
-    fig1.suptitle(Filename, y=1)
+    fig1.suptitle(Filename, y=.99)
+    ax1.set_title(" ")
+    ax2.set_title(" ")
     ax1.set_xlabel(r"\textbf{Extension} (nm)"), ax2.set_xlabel(r"\textbf{Free base pair} (nm)") #(nm) should be removed
     ax1.set_ylabel(r'\textbf{Force} (pN)'), ax2.set_ylabel(r'\textbf{Probability} (AU)')
     ax1.scatter(Z,Force, c=Time, cmap='gray', lw=0.1, s=5)
@@ -201,7 +255,9 @@ for Filename in filenames:
     fig2 = plt.figure()    
     ax3 = fig2.add_subplot(1, 2, 1)
     ax4 = fig2.add_subplot(1, 2, 2, sharey=ax3)
-    fig2.suptitle(Filename, y=1)
+    fig2.suptitle(Filename, y=.99)
+    ax3.set_title(" ")
+    ax4.set_title(" ")
     ax3.set_xlabel(r'\textbf{Time} (s)'), ax4.set_xlabel(r'\textbf{Probability} (AU)')
     ax3.set_ylabel(r'\textbf{Extension} (bp nm)')
     ax3.set_ylim([0, Pars['L_bp']*Pars['DNAds_nm']+100])
@@ -232,7 +288,7 @@ for Filename in filenames:
     #fig2.savefig(Filename[0:-4]+'Time_all.png', dpi=800)    
     fig2.show()
     
-    Fignum += 2
+    Fignum += 3
 
 
 #Stepsize,Sigma=func.fit_pdf(steps)

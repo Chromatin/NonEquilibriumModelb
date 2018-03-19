@@ -168,7 +168,9 @@ for Filename in filenames:
     
     fig0.suptitle(Filename, y=.99)
     fig0.show()  
+    """For next time: Try to find the states that are closest to Av by maken a 3d array containing al states that are made initially
     
+    """
     ###########################################################################################################################
   
     

@@ -48,7 +48,7 @@ for Filename in filenames:
     #Generate FE curves for possible states
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)    #range to fit 
     ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars)        #Calculate probability landscape
-    PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks
+    PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks    
     States = PossibleStates[PeakInd]                                            #Defines state for each peak
      
     """The numpy peakfinder may find more peaks"""
@@ -79,9 +79,12 @@ for Filename in filenames:
     Z_DistMask = (abs(Z_Dist) < 6)*1                                            #if dZ > 6 its a 'jump' to a different state
     
     
+   
     fig0 = plt.figure() 
     ax0 = fig0.add_subplot(1,2,1)
-    ax00 = fig0.add_subplot(1,2,2, sharex=ax0, sharey=ax0)
+    ax00 = fig0.add_subplot(1,2,2, sharex=ax0, sharey=ax0) 
+    
+    """   
     ax0.scatter(Z, Force, color='grey', lw=0.1, s=5, alpha=0.5)    
     ax0.scatter(Z_DistMask*np.max(Z_Selected), F_Selected, s=4, lw=0, color='blue', label=r'D \< 5')
     ax0.scatter(Z_Selected, F_Selected, s=4, lw=0, color='red', label=r'Z_{Selected}')
@@ -108,13 +111,7 @@ for Filename in filenames:
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ax0.plot(Fit,Force, alpha=0.9, linestyle='-.')
-    
-    for x in UnMergedStates:
-        Ratio = func.ratio(x,Pars)
-        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax0.plot(Fit,Force, alpha=0.1, linestyle=':')
-            
-
+    """
     ##############################Using DBSCAN to find groups of datapoints
     from sklearn.cluster import DBSCAN
 
@@ -125,7 +122,11 @@ for Filename in filenames:
     labels = db.labels_
     
     unique_labels = set(labels)
-
+    
+    NewStates = np.array([])
+    NewStatesZ = np.array([])
+    NewStatesF = np.array([])
+    AllStates = np.empty(shape=[len(Force),2,0])
     Av = np.empty(shape=[0, 2])
 
     colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
@@ -138,23 +139,46 @@ for Filename in filenames:
         xy = ZF_Selected[class_member_mask & core_samples_mask]
         ax00.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=7)
         
-        Av = np.append(Av, [np.array([np.average(xy[:,0]),np.average(xy[:, 1])])], axis=0)
+        if k != -1:
+            Av = np.append(Av, [np.array([np.average(xy[:,0]),np.average(xy[:, 1])])], axis=0)
 
         xy = ZF_Selected[class_member_mask & ~core_samples_mask]
         ax00.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=4)
     
- 
-    Av = np.delete(Av, -1, 0)                                                   #Remove NAN in last row
 
     ax00.scatter(Av[:,0], Av[:,1], s=500, marker='x', zorder=1)    
     ax00.scatter(Z,Force, color='grey', lw=0.1, s=5, alpha=0.5)    
     
-    for x in States:
+    for i, x in enumerate(PossibleStates):  
+        """This should be done uniteratively!!! """ 
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax00.plot(Fit,Force, alpha=0.9, linestyle=':')
-    
-    
+        ForceFit = np.vstack((Fit, Force)).T
+        AllStates = np.dstack((AllStates,ForceFit))
+#        ax00.plot(Fit,Force, alpha=0.9, linestyle=':')
+#        ax00.plot(AllStates[:,0,i], AllStates[:,1,i], alpha=0.9, linestyle=':')
+  
+    for I,J in enumerate(Av[:,0]):        
+        GemDist=np.array([])        
+        for i,j in enumerate(AllStates[0,0,:]):        
+            Dist = np.abs(np.subtract(AllStates[:,:,i], Av[I,:]))
+            Dist = np.square(Dist)
+            Dist = np.sum(Dist, axis=1)
+            GemDist = np.append(GemDist, np.min(Dist))
+        NewStates = np.append(NewStates, PossibleStates[np.argmin(GemDist)])        
+        
+    for i, col in zip(enumerate(NewStates), colors):
+        Ratio = func.ratio(i[1],Pars)
+        Fit = np.array(func.wlc(Force,Pars)*i[1]*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        ax00.plot(Fit,Force, alpha=0.9, linestyle=':', color=tuple(col))
+
+  
+    for x in UnMergedStates:
+        Ratio = func.ratio(x,Pars)
+        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        ax0.plot(Fit,Force, alpha=0.1, linestyle=':')
+        ax00.plot(Fit,Force, alpha=0.1, linestyle=':')
+  
     ax00.set_title(r'Clusters Bound by DBscan')
     ax00.set_ylabel(r'\textbf{Force} (pN)')
     ax00.set_xlabel(r"\textbf{Extension} (nm)")     
@@ -167,13 +191,12 @@ for Filename in filenames:
     ax0.set_xlim(0,np.max(Z_Selected)+.1*np.max(Z_Selected))
     
     fig0.suptitle(Filename, y=.99)
+    fig0.savefig(Filename[0:-4]+'FoEx_all.png', dpi=1000)
     fig0.show()  
-    """For next time: Try to find the states that are closest to Av by maken a 3d array containing al states that are made initially
     
-    """
     ###########################################################################################################################
   
-    
+    """    
     # Merging states that are have similar mean/variance according to Welch test
     UnMergedStates = States                                                     #Used to co-plot the initial states found
     if len(States) > 1:
@@ -304,3 +327,4 @@ ax5.set_title("Histogram stepsizes in bp")
 ax5.legend()
 #fig3.savefig('hist.png')
 fig3.show()
+"""

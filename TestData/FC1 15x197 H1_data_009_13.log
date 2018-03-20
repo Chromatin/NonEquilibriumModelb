@@ -1,0 +1,17 @@
+[Fit parameters]
+z_offset (nm) = 2220.000000
+Drift (nm/s) = 0.000000
+L DNA (bp) = 4985.000000
+p DNA (nm) = 50.000000
+S DNA (pN) = 1500.000000
+NRL (bp) = 197.000000
+N nuc = 23.000000
+l folded (nm) = 1.700000
+k folded (pN/nm) = 0.700000
+N unfolded [F0] = 8.000000
+l unwrap (bp) = 56.000000
+l extended (nm) = 5.000000
+G1 (kT) = 36.000000
+G2 (kT) = 8.000000
+G3 (kT) = 60.000000
+Degeneracy (0..1) = 1.000000

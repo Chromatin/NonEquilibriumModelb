@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import Functions as func
 import Tools
+import pickle
 from scipy import stats
 from sklearn.cluster import DBSCAN
 
@@ -20,7 +21,8 @@ filenames = os.listdir(folder)
 os.chdir(folder)
 
 Handles = Tools.Define_Handles()
-steps , stacks = [],[]                                                          #used to save data
+steps , stacks = [],[]                                                          #used to save data (T-test)
+Steps , Stacks = [],[]                                                          #used to save data (Clustering)
 Fignum = 1
 
 plt.close('all')                                                                #Close all the figures from previous sessions
@@ -44,7 +46,7 @@ for Filename in filenames:
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-#    Filename = Filename.replace('_', '\_')                                      #Right format for the plot headers
+    Filename = Filename.replace('_', '\_')                                      #Right format for the plot headers
 
     #Generate FE curves for possible states
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)    #range to fit 
@@ -66,7 +68,8 @@ for Filename in filenames:
     ZF_Selected = np.vstack((Z_Selected, F_Selected)).T
    
     #Force-Extension plot
-    fig0 = plt.figure() 
+    fig0 = plt.figure()
+    fig0.suptitle(Filename, y=.99)
     ax0 = fig0.add_subplot(1,1,1) 
     ax0.scatter(Z,Force, color='grey', lw=0.1, s=5, alpha=0.5)
 
@@ -78,7 +81,7 @@ for Filename in filenames:
     unique_labels = set(labels)
     
     NewStates = np.array([])
-    AllStates = np.empty(shape=[len(Force),2,0])
+    AllStates = np.empty(shape=[len(Force),2,len(PossibleStates)])
     Av = np.empty(shape=[0, 2])
 
     #Plotting the different clusters in different colors, also calculating the mean of each cluster
@@ -90,21 +93,23 @@ for Filename in filenames:
         class_member_mask = (labels == k)
     
         xy = ZF_Selected[class_member_mask & core_samples_mask]
-        ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=7)
+        ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=3)
         
         if k != -1:
             Av = np.append(Av, [np.array([np.mean(xy[:,0]),np.mean(xy[:, 1])])], axis=0)
 
         xy = ZF_Selected[class_member_mask & ~core_samples_mask]
-        ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=4) 
+        ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=1) 
     
     #Calculating the states that are closest to the means computed above
     for i, x in enumerate(PossibleStates):  #PossibleStates! (States is just faster for now)
-        """This should be done uniteratively!!! """ 
+        """This should be done uniteratively!!! """     
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ForceFit = np.vstack((Fit, Force)).T
-        AllStates = np.dstack((AllStates,ForceFit))
+        AllStates[:,:,i] = ForceFit        
+        print(Fignum, "out of" , int(len(filenames)/6), "is", int(i/len(PossibleStates)*100),"%")   #just to see if the programm is actually running 
+                                                                                                    #and how long it will take
   
     for I,J in enumerate(Av[:,0]):   
         """This should be done uniteratively!!! """ 
@@ -123,16 +128,12 @@ for Filename in filenames:
         ax0.plot(Fit,Force, alpha=0.9, linestyle=':', color=tuple(col))
 
   
-    ax0.set_title(r'Clusters Bound by DBscan')
+    ax0.set_title(r'Force-Extension Curve of Chromatin Fibre')
     ax0.set_ylabel(r'\textbf{Force} (pN)')
     ax0.set_xlabel(r"\textbf{Extension} (nm)")     
 #    ax0.set_ylim(0,np.max(F_Selected)+.1*np.max(F_Selected))
 #    ax0.set_xlim(0,np.max(Z_Selected)+.1*np.max(Z_Selected))
-    
-    fig0.suptitle(Filename, y=.99)
-#    fig0.savefig(Filename[0:-4]+'FoEx_all.png', dpi=1000)
-    fig0.show()  
-    
+   
     #Timetrace Plot
     fig00 = plt.figure()    
     ax00 = fig00.add_subplot(1, 1, 1)
@@ -151,8 +152,28 @@ for Filename in filenames:
         Fit = np.array(func.wlc(Force,Pars)*i[1]*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ax00.plot(Time,Fit, alpha=0.9, linestyle='-.', color=tuple(col))    
     
-#    fig00.savefig(Filename[0:-4]+'Time_all.png', dpi=1000)    
+    Filename = Filename.replace( '\_', '_')                                     #Right format to safe the figure
+    
+    
+    pickle.dump(fig0, open(Filename[0:-4]+'.FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
+    pickle.dump(fig00, open(Filename[0:-4]+'.Time_all.pickle', 'wb'))    
+    
+    fig0.savefig(Filename[0:-4]+'FoEx_all.pdf', format='pdf')
+    fig0.show()     
+    fig00.savefig(Filename[0:-4]+'Time_all.pdf', format='pdf')    
     fig00.show()
+    
+    Unwrapsteps = []
+    Stacksteps = []
+    for x in NewStates:
+        if x >= Pars['Fiber0_bp']:
+            Unwrapsteps.append(x)
+        else:
+            Stacksteps.append(x)
+    Stacksteps = np.diff(np.array(Stacksteps)) #func.state2step(Stacksteps)
+    Unwrapsteps = np.diff(np.array(Unwrapsteps)) #func.state2step(Unwrapsteps)
+    if len(Unwrapsteps)>0: Steps.extend(Unwrapsteps)
+    if len(Stacksteps)>0: Stacks.extend(Stacksteps)
     ###########################################################################################################################
   
    
@@ -272,16 +293,24 @@ for Filename in filenames:
     #fig2.savefig(Filename[0:-4]+'Time_all.png', dpi=800)    
     fig2.show()
     
-    Fignum += 3
+    Fignum += 1
 
 
 #Stepsize,Sigma=func.fit_pdf(steps)
 fig3 = plt.figure()
-ax5 = fig3.add_subplot(1,1,1)
+ax5 = fig3.add_subplot(1,2,1)
+ax6 = fig3.add_subplot(1,2,2)
 ax5.hist(steps,  bins = 50, range = [50,250], label='25 nm steps')
 ax5.hist(stacks, bins = 50, range = [50,250], label='Stacking transitions')
+ax6.hist(Steps,  bins = 50, range = [50,250], label='25 nm steps')
+ax6.hist(Stacks, bins = 50, range = [50,250], label='Stacking transitions')
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
-ax5.set_title("Histogram stepsizes in bp")
+ax5.set_title("Histogram stepsizes in bp using T-test")
 ax5.legend()
+ax6.set_xlabel('stepsize (bp)')
+ax6.set_ylabel('Count')
+ax6.set_title("Histogram stepsizes in bp using clustering")
+ax6.legend()
+fig3.tight_layout()
 #fig3.savefig('hist.png')

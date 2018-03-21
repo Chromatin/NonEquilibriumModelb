@@ -57,7 +57,7 @@ def erfaprox(x):
     return np.sign(x) * np.sqrt(1-np.exp(b))
 
 def state2step(States):
-    """Calculates distances between states"""
+    """Calculates distances between states""" #Not used atm
     States = np.array(States)
     if States.size>1:
         return States[1:]-States[0:-1]
@@ -70,7 +70,7 @@ def ratio(x, Par):
     Imputs can be arrays"""
     if Par['LFiber_bp']<0:
         return x*0
-    Ratio = (Par['LFiber_bp']-(x-Par['Fiber0_bp']))/(Par['LFiber_bp'])
+    Ratio = (Par['LFiber_bp']-(x-Par['Fiber0_bp']))/(Par['LFiber_bp']) 
     Ratiomin = Ratio>=0
     Ratio *= Ratiomin          #removes values below 0, makes them 0
     Ratiomin = Ratio >=1

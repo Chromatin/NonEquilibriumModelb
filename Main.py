@@ -37,7 +37,7 @@ for Filenum, Filename in enumerate(filenames):
     if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
-    print(int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, "&", Fignum+1, ")")
+#    print(int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, "&", Fignum+1, ")")
 
     #Remove all datapoints that should not be fitted
     Z_Selected, F_Selected, T_Selected = Tools.handle_data(Force, Z, Time, Z_Selected, Handles, Pars)

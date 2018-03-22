@@ -16,7 +16,9 @@ import pickle
 from scipy import stats
 from sklearn.cluster import DBSCAN
 
-folder = 'N:\\Rick\\Tweezer data\\Pythontestfit' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder = 'N:\\Rick\\Tweezer data\\Pythontestfit'
+folder = 'P:\\NonEqData\\H1_197\\Best Traces'
+
 filenames = os.listdir(folder)
 os.chdir(folder)
 
@@ -63,6 +65,43 @@ for Filenum, Filename in enumerate(filenames):
         States = np.delete(States, RemoveStates)
         StateMask = func.attribute2state(F_Selected, Z_Selected, States, Pars)
 
+    MergeStates=True
+    P_Cutoff=0.1
+    
+    T_test=np.array([])
+    for i, x in enumerate(States):
+        if i > 0:
+            Prob = stats.ttest_ind((StateMask == i) * Z_Selected, (StateMask == i - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
+            T_test = np.append(T_test, Prob[1])
+
+    while MergeStates == True:  # remove states untill all states are significantly different
+    
+        # Merges states that are most similar, and are above the p_cutoff minimal significance t-test value
+        HighP = np.argmax(T_test)
+        if T_test[HighP] > P_Cutoff:  # Merge the highest p-value states
+            DelState, MergedState = HighP, HighP+1
+            if sum((StateMask == HighP + 1) * 1) < sum((StateMask == HighP) * 1): 
+                DelState = HighP + 1
+                MergedState = HighP
+            #Recalculate th     
+            Prob = stats.ttest_ind((StateMask == MergedState ) * Z_Selected, (StateMask == HighP - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
+            T_test[HighP-1] = Prob[1]
+            Prob = stats.ttest_ind((StateMask == MergedState ) * Z_Selected, (StateMask == HighP - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
+            T_test[HighP+1] = Prob[1]
+            T_test=np.delete(T_test,HighP)
+            States = np.delete(States, DelState)  # deletes the state in the state array
+            StateMask = StateMask - (StateMask == HighP + 1) * 1  # merges the states in the mask
+            Z_NewState = (StateMask == HighP) * Z_Selected  # Get all the data for this state to recalculate mean
+            MergeStates = True
+        else:
+            MergeStates = False  # Stop merging states
+                   
+        #calculate the number of L_unrwap for the new state
+        if MergeStates:
+            #find value for merged state with gaus fit / mean
+            StateProbSum = func.probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
+            States[HighP] = PossibleStates[np.argmax(StateProbSum)]                     #Takes the highest value of the probability landscape
+
     ###########################################################################################################################
     #Finding groups/clusters of datapoints      
     ZF_Selected = np.vstack((Z_Selected, F_Selected)).T
@@ -107,7 +146,7 @@ for Filenum, Filename in enumerate(filenames):
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ForceFit = np.vstack((Fit, Force)).T
         AllStates[:,:,i] = ForceFit        
-        print(filenames[Filenum], "(#", Fignum, ")is at", "{0:0.1f}".format(i/len(PossibleStates)*100),"%") #Just to see if the programm is actually running 
+        #print(filenames[Filenum], "(#", Fignum, ")is at", "{0:0.1f}".format(i/len(PossibleStates)*100),"%") #Just to see if the programm is actually running 
                                                                                                             #and how long it will take
     #Calculating the states that are closest to the means computed above
     for I,J in enumerate(Av[:,0]):   
@@ -124,7 +163,6 @@ for Filenum, Filename in enumerate(filenames):
         Ratio = func.ratio(i[1],Pars)
         Fit = np.array(func.wlc(Force,Pars)*i[1]*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ax0.plot(Fit,Force, alpha=0.9, linestyle=':', color=tuple(col))
-
     ax0.set_title(r'Force-Extension Curve of Chromatin Fibre')
     ax0.set_ylabel(r'\textbf{Force} (pN)')
     ax0.set_xlabel(r"\textbf{Extension} (nm)")     
@@ -154,11 +192,12 @@ for Filenum, Filename in enumerate(filenames):
     pickle.dump(fig0, open(Filename[0:-4]+'.FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
     pickle.dump(fig00, open(Filename[0:-4]+'.Time_all.pickle', 'wb'))
     
-    fig0.savefig(Filename[0:-4]+'FoEx_all.pdf', format='pdf')
+    #fig0.savefig(Filename[0:-4]+'FoEx_all.pdf', format='pdf')
     fig0.show()     
-    fig00.savefig(Filename[0:-4]+'Time_all.pdf', format='pdf')
+    #fig00.savefig(Filename[0:-4]+'Time_all.pdf', format='pdf')
     fig00.show()
-
+    
+    #Calculates stepsize
     Unwrapsteps = []
     Stacksteps = []
     for x in NewStates:
@@ -171,55 +210,7 @@ for Filenum, Filename in enumerate(filenames):
     if len(Unwrapsteps)>0: Steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
     ###########################################################################################################################
-
-
-    # Merging states that are have similar mean/variance according to Welch test
-    UnMergedStates = States                                                     #Used to co-plot the initial states found
-    if len(States) > 1:
-        MergeStates = True
-    else:
-        MergeStates = False
-
-    P_Cutoff = 0.05                                                             #Significance for merging states    
-
-    while MergeStates:                                                          #remove states untill all states are significantly different
-        T_test = np.array([])
-        CrossCor = np.array([])                                                 #array for Crosscorr values comparing different states
-        for i,j in enumerate(States):
-            if i > 0:
-                Prob = stats.ttest_ind((StateMask==i)*Z_Selected,(StateMask==i-1)*Z_Selected, equal_var=False) #get two arrays for t_test
-                T_test = np.append(T_test,Prob[1])                              #Calculates the p-value of neighboring states with Welch test
-
-        if len(T_test)==0: 
-            MergeStates = False
-            continue
-
-        #Merges states that are most similar, and are above the p_cutoff minimal significance t-test value
-        HighP = np.argmax(T_test)
-        if T_test[HighP] > P_Cutoff:                                            #Merge the highest p-value states
-            if sum((StateMask == HighP + 1) * 1) < sum((StateMask == HighP) * 1): 
-                DelState = HighP + 1
-            else:
-                DelState = HighP
-            States = np.delete(States, DelState)                                #deletes the state with the fewest datapoints from the state array
-            StateMask = func.attribute2state(F_Selected, Z_Selected, States, Pars)
-            Z_NewState = (StateMask == HighP) * Z_Selected                      #Get all the data for this state to recalculate mean    
-        else:
-            MergeStates = False  # Stop merging states
-
-        #calculate the number of L_unrwap for the new state
-        if MergeStates:
-            #find value for merged state with gaus fit / mean
-            StateProbSum = func.probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
-            States[HighP] = PossibleStates[np.argmax(StateProbSum)]             #Takes the highest value of the probability landscape
-            #InsertState = np.sum(PossibleStates*(StateProbSum/np.sum(StateProbSum)))    #Calculates the mean
-
-            StateMask = func.attribute2state(F_Selected,Z_Selected,States,Pars)
-        for i,x in enumerate(States):
-            Z_NewState = (StateMask == i) * Z_Selected
-            StateProbSum = func.probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
-            States[i] = PossibleStates[np.argmax(StateProbSum)]
-
+    
     #Calculates stepsize
     Unwrapsteps = []
     Stacksteps = []
@@ -249,8 +240,7 @@ for Filenum, Filename in enumerate(filenames):
     ax2.scatter(0.34*PossibleStates[(PeakInd)],Peak)                            #*0.34 should be removed
     ax1.set_xlim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
     ax1.set_ylim([np.min(Force)-0.1*np.max(Force), np.max(Force)+0.1*np.max(Force)])
-    #ax2.set_xlim([np.min(PossibleStates)-0.1*np.max(PossibleStates), np.max(PossibleStates)+0.1*np.max(PossibleStates)])
-
+    ax2.set_xlim([np.min(PossibleStates)-0.1*np.max(PossibleStates), np.max(PossibleStates)+0.1*np.max(PossibleStates)])
 
     # this plots the Timetrace
     fig2 = plt.figure()
@@ -275,20 +265,13 @@ for Filenum, Filename in enumerate(filenames):
         ax1.plot(Fit,Force, alpha=0.9, linestyle='-.')
         ax3.plot(Time,Fit, alpha=0.9, linestyle='-.')
 
-    #Co-plot the states found initially, to check which states are removed
-    for x in UnMergedStates:
-        Ratio = func.ratio(x,Pars)
-        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax1.plot(Fit,Force, alpha=0.1, linestyle=':')
-        ax3.plot(Time,Fit, alpha=0.1, linestyle=':')
-
     fig1.tight_layout()
-    #fig1.savefig(Filename[0:-4]+'FoEx_all.png', dpi=800)
+    #fig1.savefig(Filename[0:-4]+'FoEx_all.pdf')
     fig1.show()
     fig2.tight_layout()
-    #fig2.savefig(Filename[0:-4]+'Time_all.png', dpi=800)    
+    #fig2.savefig(Filename[0:-4]+'Time_all.pdf')    
     fig2.show()
-    
+
     Fignum += 1
 
 

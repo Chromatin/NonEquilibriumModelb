@@ -5,7 +5,6 @@ Created on Wed Jan  3 13:44:01 2018
 @author: nhermans
 """
 import numpy as np
-from scipy.optimize import curve_fit
 #import sys
 
 def wlc(force,par): #in nm/pN, as fraction of L
@@ -144,15 +143,58 @@ def fjc(f, par):
     #z_df = (par['kBT_pN_nm'] / b) * (np.log(np.sinh(x)) - np.log(x))  #*L_nm #  + constant --> integrate over f (finish it
     #w = f * z - z_df
     return z
+     
+def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True,P_Cutoff=0.1):
+    """Finds states based on the probablitiy landscape"""     
+    from scipy import stats
+    #Generate FE curves for possible states
+    PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)    #range to fit 
+    ProbSum = probsum(F_Selected, Z_Selected, PossibleStates, Pars)        #Calculate probability landscape
+    PeakInd, Peak = findpeaks(ProbSum, 25)                                 #Find Peaks    
+    States = PossibleStates[PeakInd]                                            #Defines state for each peak
 
-def pdf(x,step=79,sigma=15):
-    """calculates the probability distribution function for a mean of size step""" 
-    return 1-erfaprox((x+step)/sigma*np.sqrt(2))
+    #Calculate for each datapoint which state it most likely belongs too 
+    StateMask = attribute2state(F_Selected,Z_Selected,States,Pars)
+    
+    #Remove states with 5 or less datapoints
+    RemoveStates = removestates(StateMask)
+    if len(RemoveStates)>0:
+        States = np.delete(States, RemoveStates)
+        StateMask = attribute2state(F_Selected, Z_Selected, States, Pars)
 
-def fit_pdf(y):
-    y = np.array([y])
-    y = np.sort(y)
-    x = np.linspace(0,1,np.size(y))
-    #popt = curve_fit(lambda f, p: Fit_Pss(f,p),Fit_F,Fit_Z,p0=0.6)
-    return curve_fit(lambda x, step: pdf(x), y, x)
-      
+    T_test=np.array([])
+    
+    for i, x in enumerate(States):
+        if i > 0:
+            Prob = stats.ttest_ind((StateMask == i) * Z_Selected, (StateMask == i - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
+            T_test = np.append(T_test, Prob[1])
+
+    while MergeStates == True:  # remove states untill all states are significantly different
+    
+        # Merges states that are most similar, and are above the p_cutoff minimal significance t-test value
+        HighP = np.argmax(T_test)
+        if T_test[HighP] > P_Cutoff:  # Merge the highest p-value states
+            DelState, MergedState = HighP, HighP+1
+            if sum((StateMask == HighP + 1) * 1) < sum((StateMask == HighP) * 1): 
+                DelState = HighP + 1
+                MergedState = HighP
+            #Recalculate th     
+            Prob = stats.ttest_ind((StateMask == MergedState ) * Z_Selected, (StateMask == HighP - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
+            T_test[HighP-1] = Prob[1]
+            Prob = stats.ttest_ind((StateMask == MergedState ) * Z_Selected, (StateMask == HighP - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
+            T_test[HighP+1] = Prob[1]
+            T_test=np.delete(T_test,HighP)
+            States = np.delete(States, DelState)  # deletes the state in the state array
+            StateMask = StateMask - (StateMask == HighP + 1) * 1  # merges the states in the mask
+            Z_NewState = (StateMask == HighP) * Z_Selected  # Get all the data for this state to recalculate mean
+            MergeStates = True
+        else:
+            MergeStates = False  # Stop merging states
+                   
+        #calculate the number of L_unrwap for the new state
+        if MergeStates:
+            #find value for merged state with gaus fit / mean
+            StateProbSum = probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
+            States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
+            
+        return States

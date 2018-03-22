@@ -105,10 +105,13 @@ def handle_data(Force, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5)
     """Reads in parameters from the logfile generate by the labview fitting program"""
     if Handles['Select']:                                                       #If only the selected column is use do this
         ForceSelected = np.delete(Force, np.argwhere(np.isnan(Z_Selected)))
-        Z_Selected = np.delete(Z, np.argwhere(np.isnan(Z_Selected)))
+        T_Selected = np.delete(T, np.argwhere(np.isnan(Z_Selected)))
+        Z_Selected = np.delete(Z, np.argwhere(np.isnan(Z_Selected))) 
         if len(Z_Selected)==0: 
             print('==> Nothing Selected!')
             return [], [], []
+        else:
+            return Z_Selected, ForceSelected, T_Selected
     else:
         ForceSelected = Force
         Z_Selected = Z

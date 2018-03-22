@@ -78,7 +78,7 @@ def find_param(Logfile, Param):
             return P[1].strip('\n')
     print("<<<<<<<<<<", Param, "not found >>>>>>>>>>")
     return
-    
+
 def default_pars():
     """Default fitting parameters, returns a {dict} with 'key'= paramvalue"""
     par = {}
@@ -103,7 +103,7 @@ def default_pars():
 
 def handle_data(Force, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
     """Reads in parameters from the logfile generate by the labview fitting program"""
-    if Handles['Select']:                                 #If only the selected column is use do this
+    if Handles['Select']:                                                       #If only the selected column is use do this
         ForceSelected = np.delete(Force, np.argwhere(np.isnan(Z_Selected)))
         Z_Selected = np.delete(Z, np.argwhere(np.isnan(Z_Selected)))
         if len(Z_Selected)==0: 
@@ -112,23 +112,23 @@ def handle_data(Force, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5)
     else:
         ForceSelected = Force
         Z_Selected = Z
-        
+
     if Handles['Pulling']: ForceSelected, Z_Selected = removerelease(ForceSelected, Z_Selected)
     if Handles['DelBreaks']: ForceSelected ,Z_Selected = breaks(ForceSelected, Z_Selected, 1000)
-    if Handles['MinForce'] > 0: ForceSelected, Z_Selected = minforce(ForceSelected, Z_Selected, Handles['MinForce'])   
+    if Handles['MinForce'] > 0: ForceSelected, Z_Selected = minforce(ForceSelected, Z_Selected, Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
         Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
     Z_Selected, ForceSelected = minforce(Z_Selected, ForceSelected, - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
     if Handles['Denoise']: Z_Selected = signal.medfilt(Z_Selected,Window)
-    
+
     T_Selectedindex = np.all(rolling_window(Z, len(Z_Selected)) == Z_Selected, axis=1)
     T_Selectedindex = np.sum(np.mgrid[0:len(T_Selectedindex)][T_Selectedindex])
     T_SelectedMask = np.zeros(len(T), dtype = bool)
     T_SelectedMask[T_Selectedindex:T_Selectedindex + len(Z_Selected)] = True
     T_Selected = T_SelectedMask * T
-    T_Selected = T_Selected[T_Selected != 0]    
+    T_Selected = T_Selected[T_Selected != 0]
     return Z_Selected, ForceSelected, T_Selected
-    
+
 def removerelease(ForceSelected,Z_Selected):
     test = 0
     Pullingtest = np.array([])
@@ -148,7 +148,7 @@ def breaks(ForceSelected,Z_Selected, test=500):
             Z_Selected = Z_Selected[:i] 
             break
         test = x
-    return ForceSelected, Z_Selected     
+    return ForceSelected, Z_Selected
 
 def minforce(tested_array,array2,test):
     Curingtest = np.array([])

@@ -18,9 +18,9 @@ def hook(force,k=1,fmax=10):
     """Calculates Hookian in nm/pN
     Returns Z_fiber as function of the number of bp in the fiber"""
     f = np.array(force)
-    np.place(f,f>fmax,[fmax])        
+    np.place(f,f>fmax,[fmax])
     return f/k 
-    
+
 def forcecalib(Pos,FMax=85): 
     """Calibration formula for 0.8mm gapsize magnet
     Calculates Force from magnet position"""
@@ -57,7 +57,7 @@ def erfaprox(x):
     return np.sign(x) * np.sqrt(1-np.exp(b))
 
 def state2step(States):
-    """Calculates distances between states""" #Not used atm
+    """Calculates distances between states""" #Not used atm in Cluster part
     States = np.array(States)
     if States.size>1:
         return States[1:]-States[0:-1]
@@ -108,7 +108,7 @@ def removestates(StateMask, n=5):
             RemoveStates = np.append(RemoveStates,i)
     return RemoveStates
 
-def mergestates(States,MergeStates):         
+def mergestates(States,MergeStates):
     """Merges states as specied in the second array. If two consequtive states are to be merged, only one is removed.
     Returns a new State array"""
     old = 0
@@ -116,8 +116,8 @@ def mergestates(States,MergeStates):
         if x-old != 1: 
             States = np.delete(States, x)
             old = x
-    return States    
-        
+    return States
+
 def attribute2state(F,Z,States,Pars,Fmax_Hook=10):
     """Calculates for each datapoint which state it most likely belongs too
     Return an array with indexes referring to the State array"""
@@ -131,7 +131,7 @@ def attribute2state(F,Z,States,Pars,Fmax_Hook=10):
     ZminState = np.subtract(ZState,Z.reshape(len(Z),1)) 
     StateMask = np.argmin(abs(ZminState),1)       
     return StateMask    
-    
+
 def fjc(f, par): 
     """calculates a Freely Jointed Chain with a kungslength of b""" 
     L_nm = par['L_bp']*par['DNAds_nm']
@@ -148,7 +148,7 @@ def fjc(f, par):
 def pdf(x,step=79,sigma=15):
     """calculates the probability distribution function for a mean of size step""" 
     return 1-erfaprox((x+step)/sigma*np.sqrt(2))
-    
+
 def fit_pdf(y):
     y = np.array([y])
     y = np.sort(y)

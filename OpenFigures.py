@@ -9,7 +9,7 @@ plt.close('all')                                                                
 root = Tk()
 root.withdraw()                                                   
 
-folder = filedialog.askdirectory() #'N:\\Rick\\Tweezer data\\Pythontestfit\\New folder' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder =  'N:\\Rick\\Tweezer data\\Pythontestfit\\New folder'#filedialog.askdirectory() #folder with chromosome sequence files (note, do not put other files in this folder)
 filenames = os.listdir(folder)
 os.chdir(folder)
 

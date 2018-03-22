@@ -27,25 +27,25 @@ Fignum = 1
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-for Filename in filenames:
+for Filenum, Filename in enumerate(filenames):
     if Filename[-4:] != '.fit' :
         continue
     Force, Time, Z, Z_Selected = Tools.read_data(Filename)                      #loads the data from the filename
     LogFile = Tools.read_log(Filename[:-4]+'.log')                              #loads the log file with the same name
     Pars = Tools.log_pars(LogFile)                                              #Reads in all the parameters from the logfile
-    
+
     if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
     print(int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, "&", Fignum+1, ")")
-    
+
     #Remove all datapoints that should not be fitted
     Z_Selected, F_Selected, T_Selected = Tools.handle_data(Force, Z, Time, Z_Selected, Handles, Pars)
-   
+
     if len(Z_Selected)<10:  
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
-    
+
     Filename = Filename.replace('_', '\_')                                      #Right format for the plot headers
 
     #Generate FE curves for possible states
@@ -66,7 +66,7 @@ for Filename in filenames:
     ###########################################################################################################################
     #Finding groups/clusters of datapoints      
     ZF_Selected = np.vstack((Z_Selected, F_Selected)).T
-   
+
     #Force-Extension plot
     fig0 = plt.figure()
     fig0.suptitle(Filename, y=.99)
@@ -79,7 +79,7 @@ for Filename in filenames:
     core_samples_mask[db.core_sample_indices_] = True
     labels = db.labels_
     unique_labels = set(labels)
-    
+
     NewStates = np.array([])
     AllStates = np.empty(shape=[len(Force),2,len(PossibleStates)])
     Av = np.empty(shape=[0, 2])
@@ -89,9 +89,9 @@ for Filename in filenames:
     for k, col in zip(unique_labels, colors):
         if k == -1:
            col = [0, 0, 0, 1] # Black used for noise.  
-    
+
         class_member_mask = (labels == k)
-    
+
         xy = ZF_Selected[class_member_mask & core_samples_mask]
         ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=3)
         
@@ -101,41 +101,38 @@ for Filename in filenames:
         xy = ZF_Selected[class_member_mask & ~core_samples_mask]
         ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=1) 
     
-    #Calculating the states that are closest to the means computed above
-    for i, x in enumerate(PossibleStates):  #PossibleStates! (States is just faster for now)
-        """This should be done uniteratively!!! """     
+    #Making a 3d array containing all the possible states
+    for i, x in enumerate(PossibleStates):
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ForceFit = np.vstack((Fit, Force)).T
         AllStates[:,:,i] = ForceFit        
-        print(Fignum, "out of" , int(len(filenames)/6), "is", int(i/len(PossibleStates)*100),"%")   #just to see if the programm is actually running 
-                                                                                                    #and how long it will take
-  
+        print(filenames[Filenum], "(#", Fignum, ")is at", "{0:0.1f}".format(i/len(PossibleStates)*100),"%") #Just to see if the programm is actually running 
+                                                                                                            #and how long it will take
+    #Calculating the states that are closest to the means computed above
     for I,J in enumerate(Av[:,0]):   
-        """This should be done uniteratively!!! """ 
-        AllDist=np.array([])        
-        for i,j in enumerate(AllStates[0,0,:]):        
+        AllDist = np.array([])
+        for i,j in enumerate(AllStates[0,0,:]):
             Dist = np.abs(np.subtract(AllStates[:,:,i], Av[I,:]))
             Dist = np.square(Dist)
             Dist = np.sum(Dist, axis=1)
             AllDist = np.append(AllDist, np.min(Dist))
-        NewStates = np.append(NewStates, PossibleStates[np.argmin(AllDist)]) #PossibleStates! (States is just faster for now)
-    
-    #Plotting the corresponding states in the same color as the clusters    
+        NewStates = np.append(NewStates, PossibleStates[np.argmin(AllDist)])
+
+    #Plotting the corresponding states in the same color as the clusters
     for i, col in zip(enumerate(NewStates), colors):
         Ratio = func.ratio(i[1],Pars)
         Fit = np.array(func.wlc(Force,Pars)*i[1]*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ax0.plot(Fit,Force, alpha=0.9, linestyle=':', color=tuple(col))
 
-  
     ax0.set_title(r'Force-Extension Curve of Chromatin Fibre')
     ax0.set_ylabel(r'\textbf{Force} (pN)')
     ax0.set_xlabel(r"\textbf{Extension} (nm)")     
 #    ax0.set_ylim(0,np.max(F_Selected)+.1*np.max(F_Selected))
 #    ax0.set_xlim(0,np.max(Z_Selected)+.1*np.max(Z_Selected))
-   
+
     #Timetrace Plot
-    fig00 = plt.figure()    
+    fig00 = plt.figure()
     ax00 = fig00.add_subplot(1, 1, 1)
     fig00.suptitle(Filename, y=.99)
     ax0.set_title(" ")
@@ -146,23 +143,22 @@ for Filename in filenames:
     ax00.scatter(T_Selected, Z_Selected, color='blue', s=1)
     ax00.set_xlim([np.min(Time)-0.1*np.max(Time), np.max(Time)+0.1*np.max(Time)])
     ax00.set_ylim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
-    
+
     for i, col in zip(enumerate(NewStates), colors):
         Ratio = func.ratio(i[1],Pars)
         Fit = np.array(func.wlc(Force,Pars)*i[1]*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax00.plot(Time,Fit, alpha=0.9, linestyle='-.', color=tuple(col))    
-    
+        ax00.plot(Time,Fit, alpha=0.9, linestyle='-.', color=tuple(col))
+
     Filename = Filename.replace( '\_', '_')                                     #Right format to safe the figure
-    
-    
+
     pickle.dump(fig0, open(Filename[0:-4]+'.FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
-    pickle.dump(fig00, open(Filename[0:-4]+'.Time_all.pickle', 'wb'))    
+    pickle.dump(fig00, open(Filename[0:-4]+'.Time_all.pickle', 'wb'))
     
     fig0.savefig(Filename[0:-4]+'FoEx_all.pdf', format='pdf')
     fig0.show()     
-    fig00.savefig(Filename[0:-4]+'Time_all.pdf', format='pdf')    
+    fig00.savefig(Filename[0:-4]+'Time_all.pdf', format='pdf')
     fig00.show()
-    
+
     Unwrapsteps = []
     Stacksteps = []
     for x in NewStates:
@@ -175,29 +171,29 @@ for Filename in filenames:
     if len(Unwrapsteps)>0: Steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
     ###########################################################################################################################
-  
-   
+
+
     # Merging states that are have similar mean/variance according to Welch test
     UnMergedStates = States                                                     #Used to co-plot the initial states found
     if len(States) > 1:
         MergeStates = True
     else:
         MergeStates = False
-    
+
     P_Cutoff = 0.05                                                             #Significance for merging states    
 
     while MergeStates:                                                          #remove states untill all states are significantly different
         T_test = np.array([])
         CrossCor = np.array([])                                                 #array for Crosscorr values comparing different states
         for i,j in enumerate(States):
-            if i > 0:               
+            if i > 0:
                 Prob = stats.ttest_ind((StateMask==i)*Z_Selected,(StateMask==i-1)*Z_Selected, equal_var=False) #get two arrays for t_test
-                T_test = np.append(T_test,Prob[1])                             #Calculates the p-value of neighboring states with Welch test
+                T_test = np.append(T_test,Prob[1])                              #Calculates the p-value of neighboring states with Welch test
 
         if len(T_test)==0: 
-            MergeStates = False            
+            MergeStates = False
             continue
-                      
+
         #Merges states that are most similar, and are above the p_cutoff minimal significance t-test value
         HighP = np.argmax(T_test)
         if T_test[HighP] > P_Cutoff:                                            #Merge the highest p-value states
@@ -210,20 +206,20 @@ for Filename in filenames:
             Z_NewState = (StateMask == HighP) * Z_Selected                      #Get all the data for this state to recalculate mean    
         else:
             MergeStates = False  # Stop merging states
-               
+
         #calculate the number of L_unrwap for the new state
         if MergeStates:
             #find value for merged state with gaus fit / mean
             StateProbSum = func.probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
             States[HighP] = PossibleStates[np.argmax(StateProbSum)]             #Takes the highest value of the probability landscape
             #InsertState = np.sum(PossibleStates*(StateProbSum/np.sum(StateProbSum)))    #Calculates the mean
-        
+
             StateMask = func.attribute2state(F_Selected,Z_Selected,States,Pars)
-        for i,x in enumerate(States):    
-            Z_NewState = (StateMask == i) * Z_Selected    
+        for i,x in enumerate(States):
+            Z_NewState = (StateMask == i) * Z_Selected
             StateProbSum = func.probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
             States[i] = PossibleStates[np.argmax(StateProbSum)]
-            
+
     #Calculates stepsize
     Unwrapsteps = []
     Stacksteps = []
@@ -237,7 +233,7 @@ for Filename in filenames:
     if len(Unwrapsteps)>0: steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: stacks.extend(Stacksteps)
     #Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
-        
+
     # this plots the Force-Extension curve
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(1, 2, 1)
@@ -254,10 +250,10 @@ for Filename in filenames:
     ax1.set_xlim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
     ax1.set_ylim([np.min(Force)-0.1*np.max(Force), np.max(Force)+0.1*np.max(Force)])
     #ax2.set_xlim([np.min(PossibleStates)-0.1*np.max(PossibleStates), np.max(PossibleStates)+0.1*np.max(PossibleStates)])
-    
-    
-    # this plots the Timetrace    
-    fig2 = plt.figure()    
+
+
+    # this plots the Timetrace
+    fig2 = plt.figure()
     ax3 = fig2.add_subplot(1, 2, 1)
     ax4 = fig2.add_subplot(1, 2, 2, sharey=ax3)
     fig2.suptitle(Filename, y=.99)
@@ -272,14 +268,14 @@ for Filename in filenames:
     ax4.scatter(Peak,PossibleStates[(PeakInd)]*Pars['DNAds_nm'], color='blue', s=1)
     ax3.set_xlim([np.min(Time)-0.1*np.max(Time), np.max(Time)+0.1*np.max(Time)])
     ax3.set_ylim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
-    
+
     for x in States:
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ax1.plot(Fit,Force, alpha=0.9, linestyle='-.')
         ax3.plot(Time,Fit, alpha=0.9, linestyle='-.')
 
-    #Co-plot the states found initially, to check which states are removed       
+    #Co-plot the states found initially, to check which states are removed
     for x in UnMergedStates:
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
@@ -288,7 +284,7 @@ for Filename in filenames:
 
     fig1.tight_layout()
     #fig1.savefig(Filename[0:-4]+'FoEx_all.png', dpi=800)
-    fig1.show()  
+    fig1.show()
     fig2.tight_layout()
     #fig2.savefig(Filename[0:-4]+'Time_all.png', dpi=800)    
     fig2.show()
@@ -300,10 +296,10 @@ for Filename in filenames:
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,2,1)
 ax6 = fig3.add_subplot(1,2,2)
-ax5.hist(steps,  bins = 50, range = [50,250], label='25 nm steps')
-ax5.hist(stacks, bins = 50, range = [50,250], label='Stacking transitions')
-ax6.hist(Steps,  bins = 50, range = [50,250], label='25 nm steps')
-ax6.hist(Stacks, bins = 50, range = [50,250], label='Stacking transitions')
+ax5.hist(steps,  bins = 50, range = [0,400], label='25 nm steps')
+ax5.hist(stacks, bins = 50, range = [0,400], label='Stacking transitions')
+ax6.hist(Steps,  bins = 50, range = [0,400], label='25 nm steps')
+ax6.hist(Stacks, bins = 50, range = [0,400], label='Stacking transitions')
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
 ax5.set_title("Histogram stepsizes in bp using T-test")
@@ -313,4 +309,4 @@ ax6.set_ylabel('Count')
 ax6.set_title("Histogram stepsizes in bp using clustering")
 ax6.legend()
 fig3.tight_layout()
-#fig3.savefig('hist.pdf', format='pdf')
+#fig3.savefig('hist.png')

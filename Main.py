@@ -6,7 +6,7 @@ Created on Mon Jan 22 11:52:49 2018
 """
 import os 
 import matplotlib
-matplotlib.rcParams['text.usetex'] = True
+#matplotlib.rcParams['text.usetex'] = True
 matplotlib.rcParams['text.latex.unicode'] = True
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,7 +16,7 @@ import pickle
 from scipy import stats
 from sklearn.cluster import DBSCAN
 
-folder = 'N:\\Rick\\Tweezer data\\Pythontestfit' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder = 'C:\\Users\\rmerc\\OneDrive\\Documenten\\Universiteit Leiden\\Bachelor Research\\Test\\20180322 ForceExtensionCurvefitting-KlaasOpVakantie\\TestData' #folder with chromosome sequence files (note, do not put other files in this folder)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
@@ -66,13 +66,16 @@ for Filenum, Filename in enumerate(filenames):
     ###########################################################################################################################
     #Finding groups/clusters of datapoints      
     ZF_Selected = np.vstack((Z_Selected, F_Selected)).T
+    ZT_Selected = np.vstack((Z_Selected, T_Selected)).T
 
-    #Force-Extension plot
+    #fig0 plots the Force-Extension curve
     fig0 = plt.figure()
-    fig0.suptitle(Filename, y=.99)
     ax0 = fig0.add_subplot(1,1,1) 
-    ax0.scatter(Z,Force, color='grey', lw=0.1, s=5, alpha=0.5)
-
+    
+    #fig00 plots the Time-Extension curve
+    fig00 = plt.figure()
+    ax00 = fig00.add_subplot(1, 1, 1)
+    
     # Compute DBSCAN
     db = DBSCAN(eps=10, min_samples=7).fit(ZF_Selected)
     core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
@@ -93,13 +96,17 @@ for Filenum, Filename in enumerate(filenames):
         class_member_mask = (labels == k)
 
         xy = ZF_Selected[class_member_mask & core_samples_mask]
-        ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=3)
+        XY = ZT_Selected[class_member_mask & core_samples_mask]
+        ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=3, lw=0.5)
+        ax00.plot(XY[:, 1], XY[:, 0], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=3)
         
         if k != -1:
             Av = np.append(Av, [np.array([np.mean(xy[:,0]),np.mean(xy[:, 1])])], axis=0)
 
         xy = ZF_Selected[class_member_mask & ~core_samples_mask]
-        ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=1) 
+        XY = ZT_Selected[class_member_mask & ~core_samples_mask]
+        ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=1, lw=0.5) 
+        ax00.plot(XY[:, 1], XY[:, 0], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=1, lw=0.5) 
     
     #Making a 3d array containing all the possible states
     for i, x in enumerate(PossibleStates):
@@ -124,30 +131,23 @@ for Filenum, Filename in enumerate(filenames):
         Ratio = func.ratio(i[1],Pars)
         Fit = np.array(func.wlc(Force,Pars)*i[1]*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ax0.plot(Fit,Force, alpha=0.9, linestyle=':', color=tuple(col))
-
+        ax00.plot(Time,Fit, alpha=0.9, linestyle='-.', color=tuple(col))        
+        
+    fig0.suptitle(Filename, y=.99)
+    ax0.scatter(Z, Force, color='grey', lw=0.1, s=5, alpha=0.5)
     ax0.set_title(r'Force-Extension Curve of Chromatin Fibre')
     ax0.set_ylabel(r'\textbf{Force} (pN)')
     ax0.set_xlabel(r"\textbf{Extension} (nm)")     
 #    ax0.set_ylim(0,np.max(F_Selected)+.1*np.max(F_Selected))
 #    ax0.set_xlim(0,np.max(Z_Selected)+.1*np.max(Z_Selected))
 
-    #Timetrace Plot
-    fig00 = plt.figure()
-    ax00 = fig00.add_subplot(1, 1, 1)
     fig00.suptitle(Filename, y=.99)
-    ax0.set_title(" ")
+    ax00.scatter(Time, Z,  c=Time, cmap='gray', lw=0.1, s=5)
+    ax0.set_title("Timetrace Curve of Chromatin Fibre")
     ax00.set_xlabel(r'\textbf{Time} (s)')
     ax00.set_ylabel(r'\textbf{Extension} (bp nm)')
-    ax00.set_ylim([0, Pars['L_bp']*Pars['DNAds_nm']+100])
-    ax00.scatter(Time,Z,  c=Time, cmap='gray', lw=0.1, s=5)
-    ax00.scatter(T_Selected, Z_Selected, color='blue', s=1)
-    ax00.set_xlim([np.min(Time)-0.1*np.max(Time), np.max(Time)+0.1*np.max(Time)])
-    ax00.set_ylim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
-
-    for i, col in zip(enumerate(NewStates), colors):
-        Ratio = func.ratio(i[1],Pars)
-        Fit = np.array(func.wlc(Force,Pars)*i[1]*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax00.plot(Time,Fit, alpha=0.9, linestyle='-.', color=tuple(col))
+#    ax00.set_xlim([np.min(Time)-0.1*np.max(Time), np.max(Time)+0.1*np.max(Time)])
+#    ax00.set_ylim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
 
     Filename = Filename.replace( '\_', '_')                                     #Right format to safe the figure
 
@@ -295,7 +295,7 @@ for Filenum, Filename in enumerate(filenames):
 #Stepsize,Sigma=func.fit_pdf(steps)
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,2,1)
-ax6 = fig3.add_subplot(1,2,2)
+ax6 = fig3.add_subplot(1,2,2, sharey=ax5)
 ax5.hist(steps,  bins = 50, range = [0,400], label='25 nm steps')
 ax5.hist(stacks, bins = 50, range = [0,400], label='Stacking transitions')
 ax6.hist(Steps,  bins = 50, range = [0,400], label='25 nm steps')

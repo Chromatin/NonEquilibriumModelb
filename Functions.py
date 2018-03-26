@@ -29,39 +29,12 @@ def forcecalib(Pos,FMax=85):
     f0 = 0.01 #force-offset (pN)    
     return FMax*(0.7*np.exp(-Pos/l1)+0.3*np.exp(-Pos/l2))+f0
 
-def findpeaks(y,n=10):
-    """Peakfinder writen with Thomas Brouwer
-    Finds y peaks at position x in xy graph"""
-    y = np.array(y)
-    Yy = np.append(y[:-1],y[::-1])
-    yYy = np.append(y[::-1][:-1],Yy)
-    from scipy.signal import argrelextrema
-    maxInd = argrelextrema(yYy, np.greater,order=n)
-    r = np.array(yYy)[maxInd] 
-    a = maxInd[0]
-    #discard all peaks for negative dimers
-    peaks_index=[]
-    peaks_height=[]
-    for n,i in enumerate(a):
-        i=1+i-len(y)
-        if i >= 0 and i <= len(y):
-            peaks_height.append(r[n])
-            peaks_index.append(i)
-    return peaks_index, peaks_height
-
 def erfaprox(x):
     """Approximation of the error function"""
     x = np.array(x)
     a = (8*(np.pi-3)) / (3*np.pi*(4-np.pi))
     b = -x**2*(4/np.pi+a*x**2)/(1+a*x**2)
     return np.sign(x) * np.sqrt(1-np.exp(b))
-
-def state2step(States):
-    """Calculates distances between states""" #Not used atm in Cluster part
-    States = np.array(States)
-    if States.size>1:
-        return States[1:]-States[0:-1]
-    else: return []
 
 def ratio(x, Par):
     """Calculates the number of Nuclesomes in the fiber, where 1 = All nucs in fiber and 0 is no Nucs in fiber. 
@@ -77,60 +50,9 @@ def ratio(x, Par):
     Ratio = Ratio * (Ratio<=1) #removes values above 1, makes them 1
     return Ratiomin + Ratio
 
-def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
-    """Calculates the probability landscape of the intermediate states. 
-    F is the Force Data, 
-    Z is the Extension Data (needs to have the same size as F)
-    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
-    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
-    Ratio = ratio(PossibleStates, Par)
-    Ratio = np.tile(Ratio,(len(F),1))
-    Ratio = np.transpose(Ratio)
-    dF = 0.01 #delta used to calculate the RC of the curve
-    StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
-    DeltaZ = abs(np.subtract(StateExtension,Z))
-    Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    Pz = np.array(np.multiply((1-erfaprox(Std)),F))
-    ProbSum = np.sum(Pz, axis=1) 
-    return ProbSum
-
 def gaus(x,amp,x0,sigma):
     """1D Gaussian"""
     return amp*np.exp(-(x-x0)**2/(2*sigma**2))
-
-def removestates(StateMask, n=5):
-    """Removes states with less than n data points, returns indexes of states to be removed"""
-    RemoveStates = np.array([])
-    for i in np.arange(0,np.amax(StateMask),1):
-        if sum(StateMask == i) < n:
-            RemoveStates = np.append(RemoveStates,i)
-    return RemoveStates
-
-def mergestates(States,MergeStates):
-    """Merges states as specied in the second array. If two consequtive states are to be merged, only one is removed.
-    Returns a new State array"""
-    old = 0
-    for i,x in enumerate(MergeStates):
-        if x-old != 1: 
-            States = np.delete(States, x)
-            old = x
-    return States
-
-def attribute2state(F,Z,States,Pars,Fmax_Hook=10):
-    """Calculates for each datapoint which state it most likely belongs too
-    Return an array with indexes referring to the State array"""
-    if len(States) <1:
-        print('No States were found')
-        return False
-    Ratio = ratio(States,Pars)
-    WLC = wlc(F,Pars).reshape(len(wlc(F,Pars)),1)
-    Hook = hook(F,Pars['k_pN_nm'],Fmax_Hook).reshape(len(hook(F,Pars['k_pN_nm'],Fmax_Hook)),1)
-    ZState = np.array( np.multiply(WLC,(States*Pars['DNAds_nm'])) + np.multiply(Hook,(Ratio*Pars['ZFiber_nm'])) )
-    ZminState = np.subtract(ZState,Z.reshape(len(Z),1)) 
-    StateMask = np.argmin(abs(ZminState),1)       
-    return StateMask    
 
 def fjc(f, par): 
     """calculates a Freely Jointed Chain with a kungslength of b""" 

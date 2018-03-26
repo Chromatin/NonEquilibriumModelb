@@ -72,6 +72,7 @@ def log_pars(LogFile):
     return par
 
 def find_param(Logfile, Param):
+    """Finds the different parameters in de .log file"""    
     for lines in Logfile:
         P =lines.split(' = ')
         if P[0]==Param:
@@ -163,19 +164,3 @@ def rolling_window(a, size):
     shape = a.shape[:-1] + (a.shape[-1] - size + 1, size)
     strides = a.strides + (a. strides[-1],)
     return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
-
-
-"""
-#This function is not used atm
-            
-def write_data(Filename,Headers,Data):
-    f = open(Filename, 'a')
-#    import json
-#    json.dump(str(Data),f)
-    Headers='\t'.join(map(str,Headers))+'\n'
-    f.write(Headers)
-    Data='\t'.join(map(str,Data))+'\n'
-    f.write(Data)
-    f.close()
-    return "resultsfile generated"
-"""

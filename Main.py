@@ -16,7 +16,7 @@ import pickle
 from scipy import stats
 from sklearn.cluster import DBSCAN
 
-folder = 'C:\\Users\\rmerc\\OneDrive\\Documenten\\Universiteit Leiden\\Bachelor Research\\Test\\20180322 ForceExtensionCurvefitting-KlaasOpVakantie\\TestData' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder = 'N:\\Rick\\Tweezer data\\Pythontestfit' #folder with chromosome sequence files (note, do not put other files in this folder)
 filenames = os.listdir(folder)
 os.chdir(folder)
 

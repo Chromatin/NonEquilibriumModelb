@@ -144,7 +144,7 @@ def fjc(f, par):
     #w = f * z - z_df
     return z
      
-def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True,P_Cutoff=0.1):
+def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.1):
     """Finds states based on the probablitiy landscape"""     
     from scipy import stats
     #Generate FE curves for possible states

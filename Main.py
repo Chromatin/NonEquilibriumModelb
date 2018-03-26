@@ -15,7 +15,7 @@ import Tools
 import pickle
 from sklearn.cluster import DBSCAN
 
-folder = 'N:\\Rick\\Tweezer data\\Pythontestfit' #folder with chromosome sequence files (note, do not put other files in this folder)
+folder = 'N:\\Rick\\Tweezer data\\Pythontestfit\\New folder' #folder with chromosome sequence files (note, do not put other files in this folder)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
@@ -126,20 +126,32 @@ for Filenum, Filename in enumerate(filenames):
     ax0.set_ylabel(r"\textbf{Extension} (nm)")     
     ax0.set_xlim(np.min(Force)-0.1*np.max(Force),np.max(Force)+0.1*np.max(Force))
     ax0.set_ylim(np.min(Z)-0.1*np.max(Z),np.max(Z)+0.1*np.max(Z))
+    
+    Plot_Select = True #case True: plot only shows the view of the selected data; case False: plot shows the whole dataset
+    if Plot_Select:
+        ax0.set_xlim(np.min(F_Selected)-0.1*np.max(F_Selected),np.max(F_Selected)+0.1*np.max(F_Selected))
+        ax0.set_ylim(np.min(Z_Selected)-0.1*np.max(Z_Selected),np.max(Z_Selected)+0.1*np.max(Z_Selected))
 
-#    fig00.suptitle(Filename, y=.99)
     ax00.scatter(Time, Z,  c=Time, cmap='gray', lw=0.1, s=5)
     ax00.set_title(r'Timetrace Curve of Chromatin Fibre')
     ax00.set_xlabel(r'\textbf{Time} (s)')
     ax00.set_ylabel(r'\textbf{Extension} (bp nm)')
     ax00.set_xlim([np.min(Time)-0.1*np.max(Time), np.max(Time)+0.1*np.max(Time)])
     ax00.set_ylim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
+    if Plot_Select:
+        ax00.set_xlim([np.min(T_Selected)-0.1*np.max(T_Selected), np.max(T_Selected)+0.1*np.max(T_Selected)])
+        ax00.set_ylim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
 
     Filename = Filename.replace( '\_', '_')                                     #Right format to safe the figure
-
-    pickle.dump(fig0, open(Filename[0:-4]+'.FoEx_Time_all.pickle', 'wb'))       #Saves the figure, so it can be reopend
     
-    fig0.savefig(Filename[0:-4]+'FoEx__Time_all.pdf', format='pdf')
+    fig0.tight_layout()
+    if Plot_Select:
+        pickle.dump(fig0, open(Filename[0:-4]+'.FoEx_Time_all_Selected.pickle', 'wb'))  #Saves the figure, so it can be reopend
+        fig0.savefig(Filename[0:-4]+'FoEx_Time_all_Selected.pdf', format='pdf')
+    else:
+        pickle.dump(fig0, open(Filename[0:-4]+'.FoEx_Time_all.pickle', 'wb'))       #Saves the figure, so it can be reopend    
+        fig0.savefig(Filename[0:-4]+'FoEx__Time_all.pdf', format='pdf')
+
     fig0.show()     
 
     Unwrapsteps = []
@@ -149,8 +161,8 @@ for Filenum, Filename in enumerate(filenames):
             Unwrapsteps.append(x)
         else:
             Stacksteps.append(x)
-    Stacksteps = np.diff(np.array(Stacksteps)) #func.state2step(Stacksteps)
-    Unwrapsteps = np.diff(np.array(Unwrapsteps)) #func.state2step(Unwrapsteps)
+    Stacksteps = np.diff(np.array(Stacksteps))
+    Unwrapsteps = np.diff(np.array(Unwrapsteps))
     if len(Unwrapsteps)>0: Steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
 
@@ -166,4 +178,4 @@ ax6.set_ylabel('Count')
 ax6.set_title("Histogram stepsizes in bp using clustering")
 ax6.legend()
 fig3.tight_layout()
-#fig3.savefig('hist.png')
+fig3.savefig('Histogram.pdf', format='pdf')

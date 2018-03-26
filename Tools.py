@@ -9,16 +9,15 @@ Created on Wed Jan  3 14:52:17 2018
 import numpy as np
 from scipy import signal
 
-def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, MaxZ=False, Denoise=False):
-    """If analysis has to be done on only part of the data, these options can be used"""
+def Define_Handles():
     Handles = {}
-    Handles['Select'] = Select
-    Handles['Pulling'] = Pull
-    Handles['DelBreaks'] = DelBreaks
-    Handles['MinForce'] = MinForce
-    Handles['MinZ'] = MinZ
-    Handles['MaxZ'] = MaxZ
-    Handles['Denoise'] = Denoise 
+    Handles['Select'] = True
+    Handles['Pulling'] = True
+    Handles['DelBreaks'] = True
+    Handles['MinForce'] = 2.5
+    Handles['MinZ'] = 0
+    Handles['MaxZ'] = True
+    Handles['Denoise'] = False 
     return Handles
 
 def read_data(Filename):
@@ -73,7 +72,7 @@ def log_pars(LogFile):
     return par
 
 def find_param(Logfile, Param):
-    """Find a parameter in the .log file"""
+    """Finds the different parameters in de .log file"""    
     for lines in Logfile:
         P =lines.split(' = ')
         if P[0]==Param:
@@ -107,61 +106,59 @@ def handle_data(Force, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5)
     """Reads in parameters from the logfile generate by the labview fitting program"""
     if Handles['Select']:                                                       #If only the selected column is use do this
         ForceSelected = np.delete(Force, np.argwhere(np.isnan(Z_Selected)))
-        T_Selected = np.delete(T, np.argwhere(np.isnan(Z_Selected)))
-        Z_Selected = np.delete(Z, np.argwhere(np.isnan(Z_Selected))) 
+        Z_Selected = np.delete(Z, np.argwhere(np.isnan(Z_Selected)))
         if len(Z_Selected)==0: 
             print('==> Nothing Selected!')
             return [], [], []
-        else:
-            return Z_Selected, ForceSelected, T_Selected
     else:
         ForceSelected = Force
         Z_Selected = Z
-    
-    if Handles['DelBreaks']: ForceSelected ,Z_Selected, T_Selected = breaks(ForceSelected, Z_Selected, 1000)
-    if Handles['Pulling']: ForceSelected, Z_Selected, T_Selected = removerelease(ForceSelected, Z_Selected)
-    if Handles['MinForce'] > 0: ForceSelected, Z_Selected, T_Selected = minforce(ForceSelected, Z_Selected, Handles['MinForce'])
+
+    if Handles['Pulling']: ForceSelected, Z_Selected = removerelease(ForceSelected, Z_Selected)
+    if Handles['DelBreaks']: ForceSelected ,Z_Selected = breaks(ForceSelected, Z_Selected, 1000)
+    if Handles['MinForce'] > 0: ForceSelected, Z_Selected = minforce(ForceSelected, Z_Selected, Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
         Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
-        Z_Selected, ForceSelected, T_Selected = minforce(Z_Selected, ForceSelected, - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
+    Z_Selected, ForceSelected = minforce(Z_Selected, ForceSelected, - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
     if Handles['Denoise']: Z_Selected = signal.medfilt(Z_Selected,Window)
+
+    T_Selectedindex = np.all(rolling_window(Z, len(Z_Selected)) == Z_Selected, axis=1)
+    T_Selectedindex = np.sum(np.mgrid[0:len(T_Selectedindex)][T_Selectedindex])
+    T_SelectedMask = np.zeros(len(T), dtype = bool)
+    T_SelectedMask[T_Selectedindex:T_Selectedindex + len(Z_Selected)] = True
+    T_Selected = T_SelectedMask * T
+    T_Selected = T_Selected[T_Selected != 0]
     return Z_Selected, ForceSelected, T_Selected
 
-def removerelease(F,Z, T):
-    """Removes the release curve from the selected data"""
+def removerelease(ForceSelected,Z_Selected):
     test = 0
     Pullingtest = np.array([])
-    for i,x in enumerate(F):
+    for i,x in enumerate(ForceSelected):
         if x < test:
             Pullingtest = np.append(Pullingtest,i)
         test = x
-    F = np.delete(F, Pullingtest)
-    Z = np.delete(Z,Pullingtest)
-    T = np.delete(T,Pullingtest)
-    return F, Z, T 
+    ForceSelected = np.delete(ForceSelected, Pullingtest)
+    Z_Selected = np.delete(Z_Selected,Pullingtest)
+    return ForceSelected, Z_Selected 
 
-def breaks(F,Z, T, test=500):
-    """Removes the data after a jump in z, presumably indicating the bead broke lose"""
-    test = Z[0]
-    for i,x in enumerate(Z[1:]):
+def breaks(ForceSelected,Z_Selected, test=500):
+    test = Z_Selected[0]
+    for i,x in enumerate(Z_Selected[1:]):
         if abs(x - test) > 500 :
-            F = F[:i]
-            Z = Z[:i] 
-            T = Z[:i] 
+            ForceSelected = ForceSelected[:i]
+            Z_Selected = Z_Selected[:i] 
             break
         test = x
-    return F, Z, T
+    return ForceSelected, Z_Selected
 
-def minforce(tested_array,array2,T,test):
-    """Removes the data below minimum force given"""
+def minforce(tested_array,array2,test):
     Curingtest = np.array([])
     for i,x in enumerate(tested_array):
         if x < test:
             Curingtest = np.append(Curingtest,i)
     tested_array = np.delete(tested_array, Curingtest)
     array2 = np.delete(array2,Curingtest)
-    T = np.delete(T,Curingtest)
-    return tested_array,array2,T
+    return tested_array,array2
 
 def rolling_window(a, size):
     shape = a.shape[:-1] + (a.shape[-1] - size + 1, size)

@@ -35,7 +35,7 @@ for Filenum, Filename in enumerate(filenames):
     if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
-#    print(int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, "&", Fignum+1, ")")
+    print(int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, ")")
 
     #Remove all datapoints that should not be fitted
     Z_Selected, F_Selected, T_Selected = Tools.handle_data(Force, Z, Time, Z_Selected, Handles, Pars)
@@ -53,27 +53,28 @@ for Filenum, Filename in enumerate(filenames):
     ZF_Selected = np.vstack((Z_Selected, F_Selected)).T
     ZT_Selected = np.vstack((Z_Selected, T_Selected)).T
 
-    #fig0 plots the Force-Extension curve
+    #fig0 plots the Extension-Force curve
     fig0 = plt.figure()
-    ax0 = fig0.add_subplot(1,1,1) 
+    ax0 = fig0.add_subplot(1,2,1) 
     
     #fig00 plots the Time-Extension curve
-    fig00 = plt.figure()
-    ax00 = fig00.add_subplot(1, 1, 1)
+#    fig00 = plt.figure()
+    ax00 = fig0.add_subplot(1, 2, 2, sharey=ax0)
+    
     
     # Compute DBSCAN
-    db = DBSCAN(eps=10, min_samples=7).fit(ZF_Selected)
+    db = DBSCAN(eps=10, min_samples=7).fit(ZF_Selected)                         #Replace ZF with ZT to cluster in Timetrace
     core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
     core_samples_mask[db.core_sample_indices_] = True
     labels = db.labels_
     unique_labels = set(labels)
 
     NewStates = np.array([])
-    AllStates = np.empty(shape=[len(Force),2,len(PossibleStates)])
     Av = np.empty(shape=[0, 2])
 
     #Plotting the different clusters in different colors, also calculating the mean of each cluster
-    colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
+    colors = [plt.cm.brg(each) for each in np.linspace(0, 1, len(unique_labels))]
+
     for k, col in zip(unique_labels, colors):
         if k == -1:
            col = [0, 0, 0, 1] # Black used for noise.  
@@ -82,25 +83,25 @@ for Filenum, Filename in enumerate(filenames):
 
         xy = ZF_Selected[class_member_mask & core_samples_mask]
         XY = ZT_Selected[class_member_mask & core_samples_mask]
-        ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=3, lw=0.5)
-        ax00.plot(XY[:, 1], XY[:, 0], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=3)
+        ax0.plot(xy[:, 1], xy[:, 0], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=4, lw=0.5)
+        ax00.plot(XY[:, 1], XY[:, 0], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=4, lw=0.5)
         
         if k != -1:
             Av = np.append(Av, [np.array([np.mean(xy[:,0]),np.mean(xy[:, 1])])], axis=0)
 
         xy = ZF_Selected[class_member_mask & ~core_samples_mask]
         XY = ZT_Selected[class_member_mask & ~core_samples_mask]
-        ax0.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=1, lw=0.5) 
-        ax00.plot(XY[:, 1], XY[:, 0], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=1, lw=0.5) 
+        ax0.plot(xy[:, 1], xy[:, 0], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=3, lw=0.1) 
+        ax00.plot(XY[:, 1], XY[:, 0], 'o', markerfacecolor=tuple(col), markeredgecolor='k', markersize=3, lw=0.1)  
     
+    AllStates = np.empty(shape=[len(Av[:,1]),2,len(PossibleStates)])
     #Making a 3d array containing all the possible states
     for i, x in enumerate(PossibleStates):
         Ratio = func.ratio(x,Pars)
-        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ForceFit = np.vstack((Fit, Force)).T
+        Fit = np.array(func.wlc(Av[:,1],Pars)*x*Pars['DNAds_nm'] + func.hook(Av[:,1],Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        ForceFit = np.vstack((Fit, Av[:,1])).T
         AllStates[:,:,i] = ForceFit        
-        print(filenames[Filenum], "(#", Fignum, ")is at", "{0:0.1f}".format(i/len(PossibleStates)*100),"%") #Just to see if the programm is actually running 
-                                                                                                            #and how long it will take
+
     #Calculating the states that are closest to the means computed above
     for I,J in enumerate(Av[:,0]):   
         AllDist = np.array([])
@@ -115,18 +116,18 @@ for Filenum, Filename in enumerate(filenames):
     for i, col in zip(enumerate(NewStates), colors):
         Ratio = func.ratio(i[1],Pars)
         Fit = np.array(func.wlc(Force,Pars)*i[1]*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax0.plot(Fit,Force, alpha=0.9, linestyle=':', color=tuple(col))
-        ax00.plot(Time,Fit, alpha=0.9, linestyle='-.', color=tuple(col))        
+        ax0.plot(Force, Fit, alpha=0.9, linestyle=':', color=tuple(col))
+        ax00.plot(Time, Fit, alpha=0.9, linestyle='-.', color=tuple(col))        
         
     fig0.suptitle(Filename, y=.99)
-    ax0.scatter(Z, Force, color='grey', lw=0.1, s=5, alpha=0.5)
-    ax0.set_title(r'Force-Extension Curve of Chromatin Fibre')
-    ax0.set_ylabel(r'\textbf{Force} (pN)')
-    ax0.set_xlabel(r"\textbf{Extension} (nm)")     
-    ax0.set_ylim(np.min(Force)-0.1*np.max(Force),np.max(Force)+0.1*np.max(Force))
-    ax0.set_xlim(np.min(Z)-0.1*np.max(Z),np.max(Z)+0.1*np.max(Z))
+    ax0.scatter(Force, Z , color='grey', lw=0.1, s=5, alpha=0.5)
+    ax0.set_title(r'Extension-Force Curve of Chromatin Fibre')
+    ax0.set_xlabel(r'\textbf{Force} (pN)')
+    ax0.set_ylabel(r"\textbf{Extension} (nm)")     
+    ax0.set_xlim(np.min(Force)-0.1*np.max(Force),np.max(Force)+0.1*np.max(Force))
+    ax0.set_ylim(np.min(Z)-0.1*np.max(Z),np.max(Z)+0.1*np.max(Z))
 
-    fig00.suptitle(Filename, y=.99)
+#    fig00.suptitle(Filename, y=.99)
     ax00.scatter(Time, Z,  c=Time, cmap='gray', lw=0.1, s=5)
     ax00.set_title(r'Timetrace Curve of Chromatin Fibre')
     ax00.set_xlabel(r'\textbf{Time} (s)')
@@ -136,13 +137,10 @@ for Filenum, Filename in enumerate(filenames):
 
     Filename = Filename.replace( '\_', '_')                                     #Right format to safe the figure
 
-    pickle.dump(fig0, open(Filename[0:-4]+'.FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
-    pickle.dump(fig00, open(Filename[0:-4]+'.Time_all.pickle', 'wb'))
+    pickle.dump(fig0, open(Filename[0:-4]+'.FoEx_Time_all.pickle', 'wb'))       #Saves the figure, so it can be reopend
     
-    fig0.savefig(Filename[0:-4]+'FoEx_all.pdf', format='pdf')
+    fig0.savefig(Filename[0:-4]+'FoEx__Time_all.pdf', format='pdf')
     fig0.show()     
-    fig00.savefig(Filename[0:-4]+'Time_all.pdf', format='pdf')
-    fig00.show()
 
     Unwrapsteps = []
     Stacksteps = []

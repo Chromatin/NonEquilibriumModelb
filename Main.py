@@ -14,8 +14,7 @@ import Functions as func
 import Tools
 import pickle
 
-folder = 'N:\\Rick\\Tweezer data\\Pythontestfit'
-folder = 'P:\\NonEqData\\H1_197\\Best Traces'
+folder = 'N:\\Rick\\Tweezer data\\Pythontestfit\\ProbabilityTest'
 
 filenames = os.listdir(folder)
 os.chdir(folder)
@@ -81,8 +80,8 @@ for Filenum, Filename in enumerate(filenames):
     ax1.scatter(Z_Selected,F_Selected, color="blue", s=1)   
     ax2.plot(0.34*PossibleStates,ProbSum)                                       #*0.34 should be removed
     ax2.scatter(0.34*PossibleStates[(PeakInd)],Peak)                            #*0.34 should be removed
-    ax1.set_xlim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
-    ax1.set_ylim([np.min(Force)-0.1*np.max(Force), np.max(Force)+0.1*np.max(Force)])
+    ax1.set_xlim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
+    ax1.set_ylim([np.min(F_Selected)-0.1*np.max(F_Selected), np.max(F_Selected)+0.1*np.max(F_Selected)])
     #ax2.set_xlim([np.min(PossibleStates)*Pars['DNAds_nm'], np.max(PossibleStates)*Pars['DNAds_nm']+0.1*np.max(PossibleStates)]*Pars['DNAds_nm'])
 
     # this plots the Timetrace
@@ -108,11 +107,15 @@ for Filenum, Filename in enumerate(filenames):
         ax1.plot(Fit,Force, alpha=0.9, linestyle='-.')
         ax3.plot(Time,Fit, alpha=0.9, linestyle='-.')
 
+    Filename = Filename.replace('\_', '_')                                      #Right format for sa
+
     fig1.tight_layout()
-    #fig1.savefig(Filename[0:-4]+'FoEx_all.pdf')
+    pickle.dump(fig1, open(Filename[0:-4]+'.FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
+    fig1.savefig(Filename[0:-4]+'FoEx_all.pdf')
     fig1.show()
     fig2.tight_layout()
-    #fig2.savefig(Filename[0:-4]+'Time_all.pdf')    
+    pickle.dump(fig2, open(Filename[0:-4]+'.Time_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
+    fig2.savefig(Filename[0:-4]+'Time_all.pdf')    
     fig2.show()
 
     Fignum += 1

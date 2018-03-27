@@ -112,18 +112,18 @@ def handle_data(Force, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5)
         if len(Z_Selected)==0: 
             print('==> Nothing Selected!')
             return [], [], []
-        else:
-            return Z_Selected, ForceSelected, T_Selected
+#        else:
+#            return Z_Selected, ForceSelected, T_Selected
     else:
         ForceSelected = Force
         Z_Selected = Z
     
-    if Handles['DelBreaks']: ForceSelected ,Z_Selected, T_Selected = breaks(ForceSelected, Z_Selected, 1000)
-    if Handles['Pulling']: ForceSelected, Z_Selected, T_Selected = removerelease(ForceSelected, Z_Selected)
-    if Handles['MinForce'] > 0: ForceSelected, Z_Selected, T_Selected = minforce(ForceSelected, Z_Selected, Handles['MinForce'])
+    if Handles['DelBreaks']: ForceSelected ,Z_Selected, T_Selected = breaks(ForceSelected, Z_Selected, T_Selected, 1000)
+    if Handles['Pulling']: ForceSelected, Z_Selected, T_Selected = removerelease(ForceSelected, Z_Selected, T_Selected)
+    if Handles['MinForce'] > 0: ForceSelected, Z_Selected, T_Selected = minforce(ForceSelected, Z_Selected, T_Selected, Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
         Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
-        Z_Selected, ForceSelected, T_Selected = minforce(Z_Selected, ForceSelected, - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
+        Z_Selected, ForceSelected, T_Selected = minforce(Z_Selected, ForceSelected, T_Selected, - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
     if Handles['Denoise']: Z_Selected = signal.medfilt(Z_Selected,Window)
     return Z_Selected, ForceSelected, T_Selected
 

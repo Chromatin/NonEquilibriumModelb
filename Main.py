@@ -14,7 +14,7 @@ import Functions as func
 import Tools
 import pickle
 
-folder = 'N:\Rick\Tweezer data\Pythontestfit\ProbabilityTest'
+folder = r'N:\Rick\Tweezer data\Pythontestfit\ProbabilityTest'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 filenames = os.listdir(folder)

@@ -14,7 +14,8 @@ import Functions as func
 import Tools
 import pickle
 
-folder = 'N:\\Rick\\Tweezer data\\Pythontestfit\\ProbabilityTest'
+folder = 'N:\Rick\Tweezer data\Pythontestfit\ProbabilityTest'
+folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 filenames = os.listdir(folder)
 os.chdir(folder)
@@ -50,7 +51,7 @@ for Filenum, Filename in enumerate(filenames):
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)
     ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars) 
     PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks    
-    Starting_States = PossibleStates[PeakInd]                                            #Defines state for each peak
+    Starting_States = PossibleStates[PeakInd]                                   #Defines state for each peak
     States=func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=True, P_Cutoff=0.1) #Finds States
     AAA = func.STD(F_Selected, Z_Selected, PossibleStates, Pars)
     #Calculates stepsize

@@ -216,3 +216,9 @@ def STD(F,Z,PossibleStates,Par,Fmax_Hook=10):
     DeltaZ = abs(np.subtract(StateExtension,Z))
     Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
     return Std
+    
+def Conv(y, box_pts):
+    """Convolution of a signal y with a box of size box_pts with indeces 1/box_pts"""
+    box = np.ones(box_pts)/box_pts
+    y_smooth = np.convolve(y, box, mode='same')
+    return y_smooth

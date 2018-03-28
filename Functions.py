@@ -182,7 +182,8 @@ def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.
             Prob = stats.ttest_ind((StateMask == MergedState ) * Z_Selected, (StateMask == HighP - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
             T_test[HighP-1] = Prob[1]
             Prob = stats.ttest_ind((StateMask == MergedState ) * Z_Selected, (StateMask == HighP - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
-            T_test[HighP+1] = Prob[1]
+            if len(T_test) > HighP+1:
+                T_test[HighP+1] = Prob[1]
             T_test=np.delete(T_test,HighP)
             States = np.delete(States, DelState)  # deletes the state in the state array
             StateMask = StateMask - (StateMask == HighP + 1) * 1  # merges the states in the mask
@@ -198,3 +199,20 @@ def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.
             States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
             
         return States
+    
+def STD(F,Z,PossibleStates,Par,Fmax_Hook=10):
+    """Calculates the probability landscape of the intermediate states. 
+    F is the Force Data, 
+    Z is the Extension Data (needs to have the same size as F)
+    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
+    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
+    Ratio = ratio(PossibleStates, Par)
+    Ratio = np.tile(Ratio,(len(F),1))
+    Ratio = np.transpose(Ratio)
+    dF = 0.01 #delta used to calculate the RC of the curve
+    StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
+    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
+    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
+    DeltaZ = abs(np.subtract(StateExtension,Z))
+    Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
+    return Std

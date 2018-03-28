@@ -14,15 +14,14 @@ import Functions as func
 import Tools
 import pickle
 
-folder = 'C:\\Users\\rmerc\\OneDrive\\Documenten\\Universiteit Leiden\\Bachelor Research\\Test\\20180327 ForceExtensionCurvefitting-Probability\\TestData'
+folder = 'N:\\Rick\\Tweezer data\\Pythontestfit\\ProbabilityTest'
 
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-Handles = Tools.Define_Handles()
-steps, stacks = [],[]                                                           #used to save data (T-test)
-Steps , Stacks = [],[]                                                          #used to save data (Smoothened)
-
+Handles = Tools.Define_Handles(Select=True)
+steps , stacks = [],[]                                                          #used to save data (T-test)
+Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 Fignum = 1
 
 plt.close('all')                                                                #Close all the figures from previous sessions
@@ -53,7 +52,7 @@ for Filenum, Filename in enumerate(filenames):
     PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks    
     Starting_States = PossibleStates[PeakInd]                                            #Defines state for each peak
     States=func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=True, P_Cutoff=0.1) #Finds States
-    
+    AAA = func.STD(F_Selected, Z_Selected, PossibleStates, Pars)
     #Calculates stepsize
     Unwrapsteps = []
     Stacksteps = []
@@ -78,27 +77,26 @@ for Filenum, Filename in enumerate(filenames):
     ax1.set_xlabel(r"\textbf{Extension} (nm)"), ax2.set_xlabel(r"\textbf{Free base pair} (nm)") #(nm) should be removed
     ax1.set_ylabel(r'\textbf{Force} (pN)'), ax2.set_ylabel(r'\textbf{Probability} (AU)')
     ax1.scatter(Z,Force, c=Time, cmap='gray', lw=0.1, s=5)
-#    ax1.scatter(Z_Selected,F_Selected, color="blue", s=1)   
+ #   ax1.scatter(Z_Selected,F_Selected, color="blue", s=1)   
     ax2.plot(0.34*PossibleStates,ProbSum, alpha=0.1)                            #*0.34 should be removed
     ax2.scatter(0.34*PossibleStates[(PeakInd)],Peak, alpha=0.1)                 #*0.34 should be removed
     ax1.set_xlim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
     ax1.set_ylim([np.min(F_Selected)-0.1*np.max(F_Selected), np.max(F_Selected)+0.1*np.max(F_Selected)])
     #ax2.set_xlim([np.min(PossibleStates)*Pars['DNAds_nm'], np.max(PossibleStates)*Pars['DNAds_nm']+0.1*np.max(PossibleStates)]*Pars['DNAds_nm'])
-
-#######################################################################################################################
+    
+##############################################################################################
 ######## Begin Smoothening
     def smooth(y, box_pts):
         box = np.ones(box_pts)/box_pts
         y_smooth = np.convolve(y, box, mode='same')
         return y_smooth
-    
+   
     Smoothness = 70
     SmoothPeakInd, SmoothPeak = func.findpeaks(smooth(ProbSum,Smoothness), 25)
     ax2.plot(0.34*PossibleStates, smooth(ProbSum,Smoothness), 'g-', lw=2)       #*0.34 should be removed
     ax2.scatter(0.34*PossibleStates[(SmoothPeakInd)],SmoothPeak, color='green') #*0.34 should be removed
     
     colors = [plt.cm.brg(each) for each in np.linspace(0, 1, len(PossibleStates[SmoothPeakInd]))]
-
     for i, col in zip(enumerate(PossibleStates[SmoothPeakInd]), colors):
         Ratio = func.ratio(i[1],Pars)
         Fit = np.array(func.wlc(Force,Pars)*i[1]*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
@@ -126,8 +124,7 @@ for Filenum, Filename in enumerate(filenames):
     #Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
 
 #######################################################################################################################
-
-
+    
     # this plots the Timetrace
     fig2 = plt.figure()
     ax3 = fig2.add_subplot(1, 2, 1)
@@ -150,8 +147,6 @@ for Filenum, Filename in enumerate(filenames):
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ax1.plot(Fit,Force, alpha=0.1, linestyle='-.')
         ax3.plot(Time,Fit, alpha=0.1, linestyle='-.')
-        
-    
 
     Filename = Filename.replace('\_', '_')                                      #Right format for sa
 
@@ -167,6 +162,7 @@ for Filenum, Filename in enumerate(filenames):
     Fignum += 1
 
 
+#Stepsize,Sigma=func.fit_pdf(steps)
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,2,1)
 ax6 = fig3.add_subplot(1,2,2, sharey=ax5)

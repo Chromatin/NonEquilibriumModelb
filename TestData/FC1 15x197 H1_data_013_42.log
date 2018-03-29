@@ -1,0 +1,22 @@
+[Fit parameters]
+z_offset (nm) = -36.000000
+Drift (nm/s) = 0.200000
+L DNA (bp) = 4985.000000
+p DNA (nm) = 50.000000
+S DNA (pN) = 1500.000000
+NRL (bp) = 197.000000
+N nuc = 20.000000
+l folded (nm) = 1.700000
+k folded (pN/nm) = 0.291740
+N unfolded [F0] = 3.000000
+l unwrap (bp) = 56.000000
+l extended (nm) = 5.000000
+G1 (kT) = 28.732411
+G2 (kT) = 8.749199
+G3 (kT) = 60.000000
+Degeneracy (0..1) = 1.000000
+
+[Fit local error]
+k folded (pN/nm) = 0.002294
+G1 (kT) = 1.216149
+G2 (kT) = 1.623677

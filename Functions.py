@@ -69,12 +69,13 @@ def ratio(x, Par):
     Imputs can be arrays"""
     if Par['LFiber_bp']<0:
         return x*0
-    Ratio = (Par['LFiber_bp']-(x-Par['Fiber0_bp']))/(Par['LFiber_bp']) 
-    Ratiomin = Ratio>=0
-    Ratio *= Ratiomin          #removes values below 0, makes them 0
-    Ratiomin = Ratio >=1
-    Ratio = Ratio * (Ratio<=1) #removes values above 1, makes them 1
-    return Ratiomin + Ratio
+    Ratio = (Par['LFiber_bp']-(x-Par['FiberStart_bp']))/(Par['LFiber_bp']) 
+    Ratio = np.array(Ratio)
+    Ratiomin = Ratio<=0
+    Ratio[Ratiomin] = 0         #removes values below 0, makes them 0
+    RatioPlus = Ratio >=1
+    Ratio[RatioPlus] = 1 #removes values above 1, makes them 1
+    return np.abs(Ratio)
 
 def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
     """Calculates the probability landscape of the intermediate states. 

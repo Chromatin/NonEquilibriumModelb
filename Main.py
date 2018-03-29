@@ -152,7 +152,6 @@ for Filenum, Filename in enumerate(filenames):
 
 #######################################################################################################################
     
-
     for x in States:
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])

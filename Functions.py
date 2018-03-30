@@ -77,25 +77,6 @@ def ratio(x, Par):
     Ratio[RatioPlus] = 1 #removes values above 1, makes them 1
     return np.abs(Ratio)
 
-def probsumold(F,Z,PossibleStates,Par,Fmax_Hook=10):
-    """Calculates the probability landscape of the intermediate states. 
-    F is the Force Data, 
-    Z is the Extension Data (needs to have the same size as F)
-    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
-    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
-    Ratio = ratio(PossibleStates, Par)
-    Ratio = np.tile(Ratio,(len(F),1))
-    Ratio = np.transpose(Ratio)
-    dF = 0.01 #delta used to calculate the RC of the curve
-    StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    LocalStiffness = (np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF )**(-1) 
-    DeltaZ = abs(np.subtract(StateExtension,Z))
-    Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    Pz = np.array(np.multiply((1-erfaprox(Std)),F))
-    ProbSum = np.sum(Pz, axis=1) 
-    return ProbSum
-
 def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
@@ -108,18 +89,12 @@ def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
     dF = 0.01 #delta used to calculate the RC of the curve
     StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
     StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    LocalStiffness = (np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF )**(-1)
+    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
     DeltaZ = abs(np.subtract(StateExtension,Z))
     Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    Std[Std<1] = np.nan
-    Pz = np.array(1-erfaprox(Std))
-    Prod= np.zeros(len(Pz[0,:]))
-    for i,x in enumerate(Prod):
-        Column=Pz[i,:]  
-        Prod[i]=np.prod((Column[Column!=np.nan]))                              #take the product of each column (state) ignoring nans
-           
-    Prod[Prod==np.nan]=0
-    return Prod
+    Pz = np.array(np.multiply((1-erfaprox(Std)),F))
+    ProbSum = np.sum(Pz, axis=1) 
+    return ProbSum
 
 def gaus(x,amp,x0,sigma):
     """1D Gaussian"""
@@ -238,10 +213,9 @@ def STD(F,Z,PossibleStates,Par,Fmax_Hook=10):
     dF = 0.01 #delta used to calculate the RC of the curve
     StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
     StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    LocalStiffness = (np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF )**(-1) 
+    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
     DeltaZ = abs(np.subtract(StateExtension,Z))
     Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    Std[Std>10] = 0
     return Std
     
 def Conv(y, box_pts):

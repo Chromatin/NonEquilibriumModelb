@@ -5,16 +5,16 @@ Created on Mon Jan 22 11:52:49 2018
 @author: nhermans & rrodrigues
 """
 import os 
-import matplotlib
+#import matplotlib
 #matplotlib.rcParams['text.usetex'] = True
-matplotlib.rcParams['text.latex.unicode'] = True
+#matplotlib.rcParams['text.latex.unicode'] = True
 import matplotlib.pyplot as plt
 import numpy as np
 import Functions as func
 import Tools
 import pickle
 
-folder = r'N:\Rick\Tweezer data\Pythontestfit\ProbabilityTest'
+folder = r'C:\Users\rmerc\OneDrive\Documenten\Universiteit Leiden\Bachelor Research\Test\20180330 ForceExtensionCurvefitting-Probability\TestData'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 filenames = os.listdir(folder)
@@ -23,6 +23,8 @@ os.chdir(folder)
 Handles = Tools.Define_Handles(Select=True)
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
+F_rup, Z_rup = np.array([]), np.array([])                                       #Rupture forces and corresponding jumps
+
 Fignum = 1
 
 plt.close('all')                                                                #Close all the figures from previous sessions
@@ -45,8 +47,6 @@ for Filenum, Filename in enumerate(filenames):
     if len(Z_Selected)<10:  
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
-
-    Filename = Filename.replace('_', '\_')                                      #Right format for the plot headers
     
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)
     ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars) 
@@ -54,6 +54,7 @@ for Filenum, Filename in enumerate(filenames):
     Starting_States = PossibleStates[PeakInd]                                   #Defines state for each peak
     States=func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=True, P_Cutoff=0.1) #Finds States
     AAA = func.STD(F_Selected, Z_Selected, PossibleStates, Pars)
+    
     #Calculates stepsize
     Unwrapsteps = []
     Stacksteps = []
@@ -73,17 +74,16 @@ for Filenum, Filename in enumerate(filenames):
     ax1 = fig1.add_subplot(1, 2, 1)
     ax2 = fig1.add_subplot(1, 2, 2)
     fig1.suptitle(Filename, y=.99)
-    ax1.set_title("Extension-Force Curve")
-    ax2.set_title(" ")
-    ax1.set_xlabel(r'\textbf{Force} (pN)'), ax2.set_ylabel(r'\textbf{Probability} (AU)')
-    ax1.set_ylabel(r"\textbf{Extension} (nm)"), ax2.set_xlabel(r"\textbf{Free base pair} (nm)") #(nm) should be removed
-    ax1.scatter(Force, Z, c=Time, cmap='gray', lw=0.1, s=5)
- #   ax1.scatter(F_Selected, Z_Selected, color="blue", s=1)   
+    ax1.set_title('Extension-Force Curve')
+    ax2.set_title('Probability Landscape ')
+    ax1.set_ylabel(r'Force (pN)'), ax2.set_ylabel(r'Probability (AU)')
+    ax1.set_xlabel(r'Extension (nm)'), ax2.set_xlabel(r'Free base pair (nm)') #(nm) should be removed
+    ax1.scatter(Z, Force, color='grey', lw=0.1, s=5)
+ #   ax1.scatter(F_Selected, Z_Selected, color="blue", s=1) #This is now done in different colors below
     ax2.plot(PossibleStates,ProbSum, alpha=0.1)
     ax2.scatter(PossibleStates[(PeakInd)],Peak, alpha=0.1)
-    ax1.set_xlim([np.min(F_Selected)-0.1*np.max(F_Selected), np.max(F_Selected)+0.1*np.max(F_Selected)])
-    ax1.set_ylim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
-    #ax2.set_xlim([np.min(PossibleStates)*Pars['DNAds_nm'], np.max(PossibleStates)*Pars['DNAds_nm']+0.1*np.max(PossibleStates)]*Pars['DNAds_nm'])
+    ax1.set_ylim([np.min(F_Selected)-0.1*np.max(F_Selected), np.max(F_Selected)+0.1*np.max(F_Selected)])
+    ax1.set_xlim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
 
 
     # this plots the Timetrace
@@ -91,18 +91,24 @@ for Filenum, Filename in enumerate(filenames):
     ax3 = fig2.add_subplot(1, 2, 1)
     ax4 = fig2.add_subplot(1, 2, 2, sharey=ax3)
     fig2.suptitle(Filename, y=.99)
-    ax3.set_title("Timetrace Curve")
-    ax4.set_title(" ")
-    ax3.set_xlabel(r'\textbf{Time} (s)'), ax4.set_xlabel(r'\textbf{Probability} (AU)')
-    ax3.set_ylabel(r'\textbf{Extension} (bp nm)')
+    ax3.set_title('Timetrace Curve')
+    ax4.set_title('Probability Landscape')
+    ax3.set_xlabel(r'Time (s)'), ax4.set_xlabel(r'Probability (AU)')
+    ax3.set_ylabel(r'Extension (bp nm)')
     ax3.set_ylim([0, Pars['L_bp']*Pars['DNAds_nm']+100])
-    ax3.scatter(Time,Z,  c=Time, cmap='gray', lw=0.1, s=5)
-    ax3.scatter(T_Selected, Z_Selected, color='blue', s=1)
+    ax3.scatter(Time,Z, color='grey', lw=0.1, s=5)
+#    ax3.scatter(T_Selected, Z_Selected, color='blue', s=1) #This is now done in different colors below
     ax4.plot(ProbSum,PossibleStates*Pars['DNAds_nm'], alpha=0.1)
     ax4.scatter(Peak,PossibleStates[(PeakInd)]*Pars['DNAds_nm'], color='blue', alpha=0.1)
     ax3.set_xlim([np.min(Time)-0.1*np.max(Time), np.max(Time)+0.1*np.max(Time)])
     ax3.set_ylim([np.min(Z)-0.1*np.max(Z), np.max(Z)+0.1*np.max(Z)])
-    
+       
+    for x in States:
+        Ratio = func.ratio(x,Pars)
+        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        ax1.plot(Fit, Force, alpha=0.1, linestyle='-.')
+        ax3.plot(Time,Fit, alpha=0.1, linestyle='-.')
+
 ##############################################################################################
 ######## Begin Smoothening
    
@@ -110,6 +116,7 @@ for Filenum, Filename in enumerate(filenames):
     SmoothProbSum = func.Conv(ProbSum,Smoothness)
     SmoothPeakInd, SmoothPeak = func.findpeaks(SmoothProbSum, 25)
     SmoothStates = PossibleStates[SmoothPeakInd]
+    
     ax2.plot(PossibleStates, SmoothProbSum, 'g-', lw=2)
     ax2.scatter(PossibleStates[(SmoothPeakInd)],SmoothPeak, color='green')
     
@@ -119,24 +126,45 @@ for Filenum, Filename in enumerate(filenames):
     colors = [plt.cm.brg(each) for each in np.linspace(0, 1, len(SmoothStates))]#Color pattern for the states
     dX = 10                                                                     #Offset for text in plot
     
-    #Plot the states
-    for i, col in zip(enumerate(SmoothStates), colors):
-        Ratio = func.ratio(i[1],Pars)
-        Fit = np.array(func.wlc(Force,Pars)*i[1]*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax1.plot(Force, Fit, alpha=0.9, linestyle=':', color=tuple(col))
-        ax2.vlines(i[1], 0, SmoothPeak[i[0]], linestyle=':', color=tuple(col))
-        ax2.text(i[1], SmoothPeak[i[0]]+dX, int(i[1]), fontsize=8, horizontalalignment='center')
-        ax3.plot(Time,Fit, alpha=0.9, linestyle=':', color=tuple(col))
-        ax4.hlines(i[1]*Pars['DNAds_nm'], 0, SmoothPeak[i[0]], color=tuple(col), linestyle=':')
-        ax4.text(SmoothPeak[i[0]]+dX, i[1]*Pars['DNAds_nm'], int(i[1]*Pars['DNAds_nm']), fontsize=8, verticalalignment='center')
+    Statemask = func.attribute2state(F_Selected,Z_Selected,SmoothStates, Pars)  #For each datapoint to which state it belongs
+    AllStates = np.empty(shape=[len(Force),2,len(SmoothStates)])                #3d array of the states
     
-    Statemask = func.attribute2state(F_Selected,Z_Selected,SmoothStates, Pars)
+    #Making a 3d array containing all states afther smoothening: Fit==AllStates[:,0,i], Force==AllStates[:,1,i] for state i
+    for i, x in enumerate(SmoothStates):
+        Ratio = func.ratio(x,Pars)
+        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        ForceFit = np.vstack((Fit, Force)).T
+        AllStates[:,:,i] = ForceFit        
     
-    #Plot datapoint in the right color
-    for i, col in zip(enumerate(Statemask), colors):
-        ax1.scatter(F_Selected[Statemask==i[0]], Z_Selected[Statemask==i[0]], color=tuple(col), s=5)
-        ax3.scatter(T_Selected[Statemask==i[0]], Z_Selected[Statemask==i[0]], color=tuple(col), s=5)   
-
+    #Plot the states and datapoints in the same color
+    for j, col in zip(np.arange(len(colors)), colors):
+        Mask = Statemask==j
+        Fit = AllStates[:,0,j]
+        Force = AllStates[:,1,j]
+        
+        ax1.plot(Fit, Force, alpha=0.9, linestyle=':', color=tuple(col)) 
+        ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=5)
+        
+        ax2.vlines(SmoothStates[j], 0, SmoothPeak[j], linestyle=':', color=tuple(col))
+        ax2.text(SmoothStates[j], SmoothPeak[j]+dX, int(SmoothStates[j]), fontsize=8, horizontalalignment='center')
+        
+        ax3.plot(Time, Fit, alpha=0.9, linestyle=':', color=tuple(col))
+        ax3.scatter(T_Selected[Mask], Z_Selected[Mask], color=tuple(col), s=5)
+        
+        ax4.hlines(SmoothStates[j]*Pars['DNAds_nm'], 0, SmoothPeak[j], color=tuple(col), linestyle=':')
+        ax4.text(SmoothPeak[j]+dX, SmoothStates[j]*Pars['DNAds_nm'], int(SmoothStates[j]*Pars['DNAds_nm']), fontsize=8, verticalalignment='center')
+    
+        #Rupture forces
+        if j < len(SmoothStates)-1:
+            Ruptureforce = (F_Selected[Mask])[-1]                               #The last datapoint in a group
+            start = np.abs(Force-Ruptureforce)
+            start = Fit[np.argmin(start)]
+            stop = np.abs(AllStates[:,1,j+1]-Ruptureforce)
+            stop = (AllStates[:,0,j+1])[np.argmin(stop)]
+            ax1.hlines(Ruptureforce, start, stop, color='black')
+            F_rup = np.append(F_rup, Ruptureforce)
+            Z_rup = np.append(Z_rup, stop-start)
+      
     Unwrapsteps = []
     Stacksteps = []
     for x in SmoothStates:
@@ -148,22 +176,14 @@ for Filenum, Filename in enumerate(filenames):
     Unwrapsteps = np.diff(np.array(Unwrapsteps))
     if len(Unwrapsteps)>0: Steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
-    #Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
 
-#######################################################################################################################
-    
-    for x in States:
-        Ratio = func.ratio(x,Pars)
-        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax1.plot(Fit,Force, alpha=0.1, linestyle='-.')
-        ax3.plot(Time,Fit, alpha=0.1, linestyle='-.')
-
-    Filename = Filename.replace('\_', '_')                                      #Right format for sa
+######################################################################################################################
 
     fig1.tight_layout()
     pickle.dump(fig1, open(Filename[0:-4]+'.FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
     fig1.savefig(Filename[0:-4]+'FoEx_all.pdf')
     fig1.show()
+    
     fig2.tight_layout()
     pickle.dump(fig2, open(Filename[0:-4]+'.Time_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
     fig2.savefig(Filename[0:-4]+'Time_all.pdf')    
@@ -172,7 +192,7 @@ for Filenum, Filename in enumerate(filenames):
     Fignum += 2
 
 
-#Stepsize,Sigma=func.fit_pdf(steps)
+#Plotting a hist of the stepsizes
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,2,1)
 ax6 = fig3.add_subplot(1,2,2, sharey=ax5)
@@ -189,4 +209,17 @@ ax6.set_ylabel('Count')
 ax6.set_title("Histogram stepsizes in bp using smoothening")
 ax6.legend(loc='best')
 fig3.tight_layout()
-#fig3.savefig('hist.png')
+fig3.savefig('hist.pdf', format='pdf')
+
+#plotting the rupture forces
+linearfit = np.polyfit(F_rup, Z_rup, deg=1)
+fitarr = np.linspace(0, 10, 200)
+fig4, ax7 = plt.subplots()
+ax7.scatter(F_rup, Z_rup, lw=0.5, color='blue')
+ax7.plot(fitarr, linearfit[1]+linearfit[0]*fitarr, color='red', label='Lineair Fit')
+fig4.suptitle('Linear fit: y='+str(round(linearfit[0],1))+'+'+str(round(linearfit[1],1)))
+ax7.set_xlabel('Rupture Forces (pN)')
+ax7.set_ylabel('Jump in Z (nm)')
+ax7.set_title("Rupture forces versus jump in z")
+ax7.legend(loc='best')
+fig4.savefig('RF.pdf', format='pdf')

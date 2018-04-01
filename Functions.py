@@ -56,7 +56,7 @@ def erfaprox(x):
     return np.sign(x) * np.sqrt(1-np.exp(b))
 
 def state2step(States):
-    """Calculates distances between states""" #Not used atm in Cluster part
+    """Calculates distances between states"""    
     States = np.array(States)
     if States.size>1:
         return States[1:]-States[0:-1]
@@ -72,9 +72,9 @@ def ratio(x, Par):
     Ratio = (Par['LFiber_bp']-(x-Par['FiberStart_bp']))/(Par['LFiber_bp']) 
     Ratio = np.array(Ratio)
     Ratiomin = Ratio<=0
-    Ratio[Ratiomin] = 0         #removes values below 0, makes them 0
+    Ratio[Ratiomin] = 0                                                         #removes values below 0, makes them 0
     RatioPlus = Ratio >=1
-    Ratio[RatioPlus] = 1 #removes values above 1, makes them 1
+    Ratio[RatioPlus] = 1                                                        #removes values above 1, makes them 1
     return np.abs(Ratio)
 
 def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
@@ -95,6 +95,27 @@ def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
     Pz = np.array(np.multiply((1-erfaprox(Std)),F))
     ProbSum = np.sum(Pz, axis=1) 
     return ProbSum
+
+def probprod(F,Z,PossibleStates,Par,Fmax_Hook=10):
+    """Calculates the probability landscape of the intermediate states. 
+    F is the Force Data, 
+    Z is the Extension Data (needs to have the same size as F)
+    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
+    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
+    Ratio = ratio(PossibleStates, Par)
+    Ratio = np.tile(Ratio,(len(F),1))
+    Ratio = np.transpose(Ratio)
+    dF = 0.01 #delta used to calculate the RC of the curve
+    StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
+    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
+    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
+    DeltaZ = abs(np.subtract(StateExtension,Z))
+    Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
+    Pz = np.array(np.multiply((1-erfaprox(Std)),F))
+    Pz[Pz<10e-3] = 1                                                            #Only take into account a 'box' around the state
+    ProbProd = np.prod(Pz, axis=1) 
+    ProbProd[ProbProd==1] = 0                                                   #correction for the box
+    return ProbProd, Pz
 
 def gaus(x,amp,x0,sigma):
     """1D Gaussian"""
@@ -199,7 +220,7 @@ def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.
             StateProbSum = probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
             States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
             
-        return States
+    return States
     
 def STD(F,Z,PossibleStates,Par,Fmax_Hook=10):
     """Calculates the probability landscape of the intermediate states. 
@@ -219,7 +240,7 @@ def STD(F,Z,PossibleStates,Par,Fmax_Hook=10):
     return Std
     
 def Conv(y, box_pts):
-    """Convolution of a signal y with a box of size box_pts with indeces 1/box_pts"""
+    """Convolution of a signal y with a box of size box_pts with height 1/box_pts"""
     box = np.ones(box_pts)/box_pts
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth

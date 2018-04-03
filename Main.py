@@ -52,8 +52,9 @@ for Filenum, Filename in enumerate(filenames):
     
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)
     ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars)
-    ProbProd ,Pz = func.probprod(F_Selected, Z_Selected, PossibleStates, Pars)  #Product of Probabilities, #workinprogress
-    PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks    
+    ProbProd = func.probprod(F_Selected, Z_Selected, PossibleStates, Pars)      #Product of Probabilities, #workinprogress
+    PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks
+    PeakIndProd, PeakProd = func.findpeaks(ProbProd, 25)                        #Find Peaks        
     Starting_States = PossibleStates[PeakInd]                                   #Defines state for each peak
     States = func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
     AAA = func.STD(F_Selected, Z_Selected, PossibleStates, Pars)
@@ -88,9 +89,10 @@ for Filenum, Filename in enumerate(filenames):
     ax2.set_title(r'Probability Landscape')
     ax2.set_xlabel(r'Free base pair (nm)') #(nm) should be removed
     ax2.set_ylabel(r'Probability (AU)')
-    ax2.plot(PossibleStates,ProbSum, alpha=0.1)
-    ax2.plot(PossibleStates,ProbProd, color='orange') #Product of Probabilities, #workinprogress
+    ax2.plot(PossibleStates,ProbSum, alpha=0.1, label='ProbSum')
+    ax2.plot(PossibleStates,ProbProd, color='orange', label='ProbProd')         #Product of Probabilities, #workinprogress
     ax2.scatter(PossibleStates[(PeakInd)],Peak, alpha=0.1)
+    ax2.scatter(PossibleStates[(PeakIndProd)],PeakProd, color='orange')
     ax2.set_ylim(0,np.max(ProbSum)) #Just here because ProbProd is extremely large
 
     # this plots the Timetrace
@@ -122,14 +124,22 @@ for Filenum, Filename in enumerate(filenames):
 
 ##############################################################################################
 ######## Begin Smoothening
+    Smoothness = 30
+    SmoothProbProd = func.Conv(ProbProd,Smoothness)
+    SmoothPeakIndProd, SmoothPeakProd = func.findpeaks(SmoothProbProd, 30)
+    SmoothStatesProd = PossibleStates[SmoothPeakIndProd]  
+    
+    ax2.plot(PossibleStates, SmoothProbProd, color='purple', label='SmoothProdProd')
+    ax2.scatter(PossibleStates[(SmoothPeakIndProd)], SmoothPeakProd, color='purple')
    
     Smoothness = 70
     SmoothProbSum = func.Conv(ProbSum,Smoothness)
     SmoothPeakInd, SmoothPeak = func.findpeaks(SmoothProbSum, 25)
     SmoothStates = PossibleStates[SmoothPeakInd]
-    
-    ax2.plot(PossibleStates, SmoothProbSum, 'g-', lw=2)
+
+    ax2.plot(PossibleStates, SmoothProbSum, 'g-', lw=2, label='SmoothProbSum')
     ax2.scatter(PossibleStates[(SmoothPeakInd)],SmoothPeak, color='green')
+
     
     ax4.plot(SmoothProbSum, PossibleStates*Pars['DNAds_nm'], color='green')
     ax4.scatter(SmoothPeak,PossibleStates[(SmoothPeakInd)]*Pars['DNAds_nm'], color='green')
@@ -167,7 +177,7 @@ for Filenum, Filename in enumerate(filenames):
     
         #Rupture forces
         if j < len(SmoothStates)-1:
-            Ruptureforce = (F_Selected[Mask])[-1]                               #The last datapoint in a group
+            Ruptureforce = np.mean((F_Selected[Mask])[-3:-1])                               #The 3 last datapoint in a group
             start = Fit[np.argmin(np.abs(Force-Ruptureforce))]
             stop = (AllStates[:,0,j+1])[np.argmin(np.abs(AllStates[:,1,j+1]-Ruptureforce))] #Same as start, but then for the next state
             ax1.hlines(Ruptureforce, start, stop, color='black')
@@ -187,7 +197,7 @@ for Filenum, Filename in enumerate(filenames):
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
 
 ######################################################################################################################
-
+    ax2.legend(loc='best')
     fig1.tight_layout()
     pickle.dump(fig1, open(Filename[0:-4]+'.FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
     fig1.savefig(Filename[0:-4]+'FoEx_all.pdf')

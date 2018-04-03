@@ -16,7 +16,7 @@ import pickle
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'C:\Users\rmerc\OneDrive\Documenten\Universiteit Leiden\Bachelor Research\Test\20180330 ForceExtensionCurvefitting-Probability\TestData'
+folder = r'N:\Rick\Tweezer data\Pythontestfit\ProbabilityTest'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 filenames = os.listdir(folder)
@@ -200,7 +200,6 @@ for Filenum, Filename in enumerate(filenames):
 
     Fignum += 2
 
-
 #Plotting a hist of the stepsizes
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,2,1)
@@ -221,14 +220,9 @@ fig3.tight_layout()
 fig3.savefig('Hist.pdf', format='pdf')
 
 #plotting the rupture forces
-linearfit = np.polyfit(F_rup, dZ_rup, deg=1)
-fitarr = np.linspace(0, 10, 200)
 fig4, ax7 = plt.subplots()
 ax7.errorbar(F_rup, dZ_rup, yerr=5, fmt='o', color='blue')       #What should be the errors?
-ax7.plot(fitarr, linearfit[1]+linearfit[0]*fitarr, color='red', label='Lineair Fit')
-fig4.suptitle('Linear fit: y='+str(round(linearfit[0],1))+'+'+str(round(linearfit[1],1)))
 ax7.set_xlabel('Rupture Forces (pN)')
 ax7.set_ylabel('Jump in Z (nm)')
 ax7.set_title("Rupture forces versus jump in z")
-ax7.legend(loc='best')
 fig4.savefig('RF.pdf', format='pdf')

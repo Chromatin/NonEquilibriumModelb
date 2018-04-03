@@ -5,7 +5,9 @@ Created on Mon Jan 22 11:52:49 2018
 @author: nhermans & rrodrigues
 """
 import os 
-#import matplotlib
+import matplotlib
+matplotlib.rcParams['figure.figsize'] = (15, 10)
+
 #matplotlib.rcParams['text.usetex'] = True
 #matplotlib.rcParams['text.latex.unicode'] = True
 import matplotlib.pyplot as plt
@@ -22,15 +24,20 @@ folder = folder.replace('\\', '\\\\')                                           
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-Handles = Tools.Define_Handles(Select=True)
+PlotSelected = True                                                             #Choose to plot selected only
+
+Handles = Tools.Define_Handles(Select=PlotSelected)
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 F_rup, dZ_rup = np.array([]), np.array([])                                      #Rupture forces and corresponding jumps
 
-PlotSelected = True                                                             #Choose to plot selected only
+Fignum, Progress = 1, 1
 
-Fignum = 1
-
+Number = 0                                                                      #Total number of loops
+for filename in filenames:
+    if filename[-4:] == '.fit':
+        Number += 1
+        
 for Filenum, Filename in enumerate(filenames):
     if Filename[-4:] != '.fit' :
         continue
@@ -41,8 +48,8 @@ for Filenum, Filename in enumerate(filenames):
     if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
-    print(int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, "&", Fignum+1, ")")
-
+    print(Progress, "/", Number, ":", int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, "&", Fignum+1, ").")
+    Progress += 1
     #Remove all datapoints that should not be fitted
     Z_Selected, F_Selected, T_Selected = Tools.handle_data(Force, Z, Time, Z_Selected, Handles, Pars)
 
@@ -52,7 +59,7 @@ for Filenum, Filename in enumerate(filenames):
     
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)
     ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars)
-    ProbProd = func.probprod(F_Selected, Z_Selected, PossibleStates, Pars)      #Product of Probabilities, #workinprogress
+    ProbProd, Pz, N, pz = func.probprod(F_Selected, Z_Selected, PossibleStates, Pars)      #Product of Probabilities, #workinprogress
     PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks
     PeakIndProd, PeakProd = func.findpeaks(ProbProd, 25)                        #Find Peaks        
     Starting_States = PossibleStates[PeakInd]                                   #Defines state for each peak
@@ -90,9 +97,9 @@ for Filenum, Filename in enumerate(filenames):
     ax2.set_xlabel(r'Free base pair (nm)') #(nm) should be removed
     ax2.set_ylabel(r'Probability (AU)')
     ax2.plot(PossibleStates,ProbSum, alpha=0.1, label='ProbSum')
-    ax2.plot(PossibleStates,ProbProd, color='orange', label='ProbProd')         #Product of Probabilities, #workinprogress
+#    ax2.plot(PossibleStates,ProbProd, color='orange', label='ProbProd')         #Product of Probabilities, #workinprogress
     ax2.scatter(PossibleStates[(PeakInd)],Peak, alpha=0.1)
-    ax2.scatter(PossibleStates[(PeakIndProd)],PeakProd, color='orange')
+#    ax2.scatter(PossibleStates[(PeakIndProd)],PeakProd, color='orange')
     ax2.set_ylim(0,np.max(ProbSum)) #Just here because ProbProd is extremely large
 
     # this plots the Timetrace
@@ -124,13 +131,13 @@ for Filenum, Filename in enumerate(filenames):
 
 ##############################################################################################
 ######## Begin Smoothening
-    Smoothness = 30
-    SmoothProbProd = func.Conv(ProbProd,Smoothness)
-    SmoothPeakIndProd, SmoothPeakProd = func.findpeaks(SmoothProbProd, 30)
-    SmoothStatesProd = PossibleStates[SmoothPeakIndProd]  
-    
-    ax2.plot(PossibleStates, SmoothProbProd, color='purple', label='SmoothProdProd')
-    ax2.scatter(PossibleStates[(SmoothPeakIndProd)], SmoothPeakProd, color='purple')
+#    Smoothness = 30
+#    SmoothProbProd = func.Conv(ProbProd,Smoothness)
+#    SmoothPeakIndProd, SmoothPeakProd = func.findpeaks(SmoothProbProd, 30)
+#    SmoothStatesProd = PossibleStates[SmoothPeakIndProd]  
+#    
+#    ax2.plot(PossibleStates, SmoothProbProd, color='purple', label='SmoothProdProd')
+#    ax2.scatter(PossibleStates[(SmoothPeakIndProd)], SmoothPeakProd, color='purple')
    
     Smoothness = 70
     SmoothProbSum = func.Conv(ProbSum,Smoothness)
@@ -231,7 +238,7 @@ fig3.savefig('Hist.pdf', format='pdf')
 
 #plotting the rupture forces
 fig4, ax7 = plt.subplots()
-ax7.errorbar(F_rup, dZ_rup, yerr=5, fmt='o', color='blue')       #What should be the errors?
+ax7.scatter(F_rup, dZ_rup, color='blue')       #What should be the errors?
 ax7.set_xlabel('Rupture Forces (pN)')
 ax7.set_ylabel('Jump in Z (nm)')
 ax7.set_title("Rupture forces versus jump in z")

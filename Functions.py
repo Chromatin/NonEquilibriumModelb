@@ -111,15 +111,18 @@ def probprod(F,Z,PossibleStates,Par,Fmax_Hook=10):
     LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
     DeltaZ = abs(np.subtract(StateExtension,Z))
     Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    Pz = np.array(np.multiply((1-erfaprox(Std)),F))
-    N = Pz
-    N[N>=10e-3] = 1 
-    N[N<10e-3] = 0
+    Pz = np.array(1-erfaprox(Std))  
+    pz = np.copy(Pz)
+    N = np.copy(Pz)
+    N[N>=10e-2] = 1 
+    N[N<10e-2] = 0
     N = np.sum(N, axis = 1)
-    Pz[Pz<10e-3] = 1                                                            #Only take into account a 'box' around the state
-    ProbProd = np.multiply(np.prod(Pz, axis=1), N) 
-    ProbProd[ProbProd==1] = 0                                                   #correction for the box
-    return ProbProd
+    Pz[Pz<10e-2] = 1 #Only take into account a 'box' around the state
+#    Pz[Pz>1] = 1
+    AA = np.ndarray.prod(Pz, axis=1)                                                           
+    AA[AA==1] = 0                                                   #correction for the box
+    ProbProd = np.multiply(AA, N)
+    return ProbProd, Pz, N, pz
 
 def gaus(x,amp,x0,sigma):
     """1D Gaussian"""

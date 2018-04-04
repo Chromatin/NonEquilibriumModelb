@@ -18,8 +18,15 @@ import pickle
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Tweezer data\Pythontestfit\ProbabilityTest'
+folder = r'N:\Rick\Fit Files\Pythontestfit'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
+
+newpath = folder+r'\\Figures'                                                   #New path to save the figures
+if not os.path.exists(newpath):
+    os.makedirs(newpath)
+
+print('Origin:', folder)
+print('Destination folder:', newpath)
 
 filenames = os.listdir(folder)
 os.chdir(folder)
@@ -31,7 +38,7 @@ steps , stacks = [],[]                                                          
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 F_rup, dZ_rup = np.array([]), np.array([])                                      #Rupture forces and corresponding jumps
 
-Fignum, Progress = 1, 1
+Fignum, Progress = 1, 1                                                         #Used for output line
 
 Number = 0                                                                      #Total number of loops
 for filename in filenames:
@@ -59,12 +66,13 @@ for Filenum, Filename in enumerate(filenames):
     
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)
     ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars)
-    ProbProd, Pz, N, pz = func.probprod(F_Selected, Z_Selected, PossibleStates, Pars)      #Product of Probabilities, #workinprogress
     PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks
-    PeakIndProd, PeakProd = func.findpeaks(ProbProd, 25)                        #Find Peaks        
     Starting_States = PossibleStates[PeakInd]                                   #Defines state for each peak
     States = func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
-    AAA = func.STD(F_Selected, Z_Selected, PossibleStates, Pars)
+#    AAA = func.STD(F_Selected, Z_Selected, PossibleStates, Pars)
+
+#    ProbProd, Pz, N, pz = func.probprod(F_Selected, Z_Selected, PossibleStates, Pars)      #Product of Probabilities, #workinprogress
+#    PeakIndProd, PeakProd = func.findpeaks(ProbProd, 25)                        #Find Peaks        
     
     #Calculates stepsize
     Unwrapsteps = []
@@ -79,7 +87,7 @@ for Filenum, Filename in enumerate(filenames):
     if len(Unwrapsteps)>0: steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: stacks.extend(Stacksteps)
     #Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
-
+    
     # this plots the Force-Extension curve
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(1, 2, 1)
@@ -139,7 +147,7 @@ for Filenum, Filename in enumerate(filenames):
 #    ax2.plot(PossibleStates, SmoothProbProd, color='purple', label='SmoothProdProd')
 #    ax2.scatter(PossibleStates[(SmoothPeakIndProd)], SmoothPeakProd, color='purple')
    
-    Smoothness = 70
+    Smoothness = 40                                                             #40-70 works fine for Stacks, <40 works best for Steps
     SmoothProbSum = func.Conv(ProbSum,Smoothness)
     SmoothPeakInd, SmoothPeak = func.findpeaks(SmoothProbSum, 25)
     SmoothStates = PossibleStates[SmoothPeakInd]
@@ -152,9 +160,12 @@ for Filenum, Filename in enumerate(filenames):
     ax4.scatter(SmoothPeak,PossibleStates[(SmoothPeakInd)]*Pars['DNAds_nm'], color='green')
     
     Statemask = func.attribute2state(F_Selected,Z_Selected,SmoothStates, Pars)  #For each datapoint to which state it belongs
-    AllStates = np.empty(shape=[len(Force),2,len(SmoothStates)])                #3d array of the states
-    
+
+    #Remove states with X or less datapoints   
+    SmoothStates, SmoothPeak, Statemask = func.MinNumOfPoints(SmoothStates, SmoothPeak, Statemask, F_Selected, Z_Selected, Pars, X=5)
+
     #Making a 3d array containing all states afther smoothening: Fit==AllStates[:,0,i], Force==AllStates[:,1,i] for state i
+    AllStates = np.empty(shape=[len(Force),2,len(SmoothStates)])                #3d array of the states  
     for i, x in enumerate(SmoothStates):
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
@@ -184,7 +195,7 @@ for Filenum, Filename in enumerate(filenames):
     
         #Rupture forces
         if j < len(SmoothStates)-1:
-            Ruptureforce = np.mean((F_Selected[Mask])[-3:-1])                               #The 3 last datapoint in a group
+            Ruptureforce = np.mean((F_Selected[Mask])[-4:-1])                               #The 4 last datapoint in a group
             start = Fit[np.argmin(np.abs(Force-Ruptureforce))]
             stop = (AllStates[:,0,j+1])[np.argmin(np.abs(AllStates[:,1,j+1]-Ruptureforce))] #Same as start, but then for the next state
             ax1.hlines(Ruptureforce, start, stop, color='black')
@@ -206,13 +217,13 @@ for Filenum, Filename in enumerate(filenames):
 ######################################################################################################################
     ax2.legend(loc='best')
     fig1.tight_layout()
-    pickle.dump(fig1, open(Filename[0:-4]+'.FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
-    fig1.savefig(Filename[0:-4]+'FoEx_all.pdf')
+    pickle.dump(fig1, open(newpath+r'\\'+Filename[0:-4]+'_FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
+    fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.pdf', format='pdf')
     fig1.show()
     
     fig2.tight_layout()
-    pickle.dump(fig2, open(Filename[0:-4]+'.Time_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
-    fig2.savefig(Filename[0:-4]+'Time_all.pdf')    
+    pickle.dump(fig2, open(newpath+r'\\'+Filename[0:-4]+'_Time_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
+    fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.pdf', format='pdf')    
     fig2.show()
 
     Fignum += 2
@@ -234,7 +245,7 @@ ax6.set_ylabel('Count')
 ax6.set_title("Histogram stepsizes in bp using smoothening")
 ax6.legend(loc='best')
 fig3.tight_layout()
-fig3.savefig('Hist.pdf', format='pdf')
+fig3.savefig(newpath+r'\\'+'Hist.pdf', format='pdf')
 
 #plotting the rupture forces
 fig4, ax7 = plt.subplots()
@@ -242,4 +253,4 @@ ax7.scatter(F_rup, dZ_rup, color='blue')       #What should be the errors?
 ax7.set_xlabel('Rupture Forces (pN)')
 ax7.set_ylabel('Jump in Z (nm)')
 ax7.set_title("Rupture forces versus jump in z")
-fig4.savefig('RF.pdf', format='pdf')
+fig4.savefig(newpath+r'\\'+'RF.pdf', format='pdf')

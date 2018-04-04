@@ -251,3 +251,24 @@ def Conv(y, box_pts):
     box = np.ones(box_pts)/box_pts
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
+
+def MinNumOfPoints(SmoothStates, Smoothpeak, Statemask, F_Selected, Z_Selected, Pars, X=5):
+    """Remove states with X or less datapoints. Returns the new states and the corresping state mask"""
+    Count = 0
+    N_States = len(SmoothStates)
+    while Count < N_States:
+        N_States = len(SmoothStates)   
+        NewStates = np.copy(SmoothStates)
+        NewPeaks = np.copy(Smoothpeak)
+        Count, k = 0, 0
+        for i in range(len(SmoothStates)):
+            if len(Statemask[Statemask==i]) <= X:
+                NewStates = np.delete(NewStates, i-k)
+                NewPeaks = np.delete(NewPeaks, i-k)
+                k += 1
+            else: 
+                Count += 1
+        Statemask = attribute2state(F_Selected, Z_Selected, NewStates, Pars)
+        SmoothStates = np.copy(NewStates)
+        Smoothpeak = np.copy(NewPeaks)
+    return SmoothStates, Smoothpeak, Statemask

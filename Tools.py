@@ -103,10 +103,10 @@ def default_pars():
     par['FiberStart_bp'] = par['Fiber0_bp']-par['LFiber_bp'] #DNA handles
     return par
 
-def handle_data(Force, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
+def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
     """Reads in parameters from the logfile generate by the labview fitting program"""
     if Handles['Select']:                                                       #If only the selected column is use do this
-        F_Selected = np.delete(Force, np.argwhere(np.isnan(Z_Selected)))
+        F_Selected = np.delete(F, np.argwhere(np.isnan(Z_Selected)))
         T_Selected = np.delete(T, np.argwhere(np.isnan(Z_Selected)))
         Z_Selected = np.delete(Z, np.argwhere(np.isnan(Z_Selected))) 
         if len(Z_Selected)==0: 
@@ -115,7 +115,7 @@ def handle_data(Force, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5)
         else:
             return Z_Selected, F_Selected, T_Selected
     else:
-        F_Selected = Force
+        F_Selected = F
         Z_Selected = Z
         T_Selected = T
     
@@ -128,7 +128,19 @@ def handle_data(Force, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5)
     if Handles['Denoise']: Z_Selected = signal.medfilt(Z_Selected,Window)
     return Z_Selected, F_Selected, T_Selected
 
-def removerelease(F,Z, T):
+def breaks(F, Z, T, test=500):
+    """Removes the data after a jump in z, presumably indicating the bead broke lose"""
+    test = Z[0]
+    for i,x in enumerate(Z[1:]):
+        if abs(x - test) > 500 :
+            F = F[:i]
+            Z = Z[:i] 
+            T = Z[:i] 
+            break
+        test = x
+    return F, Z, T
+
+def removerelease(F, Z, T):
     """Removes the release curve from the selected data"""
     test = 0
     Pullingtest = np.array([])
@@ -141,28 +153,16 @@ def removerelease(F,Z, T):
     T = np.delete(T,Pullingtest)
     return F, Z, T 
 
-def breaks(F,Z, T, test=500):
-    """Removes the data after a jump in z, presumably indicating the bead broke lose"""
-    test = Z[0]
-    for i,x in enumerate(Z[1:]):
-        if abs(x - test) > 500 :
-            F = F[:i]
-            Z = Z[:i] 
-            T = Z[:i] 
-            break
-        test = x
-    return F, Z, T
-
-def minforce(tested_array,array2,T,test):
+def minforce(Z, F, T, Min_Force=2):
     """Removes the data below minimum force given"""
     Curingtest = np.array([])
-    for i,x in enumerate(tested_array):
-        if x < test:
+    for i,x in enumerate(Z):
+        if x < Min_Force:
             Curingtest = np.append(Curingtest,i)
-    tested_array = np.delete(tested_array, Curingtest)
-    array2 = np.delete(array2,Curingtest)
-    T = np.delete(T,Curingtest)
-    return tested_array,array2,T
+    Z = np.delete(Z, Curingtest)
+    F = np.delete(F, Curingtest)
+    T = np.delete(T, Curingtest)
+    return Z,F,T
 
 def rolling_window(a, size):
     shape = a.shape[:-1] + (a.shape[-1] - size + 1, size)

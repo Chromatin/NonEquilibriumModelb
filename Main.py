@@ -18,7 +18,7 @@ import pickle
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\Pythontestfit'
+folder = r'C:\Users\rmerc\OneDrive\Documenten\GitHub\ForceExtensionCurvefitting\TestData'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures

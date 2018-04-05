@@ -65,12 +65,7 @@ for Filenum, Filename in enumerate(filenames):
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50, 1)
-    ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars)
-    PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks
-    Starting_States = PossibleStates[PeakInd]                                   #Defines state for each peak
-    States, Peak = func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
-#    AAA = func.STD(F_Selected, Z_Selected, PossibleStates, Pars)
+    PossibleStates, ProbSum, Peak, PeakInd, States = func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
  
     #Calculates stepsize
     Unwrapsteps = []

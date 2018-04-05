@@ -20,6 +20,19 @@ def hook(force,k=1,fmax=10):
     np.place(f,f>fmax,[fmax])
     return f/k 
 
+def fjc(f, par): 
+    """calculates a Freely Jointed Chain with a kungslength of b""" 
+    #Function is independent on length of the DNA #L_nm = par['L_bp']*par['DNAds_nm']
+    b = 3 * par['kBT_pN_nm'] / (par['k_pN_nm'])#*L_nm)
+    x = f * b / par['kBT_pN_nm']
+    # coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
+    exp_x = np.exp(x)
+    z = (exp_x + 1 / exp_x) / (exp_x - 1 / exp_x) - 1 / x
+    #z *= par['L_bp']*par['DNAds_nm']
+    #z_df = (par['kBT_pN_nm'] / b) * (np.log(np.sinh(x)) - np.log(x))  #*L_nm #  + constant --> integrate over f (finish it
+    #w = f * z - z_df
+    return z
+
 def forcecalib(Pos,FMax=85): 
     """Calibration formula for 0.8mm gapsize magnet
     Calculates Force from magnet position"""
@@ -80,8 +93,7 @@ def ratio(x, Par):
 def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
-    Z is the Extension Data (needs to have the same size as F)
-    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
+    Z is the Extension Data (needs to have the same size as F)"""
     States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
     Ratio = ratio(PossibleStates, Par)
     Ratio = np.tile(Ratio,(len(F),1))
@@ -96,33 +108,24 @@ def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
     ProbSum = np.sum(Pz, axis=1) 
     return ProbSum
 
-def probprod(F,Z,PossibleStates,Par,Fmax_Hook=10):
-    """Calculates the probability landscape of the intermediate states. 
-    F is the Force Data, 
-    Z is the Extension Data (needs to have the same size as F)
-    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
-    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
-    Ratio = ratio(PossibleStates, Par)
-    Ratio = np.tile(Ratio,(len(F),1))
-    Ratio = np.transpose(Ratio)
-    dF = 0.01 #delta used to calculate the RC of the curve
-    StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
-    DeltaZ = abs(np.subtract(StateExtension,Z))
-    Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    Pz = np.array(1-erfaprox(Std))  
-    pz = np.copy(Pz)
-    N = np.copy(Pz)
-    N[N>=10e-2] = 1 
-    N[N<10e-2] = 0
-    N = np.sum(N, axis = 1)
-    Pz[Pz<10e-2] = 1 #Only take into account a 'box' around the state
-#    Pz[Pz>1] = 1
-    AA = np.ndarray.prod(Pz, axis=1)                                                           
-    AA[AA==1] = 0                                                   #correction for the box
-    ProbProd = np.multiply(AA, N)
-    return ProbProd, Pz, N, pz
+#def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
+#    """Calculates the probability landscape of the intermediate states using a combination of Freely jointed chain for the fiber, and Worm like chain for the DNA. 
+#    F is the Force Data, 
+#    Z is the Extension Data (needs to have the same size as F)
+#    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
+#    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
+#    Ratio = ratio(PossibleStates, Par)
+#    Ratio = np.tile(Ratio,(len(F),1))
+#    Ratio = np.transpose(Ratio)
+#    dF = 0.01 #delta used to calculate the RC of the curve
+#    StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(fjc(F,Par),Ratio)*Par['DNAds_nm'])
+#    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(fjc(F+dF,Par),Ratio)*Par['DNAds_nm'])
+#    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
+#    DeltaZ = abs(np.subtract(StateExtension,Z))
+#    Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
+#    Pz = np.array(np.multiply((1-erfaprox(Std)),F))
+#    ProbSum = np.sum(Pz, axis=1) 
+#    return ProbSum
 
 def gaus(x,amp,x0,sigma):
     """1D Gaussian"""
@@ -159,20 +162,7 @@ def attribute2state(F,Z,States,Pars,Fmax_Hook=10):
     ZminState = np.subtract(ZState,Z.reshape(len(Z),1)) 
     StateMask = np.argmin(abs(ZminState),1)       
     return StateMask    
-
-def fjc(f, par): 
-    """calculates a Freely Jointed Chain with a kungslength of b""" 
-    L_nm = par['L_bp']*par['DNAds_nm']
-    b = 3 * par['kBT_pN_nm'] / (par['k_pN_nm']*L_nm)
-    x = f * b / par['kBT_pN_nm']
-    # coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
-    exp_x = np.exp(x)
-    z = (exp_x + 1 / exp_x) / (exp_x - 1 / exp_x) - 1 / x
-    z *= par['L_bp']*par['DNAds_nm']
-    #z_df = (par['kBT_pN_nm'] / b) * (np.log(np.sinh(x)) - np.log(x))  #*L_nm #  + constant --> integrate over f (finish it
-    #w = f * z - z_df
-    return z
-     
+    
 def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.1):
     """Finds states based on the probablitiy landscape"""     
     from scipy import stats
@@ -228,24 +218,7 @@ def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.
             StateProbSum = probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
             States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
             
-    return States, Peak
-    
-def STD(F,Z,PossibleStates,Par,Fmax_Hook=10):
-    """Calculates the probability landscape of the intermediate states. 
-    F is the Force Data, 
-    Z is the Extension Data (needs to have the same size as F)
-    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
-    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
-    Ratio = ratio(PossibleStates, Par)
-    Ratio = np.tile(Ratio,(len(F),1))
-    Ratio = np.transpose(Ratio)
-    dF = 0.01 #delta used to calculate the RC of the curve
-    StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
-    DeltaZ = abs(np.subtract(StateExtension,Z))
-    Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    return Std
+    return PossibleStates, ProbSum, Peak, PeakInd, States
     
 def Conv(y, box_pts):
     """Convolution of a signal y with a box of size box_pts with height 1/box_pts"""

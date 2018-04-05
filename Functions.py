@@ -184,12 +184,13 @@ def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.
 
     #Calculate for each datapoint which state it most likely belongs too 
     StateMask = attribute2state(F_Selected,Z_Selected,States,Pars)
-    
-    #Remove states with 5 or less datapoints
-    RemoveStates = removestates(StateMask)
-    if len(RemoveStates)>0:
-        States = np.delete(States, RemoveStates)
-        StateMask = attribute2state(F_Selected, Z_Selected, States, Pars)
+#    
+#    #Remove states with 5 or less datapoints
+#    RemoveStates = removestates(StateMask)
+#    if len(RemoveStates)>0:
+#        States = np.delete(States, RemoveStates)
+#        Peak = np.delete(Peak, RemoveStates)
+#        StateMask = attribute2state(F_Selected, Z_Selected, States, Pars)
 
     T_test=np.array([])
     
@@ -227,7 +228,7 @@ def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.
             StateProbSum = probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
             States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
             
-    return States
+    return States, Peak
     
 def STD(F,Z,PossibleStates,Par,Fmax_Hook=10):
     """Calculates the probability landscape of the intermediate states. 
@@ -252,16 +253,16 @@ def Conv(y, box_pts):
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
 
-def MinNumOfPoints(SmoothStates, Smoothpeak, Statemask, F_Selected, Z_Selected, Pars, X=5):
+def MinNumOfPoints(States, Peak, Statemask, F_Selected, Z_Selected, Pars, X=5):
     """Remove states with X or less datapoints. Returns the new states and the corresping state mask"""
     Count = 0
-    N_States = len(SmoothStates)
+    N_States = len(States)
     while Count < N_States:
-        N_States = len(SmoothStates)   
-        NewStates = np.copy(SmoothStates)
-        NewPeaks = np.copy(Smoothpeak)
+        N_States = len(States)   
+        NewStates = np.copy(States)
+        NewPeaks = np.copy(Peak)
         Count, k = 0, 0
-        for i in range(len(SmoothStates)):
+        for i in range(len(States)):
             if len(Statemask[Statemask==i]) <= X:
                 NewStates = np.delete(NewStates, i-k)
                 NewPeaks = np.delete(NewPeaks, i-k)
@@ -269,6 +270,6 @@ def MinNumOfPoints(SmoothStates, Smoothpeak, Statemask, F_Selected, Z_Selected, 
             else: 
                 Count += 1
         Statemask = attribute2state(F_Selected, Z_Selected, NewStates, Pars)
-        SmoothStates = np.copy(NewStates)
-        Smoothpeak = np.copy(NewPeaks)
-    return SmoothStates, Smoothpeak, Statemask
+        States = np.copy(NewStates)
+        Peak = np.copy(NewPeaks)
+    return States, Peak, Statemask

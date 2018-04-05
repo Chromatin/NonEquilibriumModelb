@@ -18,7 +18,7 @@ import pickle
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'C:\Users\rmerc\OneDrive\Documenten\GitHub\ForceExtensionCurvefitting\TestData'
+folder = r'N:\Rick\Fit Files\Pythontestfit'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -57,6 +57,7 @@ for Filenum, Filename in enumerate(filenames):
         continue
     print(Progress, "/", Number, ":", int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, "&", Fignum+1, ").")
     Progress += 1
+
     #Remove all datapoints that should not be fitted
     Z_Selected, F_Selected, T_Selected = Tools.handle_data(Force, Z, Time, Z_Selected, Handles, Pars)
 
@@ -64,16 +65,13 @@ for Filenum, Filename in enumerate(filenames):
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)
+    PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50, 1)
     ProbSum = func.probsum(F_Selected, Z_Selected, PossibleStates, Pars)
     PeakInd, Peak = func.findpeaks(ProbSum, 25)                                 #Find Peaks
     Starting_States = PossibleStates[PeakInd]                                   #Defines state for each peak
-    States = func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
+    States, Peak = func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
 #    AAA = func.STD(F_Selected, Z_Selected, PossibleStates, Pars)
-
-#    ProbProd, Pz, N, pz = func.probprod(F_Selected, Z_Selected, PossibleStates, Pars)      #Product of Probabilities, #workinprogress
-#    PeakIndProd, PeakProd = func.findpeaks(ProbProd, 25)                        #Find Peaks        
-    
+ 
     #Calculates stepsize
     Unwrapsteps = []
     Stacksteps = []
@@ -104,11 +102,8 @@ for Filenum, Filename in enumerate(filenames):
     ax2.set_title(r'Probability Landscape')
     ax2.set_xlabel(r'Free base pair (nm)') #(nm) should be removed
     ax2.set_ylabel(r'Probability (AU)')
-    ax2.plot(PossibleStates,ProbSum, alpha=0.1, label='ProbSum')
-#    ax2.plot(PossibleStates,ProbProd, color='orange', label='ProbProd')         #Product of Probabilities, #workinprogress
-    ax2.scatter(PossibleStates[(PeakInd)],Peak, alpha=0.1)
-#    ax2.scatter(PossibleStates[(PeakIndProd)],PeakProd, color='orange')
-    ax2.set_ylim(0,np.max(ProbSum)) #Just here because ProbProd is extremely large
+    ax2.plot(PossibleStates,ProbSum, label='ProbSum')
+    ax2.scatter(PossibleStates[(PeakInd)],Peak)
 
     # this plots the Timetrace
     fig2 = plt.figure()
@@ -127,10 +122,10 @@ for Filenum, Filename in enumerate(filenames):
     ax4 = fig2.add_subplot(1, 2, 2, sharey=ax3)
     ax4.set_title(r'Probability Landscape')
     ax4.set_xlabel(r'Probability (AU)')
-    ax4.plot(ProbSum,PossibleStates*Pars['DNAds_nm'], alpha=0.1)
-    ax4.scatter(Peak,PossibleStates[(PeakInd)]*Pars['DNAds_nm'], color='blue', alpha=0.1)
+    ax4.plot(ProbSum,PossibleStates*Pars['DNAds_nm'])
+    ax4.scatter(Peak,PossibleStates[(PeakInd)]*Pars['DNAds_nm'], color='blue')
     
-    #Plot the states found
+    #Plot the states found initially
     for x in States:
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
@@ -138,41 +133,21 @@ for Filenum, Filename in enumerate(filenames):
         ax3.plot(Time,Fit, alpha=0.1, linestyle='-.')
 
 ##############################################################################################
-######## Begin Smoothening
-#    Smoothness = 30
-#    SmoothProbProd = func.Conv(ProbProd,Smoothness)
-#    SmoothPeakIndProd, SmoothPeakProd = func.findpeaks(SmoothProbProd, 30)
-#    SmoothStatesProd = PossibleStates[SmoothPeakIndProd]  
-#    
-#    ax2.plot(PossibleStates, SmoothProbProd, color='purple', label='SmoothProdProd')
-#    ax2.scatter(PossibleStates[(SmoothPeakIndProd)], SmoothPeakProd, color='purple')
-   
-    Smoothness = 40                                                             #40-70 works fine for Stacks, <40 works best for Steps
-    SmoothProbSum = func.Conv(ProbSum,Smoothness)
-    SmoothPeakInd, SmoothPeak = func.findpeaks(SmoothProbSum, 25)
-    SmoothStates = PossibleStates[SmoothPeakInd]
+######## Begin Plotting Different States
+    Statemask = func.attribute2state(F_Selected, Z_Selected, States, Pars)      #For each datapoint to which state it belongs
 
-    ax2.plot(PossibleStates, SmoothProbSum, 'g-', lw=2, label='SmoothProbSum')
-    ax2.scatter(PossibleStates[(SmoothPeakInd)],SmoothPeak, color='green')
+    #Remove states with X or less datapoints, not nessesary at this moment ==> This is done in func.find_states_prob   
+#    States, Peak, Statemask = func.MinNumOfPoints(States, Peak, Statemask, F_Selected, Z_Selected, Pars, X=2)
 
-    
-    ax4.plot(SmoothProbSum, PossibleStates*Pars['DNAds_nm'], color='green')
-    ax4.scatter(SmoothPeak,PossibleStates[(SmoothPeakInd)]*Pars['DNAds_nm'], color='green')
-    
-    Statemask = func.attribute2state(F_Selected,Z_Selected,SmoothStates, Pars)  #For each datapoint to which state it belongs
-
-    #Remove states with X or less datapoints   
-    SmoothStates, SmoothPeak, Statemask = func.MinNumOfPoints(SmoothStates, SmoothPeak, Statemask, F_Selected, Z_Selected, Pars, X=5)
-
-    #Making a 3d array containing all states afther smoothening: Fit==AllStates[:,0,i], Force==AllStates[:,1,i] for state i
-    AllStates = np.empty(shape=[len(Force),2,len(SmoothStates)])                #3d array of the states  
-    for i, x in enumerate(SmoothStates):
+    #Making a 3d array containing all states: Fit==AllStates[:,0,i], Force==AllStates[:,1,i] for state i
+    AllStates = np.empty(shape=[len(Force),2,len(States)])                      #3d array of the states  
+    for i, x in enumerate(States):
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         ForceFit = np.vstack((Fit, Force)).T
         AllStates[:,:,i] = ForceFit        
 
-    colors = [plt.cm.brg(each) for each in np.linspace(0, 1, len(SmoothStates))]#Color pattern for the states
+    colors = [plt.cm.brg(each) for each in np.linspace(0, 1, len(States))]      #Color pattern for the states
     dX = 10                                                                     #Offset for text in plot
     
     #Plot the states and datapoints in the same color
@@ -184,17 +159,17 @@ for Filenum, Filename in enumerate(filenames):
         ax1.plot(Fit, Force, alpha=0.9, linestyle=':', color=tuple(col)) 
         ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=5)
         
-        ax2.vlines(SmoothStates[j], 0, SmoothPeak[j], linestyle=':', color=tuple(col))
-        ax2.text(SmoothStates[j], SmoothPeak[j]+dX, int(SmoothStates[j]), fontsize=8, horizontalalignment='center')
+        ax2.vlines(States[j], 0, Peak[j], linestyle=':', color=tuple(col))
+        ax2.text(States[j], Peak[j]+dX, int(States[j]), fontsize=8, horizontalalignment='center')
         
         ax3.plot(Time, Fit, alpha=0.9, linestyle=':', color=tuple(col))
         ax3.scatter(T_Selected[Mask], Z_Selected[Mask], color=tuple(col), s=5)
         
-        ax4.hlines(SmoothStates[j]*Pars['DNAds_nm'], 0, SmoothPeak[j], color=tuple(col), linestyle=':')
-        ax4.text(SmoothPeak[j]+dX, SmoothStates[j]*Pars['DNAds_nm'], int(SmoothStates[j]*Pars['DNAds_nm']), fontsize=8, verticalalignment='center')
+        ax4.hlines(States[j]*Pars['DNAds_nm'], 0, Peak[j], color=tuple(col), linestyle=':')
+        ax4.text(Peak[j]+dX, States[j]*Pars['DNAds_nm'], int(States[j]*Pars['DNAds_nm']), fontsize=8, verticalalignment='center')
     
         #Rupture forces
-        if j < len(SmoothStates)-1:
+        if j < len(States)-1:   #This should be done by median filter & in basepairs
             Ruptureforce = np.mean((F_Selected[Mask])[-4:-1])                               #The 4 last datapoint in a group
             start = Fit[np.argmin(np.abs(Force-Ruptureforce))]
             stop = (AllStates[:,0,j+1])[np.argmin(np.abs(AllStates[:,1,j+1]-Ruptureforce))] #Same as start, but then for the next state
@@ -204,7 +179,7 @@ for Filenum, Filename in enumerate(filenames):
       
     Unwrapsteps = []
     Stacksteps = []
-    for x in SmoothStates:
+    for x in States:
         if x >= Pars['Fiber0_bp']:
             Unwrapsteps.append(x)
         else:
@@ -238,11 +213,11 @@ ax6.hist(Steps,  bins = 50, range = [0,400], lw=0.5, color='blue', label='25 nm 
 ax6.hist(Stacks, bins = 50, range = [0,400], lw=0.5, color='orange', label='Stacking transitions')
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
-ax5.set_title("Histogram stepsizes in bp using T-test")
+ax5.set_title("Histogram stepsizes in bp before T-test")
 ax5.legend(loc='best')
 ax6.set_xlabel('stepsize (bp)')
 ax6.set_ylabel('Count')
-ax6.set_title("Histogram stepsizes in bp using smoothening")
+ax6.set_title("Histogram stepsizes in bp after T-test")
 ax6.legend(loc='best')
 fig3.tight_layout()
 fig3.savefig(newpath+r'\\'+'Hist.pdf', format='pdf')

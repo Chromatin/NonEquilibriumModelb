@@ -118,13 +118,12 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
         F_Selected = F
         Z_Selected = Z
         T_Selected = T
-    
     if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, 1000)
     if Handles['Pulling']: F_Selected, Z_Selected, T_Selected = removerelease(F_Selected, Z_Selected, T_Selected )
     if Handles['MinForce'] > 0: F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
-        Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
-        Z_Selected, F_Selected, T_Selected = minforce(Z_Selected, F_Selected, T_Selected , - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
+        maxZ= Pars['L_bp']*Pars['DNAds_nm']*1.1
+        F_Selected, Z_Selected, T_Selected = max_Z(F_Selected, Z_Selected, T_Selected , maxZ ) #remove data above Z=1.1*LC
     if Handles['Denoise']: Z_Selected = signal.medfilt(Z_Selected,Window)
     return Z_Selected, F_Selected, T_Selected
 
@@ -153,16 +152,27 @@ def removerelease(F, Z, T):
     T = np.delete(T,Pullingtest)
     return F, Z, T 
 
-def minforce(Z, F, T, Min_Force=2):
+def minforce(F, Z, T, Min_Force=2):
     """Removes the data below minimum force given"""
     Curingtest = np.array([])
-    for i,x in enumerate(Z):
+    for i,x in enumerate(F):
         if x < Min_Force:
             Curingtest = np.append(Curingtest,i)
-    Z = np.delete(Z, Curingtest)
     F = np.delete(F, Curingtest)
+    Z = np.delete(Z, Curingtest)
     T = np.delete(T, Curingtest)
-    return Z,F,T
+    return F,Z,T
+
+def max_Z(F, Z, T, MaxZ=10000):
+    """Removes the data above maximum extension"""
+    DeleteThis = np.array([])
+    for i,x in enumerate(Z):
+        if x > MaxZ:
+            DeleteThis = np.append(DeleteThis,i)
+    F = np.delete(F, DeleteThis)
+    Z = np.delete(Z, DeleteThis)
+    T = np.delete(T, DeleteThis)
+    return F,Z,T
 
 def rolling_window(a, size):
     shape = a.shape[:-1] + (a.shape[-1] - size + 1, size)

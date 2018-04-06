@@ -6,6 +6,8 @@ Created on Wed Jan  3 13:44:01 2018
 """
 import numpy as np
 from scipy import signal
+from scipy import stats
+
 #import sys
 
 def wlc(force,par): #in nm/pN, as fraction of L
@@ -141,9 +143,9 @@ def gaus(x,amp,x0,sigma):
 
 def removestates(StateMask, n=5):
     """Removes states with less than n data points, returns indexes of states to be removed"""
-    RemoveStates = np.array([])
-    for i in np.arange(0,np.amax(StateMask),1):
-        if sum(StateMask == i) < n:
+    RemoveStates = np.array([])    
+    for i in np.arange(0,len(StateMask[0,:]),1):
+        if sum(StateMask[:,i]) < n:
             RemoveStates = np.append(RemoveStates,i)
     return RemoveStates
 
@@ -157,102 +159,98 @@ def mergestates(States,MergeStates):
             old = x
     return States
 
-def attribute2state(F,Z,States,Pars,Fmax_Hook=10):
-    """Calculates for each datapoint which state it most likely belongs too
-    Return an array with indexes referring to the State array"""
-    if len(States) <1:
-        print('No States were found')
-        return False
-    Ratio = ratio(States,Pars)
-    WLC = wlc(F,Pars).reshape(len(wlc(F,Pars)),1)
-    Hook = hook(F,Pars['k_pN_nm'],Fmax_Hook).reshape(len(hook(F,Pars['k_pN_nm'],Fmax_Hook)),1)
-    ZState = np.array( np.multiply(WLC,(States*Pars['DNAds_nm'])) + np.multiply(Hook,(Ratio*Pars['ZFiber_nm'])) )
-    ZminState = np.subtract(ZState,Z.reshape(len(Z),1)) 
-    StateMask = np.argmin(abs(ZminState),1)       
-    return StateMask    
-
-def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.1):
+def find_states_prob(F_Selected, Z_Selected, Z, Force, Pars, MergeStates=False, P_Cutoff=0.1):
     """Finds states based on the probablitiy landscape"""     
-    from scipy import stats
     #Generate FE curves for possible states
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)    #range to fit 
     ProbSum = probsum(F_Selected, Z_Selected, PossibleStates, Pars)             #Calculate probability landscape
     PeakInd, Peak = findpeaks(ProbSum, 25)                                      #Find Peaks    
     States = PossibleStates[PeakInd]                                            #Defines state for each peak
 
-    #Calculate for each datapoint which state it most likely belongs too 
-    StateMask = attribute2state(F_Selected,Z_Selected,States,Pars)
-#    
+    AllStates = np.empty(shape=[len(Z), len(States)])                           #2d array of the states  
+    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])                           #2d array of the states  \  
+    for i, x in enumerate(States):
+        Ratio = ratio(x,Pars)
+        Fit = np.array(wlc(Force,Pars)*x*Pars['DNAds_nm'] + hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        Fit_Selected = np.array(wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        AllStates[:,i] = Fit        
+        AllStates_Selected[:,i] = Fit_Selected        
+    
+    LocalStiffness, DeltaZ = localstiffness(F_Selected, Z_Selected, States, Pars)
+            
+    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
+    std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.multiply(sigma,sigma))                         #sqrt([measuring error]^2 + [thermal fluctuations]^2) 
+    Z_Score = z_score(Z_Selected, AllStates_Selected, std, States)    
+
+    StateMask = np.abs(Z_Score) < 2.5
+    PointsInState = np.sum(StateMask, axis=0)
+    
 #    #Remove states with 5 or less datapoints
     RemoveStates = removestates(StateMask)
     if len(RemoveStates)>0:
         States = np.delete(States, RemoveStates)
         Peak = np.delete(Peak, RemoveStates)
         PeakInd = np.delete(PeakInd, RemoveStates)
-        StateMask = attribute2state(F_Selected, Z_Selected, States, Pars)
-    T_test=np.array([])
+        StateMask = np.delete(StateMask, RemoveStates, axis=1)
+        AllStates = np.delete(AllStates, RemoveStates, axis=1)
+        AllStates_Selected = np.delete(AllStates_Selected, RemoveStates, axis=1)
 
-    LocalStiffness, DeltaZ = localstiffness(F_Selected, Z_Selected, States, Pars)
+    #Merging 2 states and checking whether is better or not
+    for i in np.arange(0,len(States)-1): 
+        MergedState = (AllStates_Selected[:,i]*PointsInState[i]+AllStates_Selected[:,i+1]*PointsInState[i+1])/(PointsInState[i]+PointsInState[i+1]) #weighted average over 2 neigbouring states
+        
+        LocalStiffness, DeltaZ = localstiffness(F_Selected, Z_Selected, MergeStates, Pars)
+        print(np.shape(LocalStiffness))        
+        sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
+        std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.multiply(sigma,sigma))                         #sqrt([measuring error]^2 + [thermal fluctuations]^2) 
+        Z_Score = z_score(Z_Selected, MergedState, std, 1)
+        print(np.shape(Z_Score))
+        MergedStateMask = np.abs(Z_Score) < 2.5
+        MergedSum = np.sum(MergedStateMask)
+#        print("# Of point within 2.5 sigma in State1:State2:Merged =", PointsInState[i],":", PointsInState[i+1], ":", MergedSum)
 
-    for i, x in enumerate(States):
-        if i > 0:
-            Prob = stats.ttest_ind((StateMask == i) * Z_Selected, (StateMask == i - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
-            T_test = np.append(T_test, Prob[1])
 
-    while MergeStates == True:  # remove states untill all states are significantly different
     
-        # Merges states that are most similar, and are above the p_cutoff minimal significance t-test value
-        HighP = np.argmax(T_test)
-        if T_test[HighP] > P_Cutoff:  # Merge the highest p-value states
-            DelState, MergedState = HighP, HighP+1
-            if sum((StateMask == HighP + 1) * 1) < sum((StateMask == HighP) * 1): 
-                DelState = HighP + 1
-                MergedState = HighP
-            #Recalculate th     
-            Prob = stats.ttest_ind((StateMask == MergedState ) * Z_Selected, (StateMask == HighP - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
-            T_test[HighP-1] = Prob[1]
-            Prob = stats.ttest_ind((StateMask == MergedState ) * Z_Selected, (StateMask == HighP - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
-            if len(T_test) > HighP+1:
-                T_test[HighP+1] = Prob[1]
-            T_test=np.delete(T_test,HighP)
-            States = np.delete(States, DelState)  # deletes the state in the state array
-            StateMask = StateMask - (StateMask == HighP + 1) * 1  # merges the states in the mask
-            Z_NewState = (StateMask == HighP) * Z_Selected  # Get all the data for this state to recalculate mean
-            MergeStates = True
-        else:
-            MergeStates = False  # Stop merging states
-                   
-        #calculate the number of L_unrwap for the new state
-        if MergeStates:
-            #find value for merged state with gaus fit / mean
-            StateProbSum = probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
-            States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
+#    T_test=np.array([])
+
+#    for i, x in enumerate(States):
+#        if i > 0:
+#            Prob = stats.ttest_ind((StateMask == i) * Z_Selected, (StateMask == i - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
+#            T_test = np.append(T_test, Prob[1])
+
+#    while MergeStates == True:  # remove states untill all states are significantly different
+#    
+#        # Merges states that are most similar, and are above the p_cutoff minimal significance t-test value
+#        HighP = np.argmax(T_test)
+#        if T_test[HighP] > P_Cutoff:  # Merge the highest p-value states
+#            DelState, MergedState = HighP, HighP+1
+#            if sum((StateMask == HighP + 1) * 1) < sum((StateMask == HighP) * 1): 
+#                DelState = HighP + 1
+#                MergedState = HighP
+#            #Recalculate th     
+#            Prob = stats.ttest_ind((StateMask == MergedState ) * Z_Selected, (StateMask == HighP - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
+#            T_test[HighP-1] = Prob[1]
+#            Prob = stats.ttest_ind((StateMask == MergedState ) * Z_Selected, (StateMask == HighP - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
+#            if len(T_test) > HighP+1:
+#                T_test[HighP+1] = Prob[1]
+#            T_test=np.delete(T_test,HighP)
+#            States = np.delete(States, DelState)  # deletes the state in the state array
+#            StateMask = StateMask - (StateMask == HighP + 1) * 1  # merges the states in the mask
+#            Z_NewState = (StateMask == HighP) * Z_Selected  # Get all the data for this state to recalculate mean
+#            MergeStates = True
+#        else:
+#            MergeStates = False  # Stop merging states
+#                   
+#        #calculate the number of L_unrwap for the new state
+#        if MergeStates:
+#            #find value for merged state with gaus fit / mean
+#            StateProbSum = probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
+#            States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
             
-    return PossibleStates, ProbSum, Peak, PeakInd, States, LocalStiffness
+    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask
 
-    
-def MinNumOfPoints(States, Peak, Statemask, F_Selected, Z_Selected, Pars, X=5):
-    """Remove states with X or less datapoints. Returns the new states and the corresping state mask"""
-    Count = 0
-    N_States = len(States)
-    while Count < N_States:
-        N_States = len(States)   
-        NewStates = np.copy(States)
-        NewPeaks = np.copy(Peak)
-        Count, k = 0, 0
-        for i in range(len(States)):
-            if len(Statemask[Statemask==i]) <= X:
-                NewStates = np.delete(NewStates, i-k)
-                NewPeaks = np.delete(NewPeaks, i-k)
-                k += 1
-            else: 
-                Count += 1
-        Statemask = attribute2state(F_Selected, Z_Selected, NewStates, Pars)
-        States = np.copy(NewStates)
-        Peak = np.copy(NewPeaks)
-    return States, Peak, Statemask
 
-def z_score(Z_Selected, Z_States, std):
+def z_score(Z_Selected, Z_States, std, States):
     """Calculate the z score of each value in the sample, relative to the a given mean and standard deviation.
     Parameters:	
             a : array_like
@@ -260,18 +258,20 @@ def z_score(Z_Selected, Z_States, std):
             mean: float
             std : float
     """
-    Z_Selected_New = (np.tile(Z_Selected,(len(Z_States[0,:]),1))).T               #Copies Z_Selected array into colomns of States with len(Z_States[0,:]) rows
+    States = np.array([States])
+    Z_Selected_New = (np.tile(Z_Selected,(len(States),1))).T               #Copies Z_Selected array into colomns of States with len(Z_States[0,:]) rows
+    Z_States = np.tile(Z_States, (1, 1))    
     return np.divide(Z_Selected_New-Z_States, std.T)
     
 def RuptureForces(Z_Selected, F_Selected, States, Pars, ax1):
     """Calculate and plot the rupture forces and jumps"""
     MedFilt = signal.medfilt(Z_Selected, 9)
-    MedFiltMask = attribute2state(F_Selected, MedFilt, States, Pars)       #For the Median Filter to which state it belongs
-    k = 0
-    for i, j in enumerate(MedFiltMask):
-        if j > k:
-            start = MedFilt[i-1]
-            stop = MedFilt[i]
-            ax1.hlines(F_Selected[i], start, stop, color='black', lw = 2)
-        k = j      
+#    MedFiltMask = attribute2state(F_Selected, MedFilt, States, Pars)               #For the Median Filter to which state it belongs
+#    k = 0
+#    for i, j in enumerate(MedFiltMask):
+#        if j > k:
+#            start = MedFilt[i-1]
+#            stop = MedFilt[i]
+#            ax1.hlines(F_Selected[i], start, stop, color='black', lw = 2)
+#        k = j      
     ax1.plot(MedFilt, F_Selected, color='black')

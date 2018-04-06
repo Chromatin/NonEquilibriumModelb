@@ -70,6 +70,7 @@ def log_pars(LogFile):
     par['Fiber0_bp'] = par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
     par['LFiber_bp'] = (par['N_tot']-par['N4'])*(par['NRL_bp']-par['Innerwrap_bp'])  #total number of bp in the fiber
     par['FiberStart_bp']  = par['Fiber0_bp']-par['LFiber_bp']
+    par['MeasurementERR (nm)'] = 5
     return par
 
 def find_param(Logfile, Param):
@@ -101,6 +102,7 @@ def default_pars():
     par['Fiber0_bp']  = par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
     par['LFiber_bp'] = (par['N_tot']-par['N4'])*(par['NRL_bp']-par['Innerwrap_bp'])  #total number of bp in the fiber
     par['FiberStart_bp'] = par['Fiber0_bp']-par['LFiber_bp'] #DNA handles
+    par['MeasurementERR (nm)'] = 5   
     return par
 
 def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):

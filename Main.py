@@ -67,7 +67,7 @@ for Filenum, Filename in enumerate(filenames):
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates, ProbSum, Peak, PeakInd, States, LocalStiffness = func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
+    PossibleStates, ProbSum, Peak, States, AllStates, Statemask = func.find_states_prob(F_Selected,Z_Selected,Z, Force, Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
  
     #Calculates stepsize
     Unwrapsteps = []
@@ -100,7 +100,7 @@ for Filenum, Filename in enumerate(filenames):
     ax2.set_xlabel(r'Free base pair (nm)') #(nm) should be removed
     ax2.set_ylabel(r'Probability (AU)')
     ax2.plot(PossibleStates,ProbSum, label='ProbSum')
-    ax2.scatter(PossibleStates[(PeakInd)],Peak)
+    ax2.scatter(States, Peak)
 
     # this plots the Timetrace
     fig2 = plt.figure()
@@ -120,7 +120,7 @@ for Filenum, Filename in enumerate(filenames):
     ax4.set_title(r'Probability Landscape')
     ax4.set_xlabel(r'Probability (AU)')
     ax4.plot(ProbSum,PossibleStates*Pars['DNAds_nm'])
-    ax4.scatter(Peak,PossibleStates[(PeakInd)]*Pars['DNAds_nm'], color='blue')
+    ax4.scatter(Peak, States*Pars['DNAds_nm'], color='blue')
     
     #Plot the states found initially
     for x in States:
@@ -132,59 +132,32 @@ for Filenum, Filename in enumerate(filenames):
 ##############################################################################################
 ######## Begin Plotting Different States
 
-    #Remove states with X or less datapoints, not nessesary at this moment ==> This is done in func.find_states_prob   
-#    States, Peak, Statemask = func.MinNumOfPoints(States, Peak, Statemask, F_Selected, Z_Selected, Pars, X=2)
-
-    #Making a 2d array containing all states: Fit==AllStates[:,i]
-    AllStates = np.empty(shape=[len(Z), len(States)])                           #2d array of the states  
-    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])                           #2d array of the states  \  
-    for i, x in enumerate(States):
-        Ratio = func.ratio(x,Pars)
-        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        Fit_Selected = np.array(func.wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + func.hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        AllStates[:,i] = Fit        
-        AllStates_Selected[:,i] = Fit_Selected        
-    
-    
-    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
-    std = np.sqrt(MeasurementERR**2 + np.multiply(sigma,sigma))                         #sqrt([measuring error]^2 + [thermal fluctuations]^2) 
-    Z_Score = (func.z_score(Z_Selected, AllStates_Selected, std))        
-     
-    StateMaskZscore = np.abs(Z_Score) < 3
-
-        
-    Statemask = func.attribute2state(F_Selected, Z_Selected, States, Pars)      #For each datapoint to which state it belongs
-
     colors = [plt.cm.Set1(each) for each in np.linspace(0, 1, len(States))]      #Color pattern for the states
-    dX = 10                                                                     #Offset for text in plot
+    dX = 10                                                                      #Offset for text in plot
 
     #Calculate the rupture forces using a median filter    
 #    func.RuptureForces(Z_Selected, F_Selected, States, Pars, ax1)
-    Sum = np.sum(StateMaskZscore, axis=1)        
-    ax1.scatter(Z_Selected[Sum==0], F_Selected[Sum==0], color='black', s=30)    #Datapoint that do not belong to any state
+
+    Sum = np.sum(Statemask, axis=1)        
+    ax1.scatter(Z_Selected[Sum==0], F_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state
 
     #Plot the states and datapoints in the same color
     for j, col in zip(np.arange(len(colors)), colors):
-        Mask = Statemask==j
+        Mask = Statemask[:,j]
         Fit = AllStates[:,j]
       
-#        ax1.plot(Fit, Force, alpha=0.9, linestyle=':', color=tuple(col)) 
-#        ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=5)
-
-
         ax1.plot(Fit, Force, alpha=0.9, linestyle=':', color=tuple(col)) 
-        ax1.scatter(Z_Selected[StateMaskZscore[:,j]], F_Selected[StateMaskZscore[:,j]], color=tuple(col), s=42, alpha=.6)
+        ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=20, alpha=.6)
 
         ax2.vlines(States[j], 0, Peak[j], linestyle=':', color=tuple(col))
         ax2.text(States[j], Peak[j]+dX, int(States[j]), fontsize=8, horizontalalignment='center')
         
         ax3.plot(Time, Fit, alpha=0.9, linestyle=':', color=tuple(col))
-        ax3.scatter(T_Selected[Mask], Z_Selected[Mask], color=tuple(col), s=5)
+        ax3.scatter(T_Selected[Mask], Z_Selected[Mask], color=tuple(col), s=20, alpha=.6)
         
         ax4.hlines(States[j]*Pars['DNAds_nm'], 0, Peak[j], color=tuple(col), linestyle=':')
         ax4.text(Peak[j]+dX, States[j]*Pars['DNAds_nm'], int(States[j]*Pars['DNAds_nm']), fontsize=8, verticalalignment='center')
-        
-        
+               
         #Rupture forces
         if j < len(States)-1:   #This should be done by median filter & in basepairs
             Ruptureforce = np.mean((F_Selected[Mask])[-4:-1])                               #The 4 last datapoint in a group

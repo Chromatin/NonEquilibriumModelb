@@ -113,6 +113,7 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
             print('==> Nothing Selected!')
             return [], [], []
         else:
+            F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , 1)
             return Z_Selected, F_Selected, T_Selected
     else:
         F_Selected = F

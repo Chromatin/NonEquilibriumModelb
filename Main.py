@@ -33,6 +33,8 @@ os.chdir(folder)
 
 PlotSelected = True                                                             #Choose to plot selected only
 
+MeasurementERR = 5 #nm
+
 Handles = Tools.Define_Handles(Select=PlotSelected)
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
@@ -65,7 +67,7 @@ for Filenum, Filename in enumerate(filenames):
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates, ProbSum, Peak, PeakInd, States = func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
+    PossibleStates, ProbSum, Peak, PeakInd, States, LocalStiffness = func.find_states_prob(F_Selected,Z_Selected,Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
  
     #Calculates stepsize
     Unwrapsteps = []
@@ -129,31 +131,50 @@ for Filenum, Filename in enumerate(filenames):
 
 ##############################################################################################
 ######## Begin Plotting Different States
-    Statemask = func.attribute2state(F_Selected, Z_Selected, States, Pars)      #For each datapoint to which state it belongs
 
     #Remove states with X or less datapoints, not nessesary at this moment ==> This is done in func.find_states_prob   
 #    States, Peak, Statemask = func.MinNumOfPoints(States, Peak, Statemask, F_Selected, Z_Selected, Pars, X=2)
 
-    #Making a 3d array containing all states: Fit==AllStates[:,0,i], Force==AllStates[:,1,i] for state i
-    AllStates = np.empty(shape=[len(Force),2,len(States)])                      #3d array of the states  
+    #Making a 2d array containing all states: Fit==AllStates[:,i]
+    AllStates = np.empty(shape=[len(Z), len(States)])                           #2d array of the states  
+    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])                           #2d array of the states  \  
     for i, x in enumerate(States):
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ForceFit = np.vstack((Fit, Force)).T
-        AllStates[:,:,i] = ForceFit        
-
-    colors = [plt.cm.brg(each) for each in np.linspace(0, 1, len(States))]      #Color pattern for the states
-    dX = 10                                                                     #Offset for text in plot
+        Fit_Selected = np.array(func.wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + func.hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        AllStates[:,i] = Fit        
+        AllStates_Selected[:,i] = Fit_Selected        
     
+    
+    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
+    std = np.sqrt(MeasurementERR**2 + np.multiply(sigma,sigma))                         #sqrt([measuring error]^2 + [thermal fluctuations]^2) 
+    Z_Score = (func.z_score(Z_Selected, AllStates_Selected, std))        
+     
+    StateMaskZscore = np.abs(Z_Score) < 3
+
+        
+    Statemask = func.attribute2state(F_Selected, Z_Selected, States, Pars)      #For each datapoint to which state it belongs
+
+    colors = [plt.cm.Set1(each) for each in np.linspace(0, 1, len(States))]      #Color pattern for the states
+    dX = 10                                                                     #Offset for text in plot
+
+    #Calculate the rupture forces using a median filter    
+#    func.RuptureForces(Z_Selected, F_Selected, States, Pars, ax1)
+    Sum = np.sum(StateMaskZscore, axis=1)        
+    ax1.scatter(Z_Selected[Sum==0], F_Selected[Sum==0], color='black', s=30)    #Datapoint that do not belong to any state
+
     #Plot the states and datapoints in the same color
     for j, col in zip(np.arange(len(colors)), colors):
         Mask = Statemask==j
-        Fit = AllStates[:,0,j]
-        Force = AllStates[:,1,j]
-        
+        Fit = AllStates[:,j]
+      
+#        ax1.plot(Fit, Force, alpha=0.9, linestyle=':', color=tuple(col)) 
+#        ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=5)
+
+
         ax1.plot(Fit, Force, alpha=0.9, linestyle=':', color=tuple(col)) 
-        ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=5)
-        
+        ax1.scatter(Z_Selected[StateMaskZscore[:,j]], F_Selected[StateMaskZscore[:,j]], color=tuple(col), s=42, alpha=.6)
+
         ax2.vlines(States[j], 0, Peak[j], linestyle=':', color=tuple(col))
         ax2.text(States[j], Peak[j]+dX, int(States[j]), fontsize=8, horizontalalignment='center')
         
@@ -162,13 +183,14 @@ for Filenum, Filename in enumerate(filenames):
         
         ax4.hlines(States[j]*Pars['DNAds_nm'], 0, Peak[j], color=tuple(col), linestyle=':')
         ax4.text(Peak[j]+dX, States[j]*Pars['DNAds_nm'], int(States[j]*Pars['DNAds_nm']), fontsize=8, verticalalignment='center')
-    
+        
+        
         #Rupture forces
         if j < len(States)-1:   #This should be done by median filter & in basepairs
             Ruptureforce = np.mean((F_Selected[Mask])[-4:-1])                               #The 4 last datapoint in a group
             start = Fit[np.argmin(np.abs(Force-Ruptureforce))]
-            stop = (AllStates[:,0,j+1])[np.argmin(np.abs(AllStates[:,1,j+1]-Ruptureforce))] #Same as start, but then for the next state
-            ax1.hlines(Ruptureforce, start, stop, color='black')
+            stop = (AllStates[:,j+1])[np.argmin(Force-Ruptureforce)] #Same as start, but then for the next state
+#            ax1.hlines(Ruptureforce, start, stop, color='black')
             F_rup = np.append(F_rup, Ruptureforce)
             dZ_rup = np.append(dZ_rup, stop-start)
       
@@ -187,12 +209,12 @@ for Filenum, Filename in enumerate(filenames):
 ######################################################################################################################
     ax2.legend(loc='best')
     fig1.tight_layout()
-    pickle.dump(fig1, open(newpath+r'\\'+Filename[0:-4]+'_FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
+#    pickle.dump(fig1, open(newpath+r'\\'+Filename[0:-4]+'_FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
     fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.pdf', format='pdf')
     fig1.show()
     
     fig2.tight_layout()
-    pickle.dump(fig2, open(newpath+r'\\'+Filename[0:-4]+'_Time_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
+#    pickle.dump(fig2, open(newpath+r'\\'+Filename[0:-4]+'_Time_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
     fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.pdf', format='pdf')    
     fig2.show()
 

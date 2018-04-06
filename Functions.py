@@ -5,6 +5,7 @@ Created on Wed Jan  3 13:44:01 2018
 @author: nhermans
 """
 import numpy as np
+from scipy import signal
 #import sys
 
 def wlc(force,par): #in nm/pN, as fraction of L
@@ -82,15 +83,12 @@ def ratio(x, Par):
     Imputs can be arrays"""
     if Par['LFiber_bp']<0:
         return x*0
-    Ratio = (Par['LFiber_bp']-(x-Par['FiberStart_bp']))/(Par['LFiber_bp']) 
-    Ratio = np.array(Ratio)
-    Ratiomin = Ratio<=0
-    Ratio[Ratiomin] = 0                                                         #removes values below 0, makes them 0
-    RatioPlus = Ratio >=1
-    Ratio[RatioPlus] = 1                                                        #removes values above 1, makes them 1
+    Ratio = np.array((Par['LFiber_bp']-(x-Par['FiberStart_bp']))/(Par['LFiber_bp']))
+    Ratio[Ratio<=0] = 0                                                         #removes values below 0, makes them 0
+    Ratio[Ratio >=1] = 1                                                        #removes values above 1, makes them 1
     return np.abs(Ratio)
 
-def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
+def localstiffness(F,Z,PossibleStates,Par,Fmax_Hook=10):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
     Z is the Extension Data (needs to have the same size as F)"""
@@ -101,13 +99,23 @@ def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
     dF = 0.01 #delta used to calculate the RC of the curve
     StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
     StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(hook(F+dF,Par['k_pN_nm'],Fmax_Hook),Ratio)*Par['ZFiber_nm'])
-    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
     DeltaZ = abs(np.subtract(StateExtension,Z))
-    Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
-    Pz = np.array(np.multiply((1-erfaprox(Std)),F))
+    LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Par['kBT_pN_nm']
+    return LocalStiffness, DeltaZ
+
+#Including Hookian    
+def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
+    """Calculates the probability landscape of the intermediate states. 
+    F is the Force Data, 
+    Z is the Extension Data (needs to have the same size as F)"""
+    LocalStiffness, DeltaZ = localstiffness(F, Z, PossibleStates, Par, Fmax_Hook)
+    sigma = np.sqrt(Par['kBT_pN_nm']/LocalStiffness)    
+    NormalizedDeltaZ = np.divide(DeltaZ,sigma)    
+    Pz = np.array((1-erfaprox(NormalizedDeltaZ)))
     ProbSum = np.sum(Pz, axis=1) 
     return ProbSum
 
+#Including FJC
 #def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
 #    """Calculates the probability landscape of the intermediate states using a combination of Freely jointed chain for the fiber, and Worm like chain for the DNA. 
 #    F is the Force Data, 
@@ -162,28 +170,30 @@ def attribute2state(F,Z,States,Pars,Fmax_Hook=10):
     ZminState = np.subtract(ZState,Z.reshape(len(Z),1)) 
     StateMask = np.argmin(abs(ZminState),1)       
     return StateMask    
-    
+
 def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.1):
     """Finds states based on the probablitiy landscape"""     
     from scipy import stats
     #Generate FE curves for possible states
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)    #range to fit 
-    ProbSum = probsum(F_Selected, Z_Selected, PossibleStates, Pars)        #Calculate probability landscape
-    PeakInd, Peak = findpeaks(ProbSum, 25)                                 #Find Peaks    
+    ProbSum = probsum(F_Selected, Z_Selected, PossibleStates, Pars)             #Calculate probability landscape
+    PeakInd, Peak = findpeaks(ProbSum, 25)                                      #Find Peaks    
     States = PossibleStates[PeakInd]                                            #Defines state for each peak
 
     #Calculate for each datapoint which state it most likely belongs too 
     StateMask = attribute2state(F_Selected,Z_Selected,States,Pars)
 #    
 #    #Remove states with 5 or less datapoints
-#    RemoveStates = removestates(StateMask)
-#    if len(RemoveStates)>0:
-#        States = np.delete(States, RemoveStates)
-#        Peak = np.delete(Peak, RemoveStates)
-#        StateMask = attribute2state(F_Selected, Z_Selected, States, Pars)
-
+    RemoveStates = removestates(StateMask)
+    if len(RemoveStates)>0:
+        States = np.delete(States, RemoveStates)
+        Peak = np.delete(Peak, RemoveStates)
+        PeakInd = np.delete(PeakInd, RemoveStates)
+        StateMask = attribute2state(F_Selected, Z_Selected, States, Pars)
     T_test=np.array([])
-    
+
+    LocalStiffness, DeltaZ = localstiffness(F_Selected, Z_Selected, States, Pars)
+
     for i, x in enumerate(States):
         if i > 0:
             Prob = stats.ttest_ind((StateMask == i) * Z_Selected, (StateMask == i - 1) * Z_Selected,equal_var=False)  # get two arrays for t_test
@@ -218,14 +228,9 @@ def find_states_prob(F_Selected, Z_Selected, Pars, MergeStates=True, P_Cutoff=0.
             StateProbSum = probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
             States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
             
-    return PossibleStates, ProbSum, Peak, PeakInd, States
-    
-def Conv(y, box_pts):
-    """Convolution of a signal y with a box of size box_pts with height 1/box_pts"""
-    box = np.ones(box_pts)/box_pts
-    y_smooth = np.convolve(y, box, mode='same')
-    return y_smooth
+    return PossibleStates, ProbSum, Peak, PeakInd, States, LocalStiffness
 
+    
 def MinNumOfPoints(States, Peak, Statemask, F_Selected, Z_Selected, Pars, X=5):
     """Remove states with X or less datapoints. Returns the new states and the corresping state mask"""
     Count = 0
@@ -246,3 +251,27 @@ def MinNumOfPoints(States, Peak, Statemask, F_Selected, Z_Selected, Pars, X=5):
         States = np.copy(NewStates)
         Peak = np.copy(NewPeaks)
     return States, Peak, Statemask
+
+def z_score(Z_Selected, Z_States, std):
+    """Calculate the z score of each value in the sample, relative to the a given mean and standard deviation.
+    Parameters:	
+            a : array_like
+            An array like object containing the sample data.
+            mean: float
+            std : float
+    """
+    Z_Selected_New = (np.tile(Z_Selected,(len(Z_States[0,:]),1))).T               #Copies Z_Selected array into colomns of States with len(Z_States[0,:]) rows
+    return np.divide(Z_Selected_New-Z_States, std.T)
+    
+def RuptureForces(Z_Selected, F_Selected, States, Pars, ax1):
+    """Calculate and plot the rupture forces and jumps"""
+    MedFilt = signal.medfilt(Z_Selected, 9)
+    MedFiltMask = attribute2state(F_Selected, MedFilt, States, Pars)       #For the Median Filter to which state it belongs
+    k = 0
+    for i, j in enumerate(MedFiltMask):
+        if j > k:
+            start = MedFilt[i-1]
+            stop = MedFilt[i]
+            ax1.hlines(F_Selected[i], start, stop, color='black', lw = 2)
+        k = j      
+    ax1.plot(MedFilt, F_Selected, color='black')

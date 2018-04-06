@@ -18,7 +18,7 @@ import pickle
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\Pythontestfit'
+folder = r'C:\Users\rmerc\OneDrive\Documenten\GitHub\ForceExtensionCurvefitting\TestData'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -67,7 +67,7 @@ for Filenum, Filename in enumerate(filenames):
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates, ProbSum, Peak, States, AllStates, Statemask = func.find_states_prob(F_Selected,Z_Selected,Z, Force, Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
+    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates = func.find_states_prob(F_Selected,Z_Selected,Z, Force, Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
  
     #Calculates stepsize
     Unwrapsteps = []
@@ -123,15 +123,15 @@ for Filenum, Filename in enumerate(filenames):
     ax4.scatter(Peak, States*Pars['DNAds_nm'], color='blue')
     
     #Plot the states found initially
-    for x in States:
+    for x in NewStates:
         Ratio = func.ratio(x,Pars)
         Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax1.plot(Fit, Force, alpha=0.1, linestyle='-.')
-        ax3.plot(Time,Fit, alpha=0.1, linestyle='-.')
+        ax1.plot(Fit, Force, alpha=0.9, linestyle='-.')
+        ax3.plot(Time,Fit, alpha=0.9, linestyle='-.')
 
 ##############################################################################################
 ######## Begin Plotting Different States
-
+        
     colors = [plt.cm.Set1(each) for each in np.linspace(0, 1, len(States))]      #Color pattern for the states
     dX = 10                                                                      #Offset for text in plot
 
@@ -146,9 +146,10 @@ for Filenum, Filename in enumerate(filenames):
         Mask = Statemask[:,j]
         Fit = AllStates[:,j]
       
-        ax1.plot(Fit, Force, alpha=0.9, linestyle=':', color=tuple(col)) 
+        ax1.plot(Fit, Force, alpha=0.1, linestyle=':', color=tuple(col)) 
         ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=20, alpha=.6)
-
+        ax1.text(Fit[np.argmin(np.abs(Force-10))], Force[np.argmin(np.abs(Force-10))], j, horizontalalignment='center')
+    
         ax2.vlines(States[j], 0, Peak[j], linestyle=':', color=tuple(col))
         ax2.text(States[j], Peak[j]+dX, int(States[j]), fontsize=8, horizontalalignment='center')
         

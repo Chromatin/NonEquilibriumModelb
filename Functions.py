@@ -23,14 +23,16 @@ def hook(force,k=1,fmax=10):
     np.place(f,f>fmax,[fmax])
     return f/k 
 
+def exp(x):
+    return np.exp(x)
+
 def fjc(f, par): 
     """calculates a Freely Jointed Chain with a kungslength of b""" 
     #Function is independent on length of the DNA #L_nm = par['L_bp']*par['DNAds_nm']
     b = 3 * par['kBT_pN_nm'] / (par['k_pN_nm'])#*L_nm)
     x = f * b / par['kBT_pN_nm']
     # coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
-    exp_x = np.exp(x)
-    z = (exp_x + 1 / exp_x) / (exp_x - 1 / exp_x) - 1 / x
+    z = (exp(x) + 1 / exp(x)) / (exp(x) - 1 / exp(x)) - 1 / x
     #z *= par['L_bp']*par['DNAds_nm']
     #z_df = (par['kBT_pN_nm'] / b) * (np.log(np.sinh(x)) - np.log(x))  #*L_nm #  + constant --> integrate over f (finish it
     #w = f * z - z_df
@@ -168,7 +170,7 @@ def find_states_prob(F_Selected, Z_Selected, Z, Force, Pars, MergeStates=False, 
     States = PossibleStates[PeakInd]                                            #Defines state for each peak
 
     AllStates = np.empty(shape=[len(Z), len(States)])                           #2d array of the states  
-    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])                           #2d array of the states  \  
+    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])  
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
         Fit = np.array(wlc(Force,Pars)*x*Pars['DNAds_nm'] + hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
@@ -179,11 +181,11 @@ def find_states_prob(F_Selected, Z_Selected, Z, Force, Pars, MergeStates=False, 
     LocalStiffness, DeltaZ = localstiffness(F_Selected, Z_Selected, States, Pars)
             
     sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
-    std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.multiply(sigma,sigma))                         #sqrt([measuring error]^2 + [thermal fluctuations]^2) 
+    std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.multiply(sigma,sigma))    #sqrt([measuring error]^2 + [thermal fluctuations]^2) 
     Z_Score = z_score(Z_Selected, AllStates_Selected, std, States)    
 
     StateMask = np.abs(Z_Score) < 2.5
-    PointsInState = np.sum(StateMask, axis=0)
+    PointsPerState = np.sum(StateMask, axis=0)
     
 #    #Remove states with 5 or less datapoints
     RemoveStates = removestates(StateMask)
@@ -196,20 +198,28 @@ def find_states_prob(F_Selected, Z_Selected, Z, Force, Pars, MergeStates=False, 
         AllStates_Selected = np.delete(AllStates_Selected, RemoveStates, axis=1)
 
     #Merging 2 states and checking whether is better or not
+    NewStates = np.copy(States)
+    k = 0
     for i in np.arange(0,len(States)-1): 
-        MergedState = (AllStates_Selected[:,i]*PointsInState[i]+AllStates_Selected[:,i+1]*PointsInState[i+1])/(PointsInState[i]+PointsInState[i+1]) #weighted average over 2 neigbouring states
-        
-        LocalStiffness, DeltaZ = localstiffness(F_Selected, Z_Selected, MergeStates, Pars)
-        print(np.shape(LocalStiffness))        
+        i = i - k
+        MergedState = (NewStates[i]*PointsPerState[i]+NewStates[i+1]*PointsPerState[i+1])/(PointsPerState[i]+PointsPerState[i+1])
+        Ratio = ratio(MergedState,Pars)
+        MergedStateArr = np.array(wlc(F_Selected,Pars)*MergedState*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+       
+        LocalStiffness, DeltaZ = localstiffness(F_Selected, Z_Selected, MergedState, Pars)
         sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
-        std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.multiply(sigma,sigma))                         #sqrt([measuring error]^2 + [thermal fluctuations]^2) 
-        Z_Score = z_score(Z_Selected, MergedState, std, 1)
-        print(np.shape(Z_Score))
+        std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.multiply(sigma,sigma)) #sqrt([measuring error]^2 + [thermal fluctuations]^2) 
+        Z_Score = z_score(Z_Selected, MergedStateArr, std, 1)
         MergedStateMask = np.abs(Z_Score) < 2.5
         MergedSum = np.sum(MergedStateMask)
-#        print("# Of point within 2.5 sigma in State1:State2:Merged =", PointsInState[i],":", PointsInState[i+1], ":", MergedSum)
-
-
+#        print("# Of point within 2.5 sigma in State", i, ":State", i+1, ":Merged =", PointsPerState[i],":", PointsPerState[i+1], ":", MergedSum)
+        if (MergedSum/(np.max([PointsPerState[i], PointsPerState[i+1]]))) > 0.90: #What criterium should be here?!
+            NewStates = np.delete(NewStates, i)
+            PointsPerState = np.delete(PointsPerState, i)
+            NewStates[i] = MergedState
+            PointsPerState[i] = MergedSum
+            k += 1
+                
     
 #    T_test=np.array([])
 
@@ -247,7 +257,7 @@ def find_states_prob(F_Selected, Z_Selected, Z, Force, Pars, MergeStates=False, 
 #            StateProbSum = probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
 #            States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
             
-    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask
+    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates
 
 
 def z_score(Z_Selected, Z_States, std, States):
@@ -258,9 +268,11 @@ def z_score(Z_Selected, Z_States, std, States):
             mean: float
             std : float
     """
-    States = np.array([States])
-    Z_Selected_New = (np.tile(Z_Selected,(len(States),1))).T               #Copies Z_Selected array into colomns of States with len(Z_States[0,:]) rows
-    Z_States = np.tile(Z_States, (1, 1))    
+    if type(States) == np.ndarray: #while merging states, Z_States is only 1 state, this fixes dimensions
+        Z_Selected_New = (np.tile(Z_Selected,(len(States),1))).T               #Copies Z_Selected array into colomns of States with len(Z_States[0,:]) rows    
+    else:
+        Z_Selected_New = np.reshape(Z_Selected, (len(Z_Selected),1))
+        Z_States = np.reshape(Z_States, (len(Z_States),1))
     return np.divide(Z_Selected_New-Z_States, std.T)
     
 def RuptureForces(Z_Selected, F_Selected, States, Pars, ax1):

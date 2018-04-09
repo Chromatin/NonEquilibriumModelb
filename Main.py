@@ -7,9 +7,6 @@ Created on Mon Jan 22 11:52:49 2018
 import os 
 import matplotlib
 matplotlib.rcParams['figure.figsize'] = (15, 10)
-
-#matplotlib.rcParams['text.usetex'] = True
-#matplotlib.rcParams['text.latex.unicode'] = True
 import matplotlib.pyplot as plt
 import numpy as np
 import Functions as func
@@ -18,7 +15,7 @@ import pickle
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'C:\Users\rmerc\OneDrive\Documenten\GitHub\ForceExtensionCurvefitting\TestData'
+folder = r'N:\Rick\Fit Files\Pythontestfit'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -35,39 +32,37 @@ PlotSelected = True                                                             
 
 MeasurementERR = 5 #nm
 
-Handles = Tools.Define_Handles(Select=PlotSelected)
+Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, MaxZ=False, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 F_rup, dZ_rup = np.array([]), np.array([])                                      #Rupture forces and corresponding jumps
 
-Fignum, Progress = 1, 1                                                         #Used for output line
+Fignum = 1                                                                      #Used for output line
 
-Number = 0                                                                      #Total number of loops
+Filenames = []                                                                  #All .fit files    
 for filename in filenames:
     if filename[-4:] == '.fit':
-        Number += 1
+        Filenames.append(filename)        
         
-for Filenum, Filename in enumerate(filenames):
-    if Filename[-4:] != '.fit' :
-        continue
-    Force, Time, Z, Z_Selected = Tools.read_data(Filename)                      #loads the data from the filename
+for Filenum, Filename in enumerate(Filenames):
+
+    F, Z, T, Z_Selected = Tools.read_data(Filename)                             #loads the data from the filename
     LogFile = Tools.read_log(Filename[:-4]+'.log')                              #loads the log file with the same name
     Pars = Tools.log_pars(LogFile)                                              #Reads in all the parameters from the logfile
 
     if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
-    print(Progress, "/", Number, ":", int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, "&", Fignum+1, ").")
-    Progress += 1
+    print(Filenum+1, "/", len(Filenames), ":", int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, "&", Fignum+1, ").")
 
     #Remove all datapoints that should not be fitted
-    Z_Selected, F_Selected, T_Selected = Tools.handle_data(Force, Z, Time, Z_Selected, Handles, Pars)
+    F_Selected, Z_Selected, T_Selected = Tools.handle_data(F, Z, T, Z_Selected, Handles, Pars)
 
     if len(Z_Selected)<10:  
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates = func.find_states_prob(F_Selected,Z_Selected,Z, Force, Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
+    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
  
     #Calculates stepsize
     Unwrapsteps = []
@@ -81,7 +76,6 @@ for Filenum, Filename in enumerate(filenames):
     Unwrapsteps = func.state2step(Unwrapsteps)
     if len(Unwrapsteps)>0: steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: stacks.extend(Stacksteps)
-    #Tools.write_data('AllSteps.txt',Unwrapsteps,Stacksteps)
     
     # this plots the Force-Extension curve
     fig1 = plt.figure()
@@ -90,7 +84,7 @@ for Filenum, Filename in enumerate(filenames):
     ax1.set_title(r'Extension-Force Curve')
     ax1.set_ylabel(r'Force (pN)')
     ax1.set_xlabel(r'Extension (nm)')
-    ax1.scatter(Z, Force, color='grey', lw=0.1, s=5)
+    ax1.scatter(Z, F, color='grey', lw=0.1, s=5)
     if PlotSelected:
         ax1.set_ylim([np.min(F_Selected)-0.1*np.max(F_Selected), np.max(F_Selected)+0.1*np.max(F_Selected)])
         ax1.set_xlim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
@@ -111,7 +105,7 @@ for Filenum, Filename in enumerate(filenames):
     ax3.set_xlabel(r'Time (s)')
     ax3.set_ylabel(r'Extension (bp nm)')
     ax3.set_ylim([0, Pars['L_bp']*Pars['DNAds_nm']+100])
-    ax3.scatter(Time,Z, color='grey', lw=0.1, s=5)
+    ax3.scatter(T, Z, color='grey', lw=0.1, s=5)
     if PlotSelected:
         ax3.set_xlim([np.min(T_Selected)-0.1*np.max(T_Selected), np.max(T_Selected)+0.1*np.max(T_Selected)])
         ax3.set_ylim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
@@ -125,15 +119,15 @@ for Filenum, Filename in enumerate(filenames):
     #Plot the states found initially
     for x in NewStates:
         Ratio = func.ratio(x,Pars)
-        Fit = np.array(func.wlc(Force,Pars)*x*Pars['DNAds_nm'] + func.hook(Force,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax1.plot(Fit, Force, alpha=0.9, linestyle='-.')
-        ax3.plot(Time,Fit, alpha=0.9, linestyle='-.')
+        Fit = np.array(func.wlc(F,Pars)*x*Pars['DNAds_nm'] + func.hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        ax1.plot(Fit, F, alpha=0.9, linestyle='-.')
+        ax3.plot(T,Fit, alpha=0.9, linestyle='-.')
 
 ##############################################################################################
 ######## Begin Plotting Different States
         
-    colors = [plt.cm.Set1(each) for each in np.linspace(0, 1, len(States))]      #Color pattern for the states
-    dX = 10                                                                      #Offset for text in plot
+    colors = [plt.cm.Set1(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
+    dX = 10                                                                     #Offset for text in plot
 
     #Calculate the rupture forces using a median filter    
 #    func.RuptureForces(Z_Selected, F_Selected, States, Pars, ax1)
@@ -146,14 +140,14 @@ for Filenum, Filename in enumerate(filenames):
         Mask = Statemask[:,j]
         Fit = AllStates[:,j]
       
-        ax1.plot(Fit, Force, alpha=0.1, linestyle=':', color=tuple(col)) 
+        ax1.plot(Fit, F, alpha=0.2, linestyle=':', color=tuple(col)) 
         ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=20, alpha=.6)
-        ax1.text(Fit[np.argmin(np.abs(Force-10))], Force[np.argmin(np.abs(Force-10))], j, horizontalalignment='center')
+        ax1.text(Fit[np.argmin(np.abs(F-10))], F[np.argmin(np.abs(F-10))], j, horizontalalignment='center')
     
         ax2.vlines(States[j], 0, Peak[j], linestyle=':', color=tuple(col))
         ax2.text(States[j], Peak[j]+dX, int(States[j]), fontsize=8, horizontalalignment='center')
         
-        ax3.plot(Time, Fit, alpha=0.9, linestyle=':', color=tuple(col))
+        ax3.plot(T, Fit, alpha=0.2, linestyle=':', color=tuple(col))
         ax3.scatter(T_Selected[Mask], Z_Selected[Mask], color=tuple(col), s=20, alpha=.6)
         
         ax4.hlines(States[j]*Pars['DNAds_nm'], 0, Peak[j], color=tuple(col), linestyle=':')
@@ -161,16 +155,16 @@ for Filenum, Filename in enumerate(filenames):
                
         #Rupture forces
         if j < len(States)-1:   #This should be done by median filter & in basepairs
-            Ruptureforce = np.mean((F_Selected[Mask])[-4:-1])                               #The 4 last datapoint in a group
-            start = Fit[np.argmin(np.abs(Force-Ruptureforce))]
-            stop = (AllStates[:,j+1])[np.argmin(Force-Ruptureforce)] #Same as start, but then for the next state
+            Ruptureforce = np.mean((F_Selected[Mask])[-4:-1])                   #The 4 last datapoint in a group
+            start = Fit[np.argmin(np.abs(F-Ruptureforce))]
+            stop = (AllStates[:,j+1])[np.argmin(F-Ruptureforce)]                #Same as start, but then for the next state
 #            ax1.hlines(Ruptureforce, start, stop, color='black')
             F_rup = np.append(F_rup, Ruptureforce)
             dZ_rup = np.append(dZ_rup, stop-start)
       
     Unwrapsteps = []
     Stacksteps = []
-    for x in States:
+    for x in NewStates:
         if x >= Pars['Fiber0_bp']:
             Unwrapsteps.append(x)
         else:
@@ -204,11 +198,11 @@ ax6.hist(Steps,  bins = 50, range = [0,400], lw=0.5, color='blue', label='25 nm 
 ax6.hist(Stacks, bins = 50, range = [0,400], lw=0.5, color='orange', label='Stacking transitions')
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
-ax5.set_title("Histogram stepsizes in bp before T-test")
+ax5.set_title("Histogram stepsizes in bp before Merging")
 ax5.legend(loc='best')
 ax6.set_xlabel('stepsize (bp)')
 ax6.set_ylabel('Count')
-ax6.set_title("Histogram stepsizes in bp after T-test")
+ax6.set_title("Histogram stepsizes in bp after Merging")
 ax6.legend(loc='best')
 fig3.tight_layout()
 fig3.savefig(newpath+r'\\'+'Hist.pdf', format='pdf')

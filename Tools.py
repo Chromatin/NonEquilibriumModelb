@@ -9,7 +9,7 @@ Created on Wed Jan  3 14:52:17 2018
 import numpy as np
 from scipy import signal
 
-def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, MaxZ=False, Denoise=False):
+def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, MaxZ=False, MedFilt=False):
     """If analysis has to be done on only part of the data, these options can be used"""
     Handles = {}
     Handles['Select'] = Select
@@ -18,7 +18,7 @@ def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, M
     Handles['MinForce'] = MinForce
     Handles['MinZ'] = MinZ
     Handles['MaxZ'] = MaxZ
-    Handles['Denoise'] = Denoise 
+    Handles['MedFilt'] = MedFilt 
     return Handles
 
 def read_data(Filename):
@@ -31,16 +31,16 @@ def read_data(Filename):
     f.seek(0) #seek to beginning of the file
     data = f.readlines()[1:]
     f.close()
-    Force = np.array([])
-    Time = np.array([])
+    F = np.array([])
     Z = np.array([])
+    T = np.array([])
     Z_Selected = np.array([])
     for idx,item in enumerate(data):                                            #Get all the data from the fitfile
-        Force = np.append(Force,float(item.split()[headers.index('F (pN)')]))
-        Time = np.append(Time,float(item.split()[headers.index('t (s)')]))
-        Z_Selected = np.append(Z_Selected,float(item.split()[headers.index('selected z (um)')])*1000)
+        F = np.append(F,float(item.split()[headers.index('F (pN)')]))
         Z = np.append(Z,float(item.split()[headers.index('z (um)')])*1000)   
-    return Force,Time,Z,Z_Selected
+        T = np.append(T,float(item.split()[headers.index('t (s)')]))
+        Z_Selected = np.append(Z_Selected,float(item.split()[headers.index('selected z (um)')])*1000)
+    return F, Z, T, Z_Selected
 
 def read_log(Filename):
     """Open the corresponding .log files from magnetic tweezers"""
@@ -116,7 +116,7 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
             return [], [], []
         else:
             F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , 1)
-            return Z_Selected, F_Selected, T_Selected
+            return F_Selected, Z_Selected, T_Selected
     else:
         F_Selected = F
         Z_Selected = Z
@@ -127,9 +127,11 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
     if Handles['MinForce'] > 0: F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
         Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
+#        print((Pars['L_bp']+100)*Pars['DNAds_nm'], - Pars['L_bp']*Pars['DNAds_nm']*1.1) #what is this!?
         Z_Selected, F_Selected, T_Selected = minforce(Z_Selected, F_Selected, T_Selected , - Pars['L_bp']*Pars['DNAds_nm']*1.1) #remove data above Z=1.1*LC
-    if Handles['Denoise']: Z_Selected = signal.medfilt(Z_Selected,Window)
-    return Z_Selected, F_Selected, T_Selected
+        #Here 'maxextension()' should be uses, but what is 'Max_extension' ?
+    if Handles['MedFilt']: Z_Selected = signal.medfilt(Z_Selected, Window)
+    return F_Selected, Z_Selected, T_Selected
 
 def breaks(F, Z, T, test=500):
     """Removes the data after a jump in z, presumably indicating the bead broke lose"""
@@ -152,25 +154,25 @@ def removerelease(F, Z, T):
             Pullingtest = np.append(Pullingtest,i)
         test = x
     F = np.delete(F, Pullingtest)
-    Z = np.delete(Z,Pullingtest)
-    T = np.delete(T,Pullingtest)
+    Z = np.delete(Z, Pullingtest)
+    T = np.delete(T, Pullingtest)
     return F, Z, T 
 
-def minforce(Z, F, T, Min_Force=2):
+def minforce(F, Z,  T, Min_Force=2):
     """Removes the data below minimum force given"""
-    Curingtest = np.array([])
-    for i,x in enumerate(Z):
-        if x < Min_Force:
-            Curingtest = np.append(Curingtest,i)
-    Z = np.delete(Z, Curingtest)
-    F = np.delete(F, Curingtest)
-    T = np.delete(T, Curingtest)
-    return Z,F,T
+    Mask = F > Min_Force
+    Z = Z[Mask]
+    F = F[Mask]
+    T = T[Mask]
+    return F, Z, T
 
-def rolling_window(a, size):
-    shape = a.shape[:-1] + (a.shape[-1] - size + 1, size)
-    strides = a.strides + (a. strides[-1],)
-    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+def maxextention(F, Z, T, Max_Extension):   #Does not work yet
+    """Removes the data above maximum extension given"""
+    Mask = Z < Max_Extension
+    Z = Z[Mask]
+    F = F[Mask]
+    T = T[Mask]
+    return F, Z ,T
 
 
 """

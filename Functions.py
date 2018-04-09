@@ -105,7 +105,6 @@ def STD(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     dF = 0.01 #delta used to calculate the RC of the curve
     StateExtension = np.array(np.multiply(wlc(F, Pars),(States*Pars['DNAds_nm'])) + np.multiply(hook(F,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
     StateExtension_dF = np.array(np.multiply(wlc(F+dF, Pars),(States*Pars['DNAds_nm'])) + np.multiply(hook(F+dF,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
-    DeltaZ = abs(np.subtract(StateExtension,Z))
     LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
     sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
     std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.square(sigma))    #sqrt([measuring error]^2 + [thermal fluctuations]^2)  
@@ -180,7 +179,17 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
         MergedStateMask = np.abs(Z_Score) < 2.5
         MergedSum = np.sum(MergedStateMask)
 #        print("# Of point within 2.5 sigma in State", i, ":State", i+1, ":Merged =", PointsPerState[i],":", PointsPerState[i+1], ":", MergedSum)
-        if (MergedSum/(np.max([PointsPerState[i], PointsPerState[i+1]]))) > 0.90: #What criterium should be here?!
+        
+        
+        T_test=np.array([])
+    
+        T_test = np.append(T_test, (stats.ttest_ind(MergedStateMask, StateMask[:,i] ,equal_var=False))[1])
+        T_test = np.append(T_test, (stats.ttest_ind(MergedStateMask, StateMask[:,i+1] ,equal_var=False))[1])
+        T_test = np.append(T_test, (stats.ttest_ind(StateMask[:,i], StateMask[:,i+1] ,equal_var=False))[1])
+
+        print(T_test, T_test[:-1])
+        
+        if np.max(T_test[:-1]) > 0.01 and T_test[-1] > 0.5: #What criterium should be here?!
             NewStates = np.delete(NewStates, i)
             PointsPerState = np.delete(PointsPerState, i)
             NewStates[i] = MergedState
@@ -258,6 +267,12 @@ def z_score(Z_Selected, Z_States, std, States):
         Z_Selected_New = np.reshape(Z_Selected, (len(Z_Selected),1))
         Z_States = np.reshape(Z_States, (len(Z_States),1))
     return np.divide(Z_Selected_New-Z_States, std.T)
+
+
+def ChiSquared(f, e):
+    """e is the expected value and f is the observed frequency, and summed over all possibilities """    
+    return np.sum(np.devide(np.square(f-e), e))
+    
    
 def RuptureForces(Z_Selected, F_Selected, States, Pars, ax1):
     """Calculate and plot the rupture forces and jumps"""

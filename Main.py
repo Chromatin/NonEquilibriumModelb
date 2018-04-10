@@ -62,8 +62,8 @@ for Filenum, Filename in enumerate(Filenames):
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
- 
+    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewStateMask = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
+    
     #Calculates stepsize
     Unwrapsteps = []
     Stacksteps = []
@@ -125,7 +125,7 @@ for Filenum, Filename in enumerate(Filenames):
 
 ##############################################################################################
 ######## Begin Plotting Different States
-        
+
     colors = [plt.cm.Set1(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
     dX = 10                                                                     #Offset for text in plot
 

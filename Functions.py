@@ -4,6 +4,8 @@ Created on Wed Jan  3 13:44:01 2018
 
 @author: nhermans
 """
+from __future__ import absolute_import
+
 import numpy as np
 from scipy import signal
 from scipy import stats
@@ -148,12 +150,12 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
         AllStates_Selected[:,i] = Fit_Selected        
     
     std = STD(F_Selected, Z_Selected, States, Pars)
-    Z_Score = z_score(Z_Selected, AllStates_Selected, std, States)    
+    z_Score = z_score(Z_Selected, AllStates_Selected, std, States)    
     
-    StateMask = np.abs(Z_Score) < 2.5
+    StateMask = np.abs(z_Score) < 2.5
     PointsPerState = np.sum(StateMask, axis=0)
 #    #Remove states with 5 or less datapoints
-    RemoveStates = removestates(StateMask)
+    RemoveStates = removestates(StateMask, MinPoints=5)
     if len(RemoveStates)>0:
         States = np.delete(States, RemoveStates)
         Peak = np.delete(Peak, RemoveStates)
@@ -166,6 +168,7 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
 
     #Merging 2 states and checking whether is better or not
     NewStates = np.copy(States)
+    NewStateMask = np.copy(StateMask)
     k = 0
     for i in np.arange(0,len(States)-1): 
         i = i - k
@@ -173,27 +176,34 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
         Ratio = ratio(MergedState,Pars)
         MergedStateArr = np.array(wlc(F_Selected,Pars)*MergedState*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
        
-        std = STD(F_Selected, Z_Selected, MergedState, Pars)
-        Z_Score = z_score(Z_Selected, MergedStateArr, std, 1)
+        Std = STD(F_Selected, Z_Selected, MergedState, Pars)
+        Z_Score = z_score(Z_Selected, MergedStateArr, Std, 1)
         
         MergedStateMask = np.abs(Z_Score) < 2.5
+        MergedStateMask = MergedStateMask.ravel()
         MergedSum = np.sum(MergedStateMask)
 #        print("# Of point within 2.5 sigma in State", i, ":State", i+1, ":Merged =", PointsPerState[i],":", PointsPerState[i+1], ":", MergedSum)
         
+        Diff = []
+        Diff.append(NewStateMask[:,i] * NewStateMask[:,i+1])
+        Diff.append(MergedStateMask * NewStateMask[:,i])
+        Diff.append(MergedStateMask * NewStateMask[:,i+1])
         
-        T_test=np.array([])
-    
-        T_test = np.append(T_test, (stats.ttest_ind(MergedStateMask, StateMask[:,i] ,equal_var=False))[1])
-        T_test = np.append(T_test, (stats.ttest_ind(MergedStateMask, StateMask[:,i+1] ,equal_var=False))[1])
-        T_test = np.append(T_test, (stats.ttest_ind(StateMask[:,i], StateMask[:,i+1] ,equal_var=False))[1])
+        Overlap = []
+        Overlap.append(len(Diff[0][Diff[0]==True])/np.min([PointsPerState[i], PointsPerState[i+1]]))
+        Overlap.append(len(Diff[1][Diff[1]==True])/np.min([MergedSum, PointsPerState[i]]))
+        Overlap.append(len(Diff[2][Diff[2]==True])/np.min([MergedSum, PointsPerState[i+1]]))
 
-        print(T_test, T_test[:-1])
+        print(Overlap, PointsPerState[i], PointsPerState[i+1], MergedSum)
         
-        if np.max(T_test[:-1]) > 0.01 and T_test[-1] > 0.5: #What criterium should be here?!
+
+        if Overlap[0] > 0.6 and np.min(Overlap[1:]) > 0.5: #What criterium should be here?!
             NewStates = np.delete(NewStates, i)
             PointsPerState = np.delete(PointsPerState, i)
+            NewStateMask = np.delete(NewStateMask, i, axis = 1)
             NewStates[i] = MergedState
             PointsPerState[i] = MergedSum
+            NewStateMask[:,i] = MergedStateMask
             k += 1
                 
     
@@ -233,13 +243,13 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
 #            StateProbSum = probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
 #            States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
             
-    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates
+    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates, NewStateMask
 
-def removestates(StateMask, n=5):
+def removestates(StateMask, MinPoints=5):
     """Removes states with less than n data points, returns indexes of states to be removed"""
     RemoveStates = np.array([])    
     for i in np.arange(0,len(StateMask[0,:]),1):
-        if sum(StateMask[:,i]) < n:
+        if sum(StateMask[:,i]) < MinPoints:
             RemoveStates = np.append(RemoveStates,i)
     return RemoveStates
 
@@ -287,8 +297,35 @@ def RuptureForces(Z_Selected, F_Selected, States, Pars, ax1):
 #        k = j      
     ax1.plot(MedFilt, F_Selected, color='black')
 
-
-
+def T_Test(a, b, var_a, var_b):
+    N = len(a)    
+    s = np.sqrt((var_a + var_b)/2)
+#    s
+    
+    ## Calculate the t-statistics
+    t = (np.mean(a) - np.mean(b))/(s*np.sqrt(2/N))
+    
+    
+    
+    ## Compare with the critical t-value
+    #Degrees of freedom
+    df = 2*N - 2
+    
+    #p-value after comparison with the t 
+    p = 1 - stats.t.cdf(t,df=df)
+    
+    
+#    print("t = " + str(t))
+#    print("p = " + str(2*p))
+    #Note that we multiply the p value by 2 because its a twp tail t-test
+    ### You can see that after comparing the t statistic with the critical t value (computed internally) we get a good p value of 0.0005 and thus we reject the null hypothesis and thus it proves that the mean of the two distributions are different and statistically significant.
+    
+    
+    ## Cross Checking with the internal scipy function
+    t2, p2 = stats.ttest_ind(a,b)
+#    print("t = " + str(t2))
+#    print("p = " + str(2*p2))
+    return p, p2
 #Including FJC
 #def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
 #    """Calculates the probability landscape of the intermediate states using a combination of Freely jointed chain for the fiber, and Worm like chain for the DNA. 

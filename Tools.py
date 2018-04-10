@@ -9,7 +9,7 @@ Created on Wed Jan  3 14:52:17 2018
 import numpy as np
 from scipy import signal
 
-def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, MaxZ=False, Denoise=False):
+def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, MaxZ=False, MedFilt=False):
     """If analysis has to be done on only part of the data, these options can be used"""
     Handles = {}
     Handles['Select'] = Select
@@ -18,7 +18,7 @@ def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, M
     Handles['MinForce'] = MinForce
     Handles['MinZ'] = MinZ
     Handles['MaxZ'] = MaxZ
-    Handles['Denoise'] = Denoise 
+    Handles['MedFilt'] = MedFilt 
     return Handles
 
 def read_data(Filename):
@@ -31,16 +31,16 @@ def read_data(Filename):
     f.seek(0) #seek to beginning of the file
     data = f.readlines()[1:]
     f.close()
-    Force = np.array([])
-    Time = np.array([])
+    F = np.array([])
     Z = np.array([])
+    T = np.array([])
     Z_Selected = np.array([])
     for idx,item in enumerate(data):                                            #Get all the data from the fitfile
-        Force = np.append(Force,float(item.split()[headers.index('F (pN)')]))
-        Time = np.append(Time,float(item.split()[headers.index('t (s)')]))
-        Z_Selected = np.append(Z_Selected,float(item.split()[headers.index('selected z (um)')])*1000)
+        F = np.append(F,float(item.split()[headers.index('F (pN)')]))
         Z = np.append(Z,float(item.split()[headers.index('z (um)')])*1000)   
-    return Force,Time,Z,Z_Selected
+        T = np.append(T,float(item.split()[headers.index('t (s)')]))
+        Z_Selected = np.append(Z_Selected,float(item.split()[headers.index('selected z (um)')])*1000)
+    return F, Z, T, Z_Selected
 
 def read_log(Filename):
     """Open the corresponding .log files from magnetic tweezers"""
@@ -70,6 +70,7 @@ def log_pars(LogFile):
     par['Fiber0_bp'] = par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
     par['LFiber_bp'] = (par['N_tot']-par['N4'])*(par['NRL_bp']-par['Innerwrap_bp'])  #total number of bp in the fiber
     par['FiberStart_bp']  = par['Fiber0_bp']-par['LFiber_bp']
+    par['MeasurementERR (nm)'] = 5
     return par
 
 def find_param(Logfile, Param):
@@ -101,6 +102,7 @@ def default_pars():
     par['Fiber0_bp']  = par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
     par['LFiber_bp'] = (par['N_tot']-par['N4'])*(par['NRL_bp']-par['Innerwrap_bp'])  #total number of bp in the fiber
     par['FiberStart_bp'] = par['Fiber0_bp']-par['LFiber_bp'] #DNA handles
+    par['MeasurementERR (nm)'] = 5   
     return par
 
 def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
@@ -113,19 +115,21 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
             print('==> Nothing Selected!')
             return [], [], []
         else:
-            return Z_Selected, F_Selected, T_Selected
+            F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , Handles['MinForce'])
+            return F_Selected, Z_Selected, T_Selected
     else:
         F_Selected = F
         Z_Selected = Z
         T_Selected = T
+    
     if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, 1000)
     if Handles['Pulling']: F_Selected, Z_Selected, T_Selected = removerelease(F_Selected, Z_Selected, T_Selected )
     if Handles['MinForce'] > 0: F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
-        maxZ= Pars['L_bp']*Pars['DNAds_nm']*1.1
-        F_Selected, Z_Selected, T_Selected = max_Z(F_Selected, Z_Selected, T_Selected , maxZ ) #remove data above Z=1.1*LC
-    if Handles['Denoise']: Z_Selected = signal.medfilt(Z_Selected,Window)
-    return Z_Selected, F_Selected, T_Selected
+        Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
+        F_Selected, Z_Selected, T_Selected = maxextention(F_Selected,Z_Selected, T_Selected , Handles['MaxZ']) #remove data above Z=1.1*LC
+    if Handles['MedFilt']: Z_Selected = signal.medfilt(Z_Selected, Window)
+    return F_Selected, Z_Selected, T_Selected
 
 def breaks(F, Z, T, test=500):
     """Removes the data after a jump in z, presumably indicating the bead broke lose"""
@@ -148,36 +152,25 @@ def removerelease(F, Z, T):
             Pullingtest = np.append(Pullingtest,i)
         test = x
     F = np.delete(F, Pullingtest)
-    Z = np.delete(Z,Pullingtest)
-    T = np.delete(T,Pullingtest)
+    Z = np.delete(Z, Pullingtest)
+    T = np.delete(T, Pullingtest)
     return F, Z, T 
 
-def minforce(F, Z, T, Min_Force=2):
+def minforce(F, Z,  T, Min_Force=2):
     """Removes the data below minimum force given"""
-    Curingtest = np.array([])
-    for i,x in enumerate(F):
-        if x < Min_Force:
-            Curingtest = np.append(Curingtest,i)
-    F = np.delete(F, Curingtest)
-    Z = np.delete(Z, Curingtest)
-    T = np.delete(T, Curingtest)
-    return F,Z,T
+    Mask = F > Min_Force
+    Z = Z[Mask]
+    F = F[Mask]
+    T = T[Mask]
+    return F, Z, T
 
-def max_Z(F, Z, T, MaxZ=10000):
-    """Removes the data above maximum extension"""
-    DeleteThis = np.array([])
-    for i,x in enumerate(Z):
-        if x > MaxZ:
-            DeleteThis = np.append(DeleteThis,i)
-    F = np.delete(F, DeleteThis)
-    Z = np.delete(Z, DeleteThis)
-    T = np.delete(T, DeleteThis)
-    return F,Z,T
-
-def rolling_window(a, size):
-    shape = a.shape[:-1] + (a.shape[-1] - size + 1, size)
-    strides = a.strides + (a. strides[-1],)
-    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+def maxextention(F, Z, T, Max_Extension):   #Does not work yet
+    """Removes the data above maximum extension given"""
+    Mask = Z < Max_Extension
+    Z = Z[Mask]
+    F = F[Mask]
+    T = T[Mask]
+    return F, Z ,T
 
 
 """

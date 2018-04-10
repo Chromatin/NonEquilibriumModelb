@@ -15,7 +15,7 @@ import pickle
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\Pythontestfit'
+folder = r'N:\Rick\Fit Files\15x197 LH Artur\H1_197\Best Traces'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -62,7 +62,7 @@ for Filenum, Filename in enumerate(Filenames):
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewStateMask = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
+    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewStateMask, NewAllStates = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
     
     #Calculates stepsize
     Unwrapsteps = []
@@ -117,15 +117,19 @@ for Filenum, Filename in enumerate(Filenames):
     ax4.scatter(Peak, States*Pars['DNAds_nm'], color='blue')
     
     #Plot the states found initially
-    for x in NewStates:
-        Ratio = func.ratio(x,Pars)
-        Fit = np.array(func.wlc(F,Pars)*x*Pars['DNAds_nm'] + func.hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        ax1.plot(Fit, F, alpha=0.9, linestyle='-.')
-        ax3.plot(T,Fit, alpha=0.9, linestyle='-.')
+#    for x in States:
+#        Ratio = func.ratio(x,Pars)
+#        Fit = np.array(func.wlc(F,Pars)*x*Pars['DNAds_nm'] + func.hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+#        ax1.plot(Fit, F, alpha=0.1, linestyle='-.')
+#        ax3.plot(T,Fit, alpha=0.1, linestyle='-.')
 
 ##############################################################################################
 ######## Begin Plotting Different States
-
+    
+    States = NewStates
+    Statemask = NewStateMask
+    AllStates = NewAllStates    
+    
     colors = [plt.cm.Set1(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
     dX = 10                                                                     #Offset for text in plot
 
@@ -140,14 +144,14 @@ for Filenum, Filename in enumerate(Filenames):
         Mask = Statemask[:,j]
         Fit = AllStates[:,j]
       
-        ax1.plot(Fit, F, alpha=0.2, linestyle=':', color=tuple(col)) 
+        ax1.plot(Fit, F, alpha=0.9, linestyle=':', color=tuple(col)) 
         ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=20, alpha=.6)
-        ax1.text(Fit[np.argmin(np.abs(F-10))], F[np.argmin(np.abs(F-10))], j, horizontalalignment='center')
+#        ax1.text(Fit[np.argmin(np.abs(F-10))], F[np.argmin(np.abs(F-10))], j, horizontalalignment='center')
     
-        ax2.vlines(States[j], 0, Peak[j], linestyle=':', color=tuple(col))
-        ax2.text(States[j], Peak[j]+dX, int(States[j]), fontsize=8, horizontalalignment='center')
+#        ax2.vlines(States[j], 0, Peak[j], linestyle=':', color=tuple(col))
+#        ax2.text(States[j], Peak[j]+dX, int(States[j]), fontsize=8, horizontalalignment='center')
         
-        ax3.plot(T, Fit, alpha=0.2, linestyle=':', color=tuple(col))
+        ax3.plot(T, Fit, alpha=0.9, linestyle=':', color=tuple(col))
         ax3.scatter(T_Selected[Mask], Z_Selected[Mask], color=tuple(col), s=20, alpha=.6)
         
         ax4.hlines(States[j]*Pars['DNAds_nm'], 0, Peak[j], color=tuple(col), linestyle=':')
@@ -175,7 +179,6 @@ for Filenum, Filename in enumerate(Filenames):
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
 
 ######################################################################################################################
-    ax2.legend(loc='best')
     fig1.tight_layout()
 #    pickle.dump(fig1, open(newpath+r'\\'+Filename[0:-4]+'_FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
     fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.pdf', format='pdf')

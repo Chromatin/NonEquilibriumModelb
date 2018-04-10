@@ -155,7 +155,7 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
     StateMask = np.abs(z_Score) < 2.5
     PointsPerState = np.sum(StateMask, axis=0)
 #    #Remove states with 5 or less datapoints
-    RemoveStates = removestates(StateMask, MinPoints=5)
+    RemoveStates = removestates(StateMask, MinPoints=3)
     if len(RemoveStates)>0:
         States = np.delete(States, RemoveStates)
         Peak = np.delete(Peak, RemoveStates)
@@ -169,13 +169,15 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
     #Merging 2 states and checking whether is better or not
     NewStates = np.copy(States)
     NewStateMask = np.copy(StateMask)
+    NewAllStates = np.copy(AllStates)
     k = 0
     for i in np.arange(0,len(States)-1): 
         i = i - k
         MergedState = (NewStates[i]*PointsPerState[i]+NewStates[i+1]*PointsPerState[i+1])/(PointsPerState[i]+PointsPerState[i+1])
         Ratio = ratio(MergedState,Pars)
         MergedStateArr = np.array(wlc(F_Selected,Pars)*MergedState*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-       
+        MergedStateAllArr = np.array(wlc(F,Pars)*MergedState*Pars['DNAds_nm'] + hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        
         Std = STD(F_Selected, Z_Selected, MergedState, Pars)
         Z_Score = z_score(Z_Selected, MergedStateArr, Std, 1)
         
@@ -194,16 +196,18 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
         Overlap.append(len(Diff[1][Diff[1]==True])/np.min([MergedSum, PointsPerState[i]]))
         Overlap.append(len(Diff[2][Diff[2]==True])/np.min([MergedSum, PointsPerState[i+1]]))
 
-        print(Overlap, PointsPerState[i], PointsPerState[i+1], MergedSum)
+#        print(Overlap, PointsPerState[i], PointsPerState[i+1], MergedSum)
         
 
         if Overlap[0] > 0.6 and np.min(Overlap[1:]) > 0.5: #What criterium should be here?!
             NewStates = np.delete(NewStates, i)
             PointsPerState = np.delete(PointsPerState, i)
-            NewStateMask = np.delete(NewStateMask, i, axis = 1)
+            NewStateMask = np.delete(NewStateMask, i, axis=1)
+            NewAllStates = np.delete(NewAllStates, i, axis=1)
             NewStates[i] = MergedState
             PointsPerState[i] = MergedSum
             NewStateMask[:,i] = MergedStateMask
+            NewAllStates[:,i] = MergedStateAllArr
             k += 1
                 
     
@@ -243,7 +247,7 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
 #            StateProbSum = probsum(F_Selected[Z_NewState != 0],Z_NewState[Z_NewState != 0],PossibleStates,Pars)
 #            States[HighP] = PossibleStates[np.argmax(StateProbSum)]  
             
-    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates, NewStateMask
+    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates, NewStateMask, NewAllStates
 
 def removestates(StateMask, MinPoints=5):
     """Removes states with less than n data points, returns indexes of states to be removed"""

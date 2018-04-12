@@ -19,7 +19,7 @@ plt.close('all')                                                                
 folder = r'N:\Rick\Fit Files\Pythontestfit'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
-newpath = folder+r'\\Figures_SciPyPeak'                                                   #New path to save the figures
+newpath = folder+r'\\Figures'                                                   #New path to save the figures
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
@@ -86,9 +86,8 @@ for Filenum, Filename in enumerate(Filenames):
     ax1.set_ylabel(r'Force (pN)')
     ax1.set_xlabel(r'Extension (nm)')
     ax1.scatter(Z, F, color='grey', lw=0.1, s=5)
-    if PlotSelected:
-        ax1.set_ylim([np.min(F_Selected)-0.1*np.max(F_Selected), np.max(F_Selected)+0.1*np.max(F_Selected)])
-        ax1.set_xlim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
+    ax1.set_ylim([np.min(F_Selected)-0.1*np.max(F_Selected), np.max(F_Selected)+0.1*np.max(F_Selected)])
+    ax1.set_xlim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
 
     ax2 = fig1.add_subplot(1, 2, 2)
     ax2.set_title(r'Probability Landscape')
@@ -107,15 +106,15 @@ for Filenum, Filename in enumerate(Filenames):
     ax3.set_ylabel(r'Extension (bp nm)')
     ax3.set_ylim([0, Pars['L_bp']*Pars['DNAds_nm']+100])
     ax3.scatter(T, Z, color='grey', lw=0.1, s=5)
-    if PlotSelected:
-        ax3.set_xlim([np.min(T_Selected)-0.1*np.max(T_Selected), np.max(T_Selected)+0.1*np.max(T_Selected)])
-        ax3.set_ylim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
 
     ax4 = fig2.add_subplot(1, 2, 2, sharey=ax3)
     ax4.set_title(r'Probability Landscape')
     ax4.set_xlabel(r'Probability (AU)')
     ax4.plot(ProbSum,PossibleStates*Pars['DNAds_nm'])
     ax4.scatter(Peak, States*Pars['DNAds_nm'], color='blue')
+
+    ax3.set_xlim([np.min(T_Selected)-0.1*np.max(T_Selected), np.max(T_Selected)+0.1*np.max(T_Selected)])
+    ax3.set_ylim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
     
     #Plot the states found initially
 #    for x in States:
@@ -149,23 +148,23 @@ for Filenum, Filename in enumerate(Filenames):
         ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=20, alpha=.6)
 #        ax1.text(Fit[np.argmin(np.abs(F-10))], F[np.argmin(np.abs(F-10))], j, horizontalalignment='center')
     
-#        ax2.vlines(States[j], 0, Peak[j], linestyle=':', color=tuple(col))
-#        ax2.text(States[j], Peak[j]+dX, int(States[j]), fontsize=8, horizontalalignment='center')
+        ax2.vlines(States[j], 0, np.max(Peak), linestyle=':', color=tuple(col))
+        ax2.text(States[j], 0, int(States[j]), fontsize=8, horizontalalignment='center', verticalalignment='top', rotation=90)
         
         ax3.plot(T, Fit, alpha=0.9, linestyle=':', color=tuple(col))
         ax3.scatter(T_Selected[Mask], Z_Selected[Mask], color=tuple(col), s=20, alpha=.6)
         
-        ax4.hlines(States[j]*Pars['DNAds_nm'], 0, Peak[j], color=tuple(col), linestyle=':')
-        ax4.text(Peak[j]+dX, States[j]*Pars['DNAds_nm'], int(States[j]*Pars['DNAds_nm']), fontsize=8, verticalalignment='center')
+        ax4.hlines(States[j]*Pars['DNAds_nm'], 0, np.max(Peak), color=tuple(col), linestyle=':')
+        ax4.text(0, States[j]*Pars['DNAds_nm'], int(States[j]*Pars['DNAds_nm']), fontsize=8, verticalalignment='center', horizontalalignment='right')
                
         #Rupture forces
         if j < len(States)-1:   #This should be done by median filter & in basepairs
             Ruptureforce = np.mean((F_Selected[Mask])[-4:-1])                   #The 4 last datapoint in a group
             start = Fit[np.argmin(np.abs(F-Ruptureforce))]
-            stop = (AllStates[:,j+1])[np.argmin(F-Ruptureforce)]                #Same as start, but then for the next state
+            stop = (AllStates[:,j+1])[np.argmin(np.abs(F-Ruptureforce))]                #Same as start, but then for the next state
 #            ax1.hlines(Ruptureforce, start, stop, color='black')
             F_rup = np.append(F_rup, Ruptureforce)
-            dZ_rup = np.append(dZ_rup, stop-start)
+            dZ_rup = np.append(dZ_rup, (stop-start)/Pars['DNAds_nm'])
       
     Unwrapsteps = []
     Stacksteps = []
@@ -192,22 +191,25 @@ for Filenum, Filename in enumerate(Filenames):
 
     Fignum += 2
 
+
 #Plotting a hist of the stepsizes
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,2,1)
 ax6 = fig3.add_subplot(1,2,2, sharey=ax5)
-ax5.hist(steps,  bins = 50, range = [0,400], lw=0.5, color='blue', label='25 nm steps')
-ax5.hist(stacks, bins = 50, range = [0,400], lw=0.5, color='orange', label='Stacking transitions')
-ax6.hist(Steps,  bins = 50, range = [0,400], lw=0.5, color='blue', label='25 nm steps')
-ax6.hist(Stacks, bins = 50, range = [0,400], lw=0.5, color='orange', label='Stacking transitions')
+Range = [0,400]
+Bins = 100
+ax5.hist(steps,  bins = Bins, range = Range, lw=0.5, color='blue', label='25 nm steps')
+ax5.hist(stacks, bins = Bins, range = Range, lw=0.5, color='orange', label='Stacking transitions')
+ax6.hist(Steps,  bins = Bins, range = Range, lw=0.5, color='blue', label='25 nm steps')
+ax6.hist(Stacks, bins = Bins, range = Range, lw=0.5, color='orange', label='Stacking transitions')
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
 ax5.set_title("Histogram stepsizes in bp before Merging")
-ax5.legend(loc='best')
+ax5.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/Bins))+'bp/bin')
 ax6.set_xlabel('stepsize (bp)')
 ax6.set_ylabel('Count')
 ax6.set_title("Histogram stepsizes in bp after Merging")
-ax6.legend(loc='best')
+ax6.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/Bins))+'bp/bin')
 fig3.tight_layout()
 fig3.savefig(newpath+r'\\'+'Hist.pdf', format='pdf')
 
@@ -215,6 +217,6 @@ fig3.savefig(newpath+r'\\'+'Hist.pdf', format='pdf')
 fig4, ax7 = plt.subplots()
 ax7.scatter(F_rup, dZ_rup, color='blue')       #What should be the errors?
 ax7.set_xlabel('Rupture Forces (pN)')
-ax7.set_ylabel('Jump in Z (nm)')
+ax7.set_ylabel('Jump in Z (bp)')
 ax7.set_title("Rupture forces versus jump in z")
 fig4.savefig(newpath+r'\\'+'RF.pdf', format='pdf')

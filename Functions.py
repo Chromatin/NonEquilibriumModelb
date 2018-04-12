@@ -164,7 +164,7 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
     StateMask = np.abs(z_Score) < 2.5
     PointsPerState = np.sum(StateMask, axis=0)
 #    #Remove states with 5 or less datapoints
-    RemoveStates = removestates(StateMask, MinPoints=3)
+    RemoveStates = removestates(StateMask, MinPoints=1)
     #StateMask = np.abs(z_Score) < 2.5
     
     if len(RemoveStates)>0:
@@ -280,7 +280,7 @@ def RuptureForces(Z_Selected, F_Selected, States, Pars, ax1):
 #        k = j      
     ax1.plot(MedFilt, F_Selected, color='black')
 
-def peakdetect(y_axis, lookahead = 10, delta=2):
+def peakdetect(y_axis, lookahead = 10, delta=1.5):
     """
     Converted from/based on a MATLAB script at: 
     http://billauer.co.il/peakdet.html
@@ -387,7 +387,11 @@ def peakdetect(y_axis, lookahead = 10, delta=2):
         #no peaks were found, should the function return empty lists?
         pass
     
-    max_peaks=np.array(max_peaks)    
+    if max_peaks == []: #Sometimes max_peaks == [], but why ?
+        return [], []
+    
+    max_peaks=np.array(max_peaks)
+        
     return max_peaks[:,0].astype(int), max_peaks[:,1]
 
 

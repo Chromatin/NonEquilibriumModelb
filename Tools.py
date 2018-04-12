@@ -127,7 +127,7 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
     if Handles['MinForce'] > 0: F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
         Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
-        F_Selected, Z_Selected, T_Selected = maxextention(F_Selected,Z_Selected, T_Selected , Handles['MaxZ']) #remove data above Z=1.1*LC
+        F_Selected, Z_Selected, T_Selected = maxextention(F_Selected, Z_Selected, T_Selected , Handles['MaxZ']) #remove data above Z=1.1*LC
     if Handles['MedFilt']: Z_Selected = signal.medfilt(Z_Selected, Window)
     return F_Selected, Z_Selected, T_Selected
 
@@ -164,7 +164,7 @@ def minforce(F, Z,  T, Min_Force=2):
     T = T[Mask]
     return F, Z, T
 
-def maxextention(F, Z, T, Max_Extension):   #Does not work yet
+def maxextention(F, Z, T, Max_Extension): 
     """Removes the data above maximum extension given"""
     Mask = Z < Max_Extension
     Z = Z[Mask]

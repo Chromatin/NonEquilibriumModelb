@@ -131,16 +131,16 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
     if Handles['MedFilt']: Z_Selected = signal.medfilt(Z_Selected, Window)
     return F_Selected, Z_Selected, T_Selected
 
-def breaks(F, Z, T, test=500):
+def breaks(F, Z, T, Jump=1000):
     """Removes the data after a jump in z, presumably indicating the bead broke lose"""
-    test = Z[0]
+    Test = Z[0]
     for i,x in enumerate(Z[1:]):
-        if abs(x - test) > 500 :
+        if abs(x - Test) > Jump :
             F = F[:i]
             Z = Z[:i] 
             T = T[:i] 
             break
-        test = x
+        Test = x
     return F, Z, T
 
 def removerelease(F, Z, T):

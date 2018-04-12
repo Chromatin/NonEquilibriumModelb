@@ -138,7 +138,7 @@ def breaks(F, Z, T, test=500):
         if abs(x - test) > 500 :
             F = F[:i]
             Z = Z[:i] 
-            T = Z[:i] 
+            T = T[:i] 
             break
         test = x
     return F, Z, T

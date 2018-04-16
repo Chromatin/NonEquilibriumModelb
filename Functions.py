@@ -265,13 +265,22 @@ def z_score(Z_Selected, Z_States, std, States):
 def double_gauss(x, step=75, Sigma=15, a1=1, a2=1):
     return a1*(1+erfaprox((x-step)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-(step*2))/(Sigma*np.sqrt(2))))
 
-def fit_2step_gauss(Steps, Step = 80, Amp1 = 0.8, Amp2 = 0.2, Sigma = 15):
+def double_indep_gauss(x, step1=80, step2=160, Sigma=15, a1=1, a2=1):
+    return a1*(1+erfaprox((x-step1)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-step2)))/(Sigma*np.sqrt(2))
+
+    
+def fit_2step_gauss(Steps, Step = 80, Amp1 = 0.8, Amp2 = 0.2, Sigma = 15, indep=True):
     """Function to fit 25nm steps with a double gauss, as a PDF"""
     from scipy.optimize import curve_fit
     Steps = np.array(Steps)
     Steps = np.sort(Steps)
-    PDF = np.linspace(0,1,len(Steps))
-    popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2])
+#    Steps = Steps[Steps<200]
+    PDF = np.arange(len(Steps))
+    if indep: 
+        popt, pcov = curve_fit(double_indep_gauss, Steps, PDF, p0=[Step, 2*Step, Sigma, Amp1, Amp2])
+        print(pcov)
+    
+    else: popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2])
     return popt
    
 def RuptureForces(Z_Selected, F_Selected, States, Pars, ax1):

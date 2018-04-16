@@ -18,8 +18,8 @@ start_time = time.time()
 #import pickle
 
 plt.close('all')                                                                #Close all the figures from previous sessions
-
-folder = r'P:\18S FitFiles\dUAF_Regensburg_2017'
+"""
+folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -194,28 +194,42 @@ for Filenum, Filename in enumerate(Filenames):
     fig2.show()
 
     Fignum += 2
-
+"""
 
 #Plotting a hist of the stepsizes
-D_Gaus = func.fit_2step_gauss(Steps)
+def plothistgaus(Steps, A, ax6, indep=True):
+    if indep:    
+        D_Gaus = func.fit_2step_gauss(Steps, indep=True)
+        print(D_Gaus)        
+        mu = D_Gaus[0]
+        sigma = D_Gaus[2]
+        x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
+        ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2*A, color='black', lw=4, zorder = 10, label = 'Gaus fit independant means')
+        mu = D_Gaus[1]
+        x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
+        ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[4]*2*A, color='black', lw=4, zorder = 10)
+
+    else:
+        D_Gaus = func.fit_2step_gauss(Steps, indep=False)
+        print(D_Gaus)        
+        mu = D_Gaus[0]
+        sigma = D_Gaus[1]
+        x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
+        ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[2]*2*A, color='red', lw=4, zorder = 10, label = 'Gaus fit')
+        mu = 2*mu
+        x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
+        ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2*A, color='red', lw=4, zorder = 10)
 
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,2,1)
-ax6 = fig3.add_subplot(1,2,2, sharey=ax5)
+ax6 = fig3.add_subplot(1,2,2)
 Range = [0,400]
-Bins = 100
-ax5.hist(steps,  bins = Bins, range = Range, lw=0.5, normed=1, color='blue', label='25 nm stpng')
-ax5.hist(stacks, bins = Bins, range = Range, lw=0.5, normed=1, color='orange', label='Stacking transitions')
-ax6.hist(Steps,  bins = Bins, range = Range, lw=0.5, normed=1, color='blue', label='25 nm stpng')
-ax6.hist(Stacks, bins = Bins, range = Range, lw=0.5, normed=1, color='orange', label='Stacking transitions')
-mu = D_Gaus[0]
-sigma = D_Gaus[1]
-x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
-ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[2]*2, zorder = 1000)
-mu = 2*mu
-x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
-ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2, zorder = 100)
+Bins = 50
+ax5.hist(Stacks, bins = Bins, range = Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
+ax6.hist(Steps,  bins = Bins, range = Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')
 
+plothistgaus(Steps, Range[-1]/Bins, ax6, True)
+plothistgaus(Steps, Range[-1]/Bins, ax6, False)
 
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')

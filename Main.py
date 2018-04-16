@@ -11,7 +11,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import Functions as func
 import Tools
+import time
 
+start_time = time.time()
 #import pickle
 
 plt.close('all')                                                                #Close all the figures from previous sessions
@@ -29,7 +31,7 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = True                                                             #Choose to plot selected only
+PlotSelected = False                                                             #Choose to plot selected only
 
 MeasurementERR = 5 #nm
 
@@ -54,7 +56,7 @@ for Filenum, Filename in enumerate(Filenames):
     if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
-    print(Filenum+1, "/", len(Filenames), ":", int(Pars['N_tot']), "Nucleosomes in", Filename, "( Fig.", Fignum, "&", Fignum+1, ").")
+    print(Filenum+1, "/", len(Filenames), ": ", int(Pars['N_tot']), " Nucl. ", Filename, " (Fig. ", Fignum, " & ", Fignum+1, "). Runtime:", np.round(time.time()-start_time, 1), "s", sep='')
 
     #Remove all datapoints that should not be fitted
     F_Selected, Z_Selected, T_Selected = Tools.handle_data(F, Z, T, Z_Selected, Handles, Pars)
@@ -216,6 +218,7 @@ fig3.savefig(newpath+r'\\'+'Hist.pdf', format='pdf')
 #plotting the rupture forces
 fig4, ax7 = plt.subplots()
 ax7.scatter(F_rup, dZ_rup, color='blue')       #What should be the errors?
+ax7.set_ylim(0,400)
 ax7.set_xlabel('Rupture Forces (pN)')
 ax7.set_ylabel('Jump in Z (bp)')
 ax7.set_title("Rupture forces versus jump in z")

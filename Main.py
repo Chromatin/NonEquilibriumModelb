@@ -18,7 +18,7 @@ start_time = time.time()
 #import pickle
 
 plt.close('all')                                                                #Close all the figures from previous sessions
-"""
+
 folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
@@ -194,7 +194,7 @@ for Filenum, Filename in enumerate(Filenames):
     fig2.show()
 
     Fignum += 2
-"""
+
 
 #Plotting a hist of the stepsizes
 def plothistgaus(Steps, A, ax6, indep=True):

@@ -51,7 +51,8 @@ for Filenum, Filename in enumerate(Filenames):
 
     F, Z, T, Z_Selected = Tools.read_data(Filename)                             #loads the data from the filename
     LogFile = Tools.read_log(Filename[:-4]+'.log')                              #loads the log file with the same name
-    Pars = Tools.log_pars(LogFile)                                              #Reads in all the parameters from the logfile
+    if LogFile: Pars = Tools.log_pars(LogFile)                                  #Reads in all the parameters from the logfile
+    else: continue
 
     if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')

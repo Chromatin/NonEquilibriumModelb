@@ -43,8 +43,12 @@ def read_data(Filename):
     return F, Z, T, Z_Selected
 
 def read_log(Filename):
-    """Open the corresponding .log files from magnetic tweezers"""
-    f = open(Filename, 'r')
+    """Open the corresponding .log files from magnetic tweezers. Returns False if the file is not found"""
+    try: 
+        f = open(Filename, 'r')
+    except FileNotFoundError: 
+        print(Filename, '========> No valid logfile found')
+        return False   
     lines = f.readlines()
     f.close()
     return lines

@@ -56,7 +56,7 @@ for Filenum, Filename in enumerate(Filenames):
     if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
         continue
-    print(Filenum+1, "/", len(Filenames), ": ", int(Pars['N_tot']), " Nucl. ", Filename, " (Fig. ", Fignum, " & ", Fignum+1, "). Runtime:", np.round(time.time()-start_time, 1), "s", sep='')
+    print(Filenum+1, "/", len(Filenames), ": ", "%02d" % (int(Pars['N_tot']),), " Nucl. ", Filename, " (Fig. ", Fignum, " & ", Fignum+1, "). Runtime:", np.round(time.time()-start_time, 1), "s", sep='')
 
     #Remove all datapoints that should not be fitted
     F_Selected, Z_Selected, T_Selected = Tools.handle_data(F, Z, T, Z_Selected, Handles, Pars)

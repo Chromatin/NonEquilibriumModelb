@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.rcParams['figure.figsize'] = (15, 10)
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.mlab as mlab
 import Functions as func
 import Tools
 import time
@@ -18,7 +19,7 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\Pythontestfit'
+folder = r'P:\18S FitFiles\dUAF_Regensburg_2017'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -49,10 +50,10 @@ for filename in filenames:
         
 for Filenum, Filename in enumerate(Filenames):
 
-    F, Z, T, Z_Selected = Tools.read_data(Filename)                             #loads the data from the filename
-    LogFile = Tools.read_log(Filename[:-4]+'.log')                              #loads the log file with the same name
-    if LogFile: Pars = Tools.log_pars(LogFile)                                  #Reads in all the parameters from the logfile
-    else: continue
+    F, Z, T, Z_Selected = Tools.read_data(Filename)                            #loads the data from the filename
+    LogFile = Tools.read_log(Filename[:-4]+'.log')                             #loads the log file with the same name
+    if LogFile: Pars = Tools.log_pars(LogFile)                                 #Reads in all the parameters from the logfile
+    else: continue                                                                       
 
     if Pars['FiberStart_bp'] <0: 
         print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
@@ -184,27 +185,38 @@ for Filenum, Filename in enumerate(Filenames):
 ######################################################################################################################
     fig1.tight_layout()
 #    pickle.dump(fig1, open(newpath+r'\\'+Filename[0:-4]+'_FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
-    fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.pdf', format='pdf')
+    fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.png', format='png')
     fig1.show()
     
     fig2.tight_layout()
 #    pickle.dump(fig2, open(newpath+r'\\'+Filename[0:-4]+'_Time_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
-    fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.pdf', format='pdf')    
+    fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.png', format='png')    
     fig2.show()
 
     Fignum += 2
 
 
 #Plotting a hist of the stepsizes
+D_Gaus = func.fit_2step_gauss(Steps)
+
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,2,1)
 ax6 = fig3.add_subplot(1,2,2, sharey=ax5)
 Range = [0,400]
 Bins = 100
-ax5.hist(steps,  bins = Bins, range = Range, lw=0.5, color='blue', label='25 nm steps')
-ax5.hist(stacks, bins = Bins, range = Range, lw=0.5, color='orange', label='Stacking transitions')
-ax6.hist(Steps,  bins = Bins, range = Range, lw=0.5, color='blue', label='25 nm steps')
-ax6.hist(Stacks, bins = Bins, range = Range, lw=0.5, color='orange', label='Stacking transitions')
+ax5.hist(steps,  bins = Bins, range = Range, lw=0.5, normed=1, color='blue', label='25 nm stpng')
+ax5.hist(stacks, bins = Bins, range = Range, lw=0.5, normed=1, color='orange', label='Stacking transitions')
+ax6.hist(Steps,  bins = Bins, range = Range, lw=0.5, normed=1, color='blue', label='25 nm stpng')
+ax6.hist(Stacks, bins = Bins, range = Range, lw=0.5, normed=1, color='orange', label='Stacking transitions')
+mu = D_Gaus[0]
+sigma = D_Gaus[1]
+x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
+ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[2]*2, zorder = 1000)
+mu = 2*mu
+x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
+ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2, zorder = 100)
+
+
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
 ax5.set_title("Histogram stepsizes in bp before Merging")
@@ -214,7 +226,7 @@ ax6.set_ylabel('Count')
 ax6.set_title("Histogram stepsizes in bp after Merging")
 ax6.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/Bins))+'bp/bin')
 fig3.tight_layout()
-fig3.savefig(newpath+r'\\'+'Hist.pdf', format='pdf')
+fig3.savefig(newpath+r'\\'+'Hist.png', format='png')
 
 #plotting the rupture forces
 fig4, ax7 = plt.subplots()
@@ -223,4 +235,4 @@ ax7.set_ylim(0,400)
 ax7.set_xlabel('Rupture Forces (pN)')
 ax7.set_ylabel('Jump in Z (bp)')
 ax7.set_title("Rupture forces versus jump in z")
-fig4.savefig(newpath+r'\\'+'RF.pdf', format='pdf')
+fig4.savefig(newpath+r'\\'+'RF.png', format='png')

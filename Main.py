@@ -19,7 +19,8 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\15x197 LH Artur\20160426'
+folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
+#folder = r'P:\NonEquilibriumModel\TestData'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -32,7 +33,7 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = True                                                             #Choose to plot selected only
+PlotSelected = False                                                             #Choose to plot selected only
 
 MeasurementERR = 5 #nm
 
@@ -67,7 +68,7 @@ for Filenum, Filename in enumerate(Filenames):
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewStateMask, NewAllStates = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cutoff=0.1) #Finds States
+    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewStateMask, NewAllStates = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False) #Finds States
     
     #Calculates stepsize
     Unwrapsteps = []
@@ -200,7 +201,7 @@ ax6 = fig3.add_subplot(1,2,2)
 Range = [0,400]
 Bins = 50
 n = ax5.hist(Steps,  bins = Bins, range = Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
-ax6.hist(Stacks, bins = Bins, range = Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
+ax6.hist(Stacks, bins = int(Bins/2), range = Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
 
 
 #Fitting double gaussian over Steps

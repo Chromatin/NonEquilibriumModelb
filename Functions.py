@@ -6,6 +6,7 @@ Created on Wed Jan  3 13:44:01 2018
 """
 import numpy as np
 from scipy import signal
+from scipy import stats
 
 def wlc(force,Pars): #in nm/pN, as fraction of L
     """Calculates WLC in nm/pN, as a fraction the Contour Length.
@@ -141,7 +142,7 @@ def probsum(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     ProbSum = np.sum(Pz, axis=1) 
     return ProbSum
 
-def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cutoff=0.1):
+def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2):
     """Finds states based on the probablitiy landscape"""     
     #Generate FE curves for possible states
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)    #range to fit 
@@ -161,7 +162,7 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
     std = STD(F_Selected, Z_Selected, States, Pars)
     z_Score = z_score(Z_Selected, AllStates_Selected, std, States)    
     
-    StateMask = np.abs(z_Score) < 2.5
+    StateMask = np.abs(z_Score) < Z_Cutoff
     PointsPerState = np.sum(StateMask, axis=0)
 #    #Remove states with 5 or less datapoints
     RemoveStates = removestates(StateMask, MinPoints=1)
@@ -181,6 +182,7 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
     NewStates = np.copy(States)
     NewStateMask = np.copy(StateMask)
     NewAllStates = np.copy(AllStates)
+    Newz_Score = np.copy(z_Score)
     k = 0
     for i in np.arange(0,len(States)-1): 
         i = i - k
@@ -190,12 +192,15 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
         MergedStateAllArr = np.array(wlc(F,Pars)*MergedState*Pars['DNAds_nm'] + hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         
         Std = STD(F_Selected, Z_Selected, MergedState, Pars)
-        Z_Score = z_score(Z_Selected, MergedStateArr, Std, 1)
+        Z_Score = z_score(Z_Selected, MergedStateArr, Std, 1).ravel()
         
-        MergedStateMask = np.abs(Z_Score) < 2.5
+        MergedStateMask = np.abs(Z_Score) < Z_Cutoff
         MergedStateMask = MergedStateMask.ravel()
         MergedSum = np.sum(MergedStateMask)
 #        print("# Of point within 2.5 sigma in State", i, ":State", i+1, ":Merged =", PointsPerState[i],":", PointsPerState[i+1], ":", MergedSum)
+        
+        print(stats.f_oneway( Newz_Score[:,i], Newz_Score[:,i+1]))
+        #print(MergedStateMask)
         
         Diff = []
         Diff.append(NewStateMask[:,i] * NewStateMask[:,i+1])
@@ -210,15 +215,17 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, P_Cu
 #        print(Overlap, PointsPerState[i], PointsPerState[i+1], MergedSum)
         
 
-        if Overlap[0] > 0.6 and np.min(Overlap[1:]) > 0.5: #What criterium should be here?!
+        if stats.f_oneway(Newz_Score[:,i], Newz_Score[:,i+1])[1] > 0.1:        # #What criterium should be here?!
             NewStates = np.delete(NewStates, i)
             PointsPerState = np.delete(PointsPerState, i)
             NewStateMask = np.delete(NewStateMask, i, axis=1)
             NewAllStates = np.delete(NewAllStates, i, axis=1)
+            Newz_Score = np.delete(Newz_Score, i, axis=1)
             NewStates[i] = MergedState
             PointsPerState[i] = MergedSum
             NewStateMask[:,i] = MergedStateMask
             NewAllStates[:,i] = MergedStateAllArr
+            Newz_Score[:,i] = Z_Score
             k += 1
                           
     return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates, NewStateMask, NewAllStates
@@ -267,7 +274,6 @@ def double_gauss(x, step=75, Sigma=15, a1=1, a2=1):
 
 def double_indep_gauss(x, step1=80, step2=160, Sigma=15, a1=1, a2=1):
     return a1*(1+erfaprox((x-step1)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-step2)))/(Sigma*np.sqrt(2))
-
 
 def fit_2step_gauss(Steps, Step = 80, Amp1 = 30, Amp2 = 10, Sigma = 15):
     """Function to fit 25nm steps with a double gauss, as a PDF"""

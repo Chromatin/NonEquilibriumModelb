@@ -9,7 +9,7 @@ Created on Wed Jan  3 14:52:17 2018
 import numpy as np
 from scipy import signal
 
-def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, MaxZ=False, MedFilt=False):
+def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False):
     """If analysis has to be done on only part of the data, these options can be used"""
     Handles = {}
     Handles['Select'] = Select
@@ -18,7 +18,8 @@ def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, M
     Handles['MinForce'] = MinForce
     Handles['MinZ'] = MinZ
     Handles['MaxZ'] = MaxZ
-    Handles['MedFilt'] = MedFilt 
+    Handles['MedFilt'] = MedFilt
+    Handles['Onepull'] = Onepull
     return Handles
 
 def read_data(Filename):
@@ -132,6 +133,7 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
         Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
         F_Selected, Z_Selected, T_Selected = maxextention(F_Selected, Z_Selected, T_Selected , Handles['MaxZ']) #remove data above Z=1.1*LC
+    if Handles['Onepull']: F_Selected, Z_Selected, T_Selected = onepull(F_Selected, Z_Selected, T_Selected, 10)
     if Handles['MedFilt']: Z_Selected = signal.medfilt(Z_Selected, Window)
     return F_Selected, Z_Selected, T_Selected
 
@@ -176,7 +178,16 @@ def maxextention(F, Z, T, Max_Extension):
     T = T[Mask]
     return F, Z ,T
 
-
+def onepull(F, Z, T, Jump=10):
+    T_Jump = np.diff(T)
+    mask = T_Jump > Jump
+    ind = np.where(mask)[0]
+    if len(ind)>0:    
+        F = F[ind[-1]:]
+        Z = Z[ind[-1]:]
+        T = T[ind[-1]:]
+    return F, Z, T
+    
 """
 #This function is not used atm
             

@@ -19,7 +19,7 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
+folder = r'N:\Rick\Fit Files\15x197 LH Artur\20160426'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -32,11 +32,11 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = False                                                             #Choose to plot selected only
+PlotSelected = True                                                             #Choose to plot selected only
 
 MeasurementERR = 5 #nm
 
-Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MinZ=0, MaxZ=False, MedFilt=False)
+Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 F_rup, dZ_rup = np.array([]), np.array([])                                      #Rupture forces and corresponding jumps
@@ -97,7 +97,7 @@ for Filenum, Filename in enumerate(Filenames):
     ax2.set_title(r'Probability Landscape')
     ax2.set_xlabel(r'Free base pair (nm)') #(nm) should be removed
     ax2.set_ylabel(r'Probability (AU)')
-    ax2.plot(PossibleStates,ProbSum, label='ProbSum')
+    ax2.plot(PossibleStates, ProbSum, label='ProbSum')
     ax2.scatter(States, Peak)
 
     # this plots the Timetrace
@@ -128,8 +128,7 @@ for Filenum, Filename in enumerate(Filenames):
 #        ax3.plot(T,Fit, alpha=0.1, linestyle='-.')
 
 ##############################################################################################
-######## Begin Plotting Different States
-    
+######## Begin Plotting Different States  
     States = NewStates
     Statemask = NewStateMask
     AllStates = NewAllStates    
@@ -181,7 +180,6 @@ for Filenum, Filename in enumerate(Filenames):
     Unwrapsteps = np.diff(np.array(Unwrapsteps))
     if len(Unwrapsteps)>0: Steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
-
 ######################################################################################################################
     fig1.tight_layout()
 #    pickle.dump(fig1, open(newpath+r'\\'+Filename[0:-4]+'_FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
@@ -195,49 +193,37 @@ for Filenum, Filename in enumerate(Filenames):
 
     Fignum += 2
 
-
 #Plotting a hist of the stepsizes
-def plothistgaus(Steps, A, ax6, indep=True):
-    if indep:    
-        D_Gaus = func.fit_2step_gauss(Steps, indep=True)
-        print(D_Gaus)        
-        mu = D_Gaus[0]
-        sigma = D_Gaus[2]
-        x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
-        ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2*A, color='black', lw=4, zorder = 10, label = 'Gaus fit independant means')
-        mu = D_Gaus[1]
-        x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
-        ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[4]*2*A, color='black', lw=4, zorder = 10)
-
-    else:
-        D_Gaus = func.fit_2step_gauss(Steps, indep=False)
-        print(D_Gaus)        
-        mu = D_Gaus[0]
-        sigma = D_Gaus[1]
-        x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
-        ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[2]*2*A, color='red', lw=4, zorder = 10, label = 'Gaus fit')
-        mu = 2*mu
-        x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
-        ax6.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2*A, color='red', lw=4, zorder = 10)
-
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,2,1)
 ax6 = fig3.add_subplot(1,2,2)
 Range = [0,400]
 Bins = 50
-ax5.hist(Stacks, bins = Bins, range = Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
-ax6.hist(Steps,  bins = Bins, range = Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')
+n = ax5.hist(Steps,  bins = Bins, range = Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
+ax6.hist(Stacks, bins = Bins, range = Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
 
-plothistgaus(Steps, Range[-1]/Bins, ax6, True)
-plothistgaus(Steps, Range[-1]/Bins, ax6, False)
+
+#Fitting double gaussian over Steps
+if not PlotSelected:
+    Norm =  Range[-1]/Bins
+    D_Gaus = func.fit_2step_gauss(Steps)
+    mu = D_Gaus[0]
+    sigma = D_Gaus[1]
+    x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
+    ax5.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[2]*2*Norm, color='red', lw=4, zorder=10, label = 'Gaussian fit')
+    mu = 2*mu
+    x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
+    ax5.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2*Norm, color='red', lw=4, zorder=10)
+    ax5.text(Range[-1]-100, np.max(n)-10, 'mean1:'+str(int(D_Gaus[0])), verticalalignment='bottom')
+    ax5.text(Range[-1]-100, np.max(n)-10, 'mean2:'+str(int(2*D_Gaus[0])), verticalalignment='top')
 
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
-ax5.set_title("Histogram stepsizes in bp before Merging")
+ax5.set_title("Histogram stepsizes 25nm steps")
 ax5.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/Bins))+'bp/bin')
 ax6.set_xlabel('stepsize (bp)')
 ax6.set_ylabel('Count')
-ax6.set_title("Histogram stepsizes in bp after Merging")
+ax6.set_title("Histogram stepsizes stacking steps")
 ax6.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/Bins))+'bp/bin')
 fig3.tight_layout()
 fig3.savefig(newpath+r'\\'+'Hist.png', format='png')
@@ -250,3 +236,5 @@ ax7.set_xlabel('Rupture Forces (pN)')
 ax7.set_ylabel('Jump in Z (bp)')
 ax7.set_title("Rupture forces versus jump in z")
 fig4.savefig(newpath+r'\\'+'RF.png', format='png')
+
+print("DONE! Runtime:", np.round(time.time()-start_time, 1), 's')

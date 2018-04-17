@@ -147,7 +147,7 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
     #Generate FE curves for possible states
     PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)    #range to fit 
     ProbSum = probsum(F_Selected, Z_Selected, PossibleStates, Pars)             #Calculate probability landscape
-    PeakInd, Peak = peakdetect(ProbSum)                                      #Find Peaks    
+    PeakInd, Peak = peakdetect(ProbSum, delta=1)                                      #Find Peaks    
     States = PossibleStates[PeakInd]                                            #Defines state for each peak
 
     AllStates = np.empty(shape=[len(Z), len(States)])                           #2d array of the states  
@@ -199,7 +199,7 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
         MergedSum = np.sum(MergedStateMask)
 #        print("# Of point within 2.5 sigma in State", i, ":State", i+1, ":Merged =", PointsPerState[i],":", PointsPerState[i+1], ":", MergedSum)
         
-        print(stats.f_oneway( Newz_Score[:,i], Newz_Score[:,i+1]))
+        #print(stats.f_oneway( Newz_Score[:,i], Newz_Score[:,i+1]))
         #print(MergedStateMask)
         
         Diff = []

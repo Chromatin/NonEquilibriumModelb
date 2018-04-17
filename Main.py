@@ -134,7 +134,7 @@ for Filenum, Filename in enumerate(Filenames):
     Statemask = NewStateMask
     AllStates = NewAllStates    
     
-    colors = [plt.cm.Set1(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
+    colors = [plt.cm.nipy_spectral(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
     dX = 10                                                                     #Offset for text in plot
 
     #Calculate the rupture forces using a median filter    

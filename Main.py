@@ -19,7 +19,7 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
+folder = r'N:\Rick\Fit Files\Pythontestfit'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -136,7 +136,7 @@ for Filenum, Filename in enumerate(Filenames):
     dX = 10                                                                     #Offset for text in plot
 
     #Calculate the rupture forces using a median filter    
-    func.RuptureForces(F_Selected, Z_Selected, States, Pars, ax1)
+    func.RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1)
 
     Sum = np.sum(Statemask, axis=1)        
     ax1.scatter(Z_Selected[Sum==0], F_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state

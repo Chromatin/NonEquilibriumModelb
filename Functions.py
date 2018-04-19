@@ -301,7 +301,7 @@ def attribute2state(F, Z, States, Pars, Fmax_Hook=10):
     StateMask = np.argmin(abs(ZminState),1)       
     return StateMask 
    
-def RuptureForces(F_Selected, Z_Selected, States, Pars, ax1):
+def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1):
     """Calculate and plot the rupture forces and jumps"""
     Mask = attribute2state(F_Selected, Z_Selected, States, Pars)
     MedianFilt = signal.medfilt(Mask, 5)
@@ -315,8 +315,10 @@ def RuptureForces(F_Selected, Z_Selected, States, Pars, ax1):
     Plot = []
     k = 0
     F_Rup_up = []
-    F_Rup_down = []
+    F_Rup_down = []    
+    Lifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
+        Lifetime[j] += 1        
         Plot.append(AllStates_Selected[i,int(j)])
         if k > j:
             F_Rup_up.append(F_Selected[i])
@@ -324,6 +326,9 @@ def RuptureForces(F_Selected, Z_Selected, States, Pars, ax1):
             F_Rup_down.append(F_Selected[i])
         k = j
     
+    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
+    Lifetime *= dt
+
     ax1.plot(Plot, F_Selected, color='black', lw=2)
 
 

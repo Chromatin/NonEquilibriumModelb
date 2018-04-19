@@ -19,7 +19,7 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\Pythontestfit'
+folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -33,10 +33,9 @@ filenames = os.listdir(folder)
 os.chdir(folder)
 
 PlotSelected = False                                                             #Choose to plot selected only
+MeasurementERR = 5                                                              #nm
 
-MeasurementERR = 5 #nm
-
-Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
+Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 F_rup, dZ_rup = np.array([]), np.array([])                                      #Rupture forces and corresponding jumps
@@ -133,7 +132,7 @@ for Filenum, Filename in enumerate(Filenames):
     Statemask = NewStateMask
     AllStates = NewAllStates    
     
-    colors = [plt.cm.Set1(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
+    colors = [plt.cm.rainbow(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
     dX = 10                                                                     #Offset for text in plot
 
     #Calculate the rupture forces using a median filter    
@@ -201,7 +200,7 @@ ax6 = fig3.add_subplot(1,2,2)
 Range = [0,400]
 Bins = 50
 n = ax5.hist(Steps,  bins = Bins, range = Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
-ax6.hist(Stacks, bins = Bins, range = Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
+ax6.hist(Stacks, bins = int(Bins / 2), range = Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
 
 
 #Fitting double gaussian over Steps

@@ -9,13 +9,14 @@ Created on Wed Jan  3 14:52:17 2018
 import numpy as np
 from scipy import signal
 
-def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False):
+def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False):
     """If analysis has to be done on only part of the data, these options can be used"""
     Handles = {}
     Handles['Select'] = Select
     Handles['Pulling'] = Pull
     Handles['DelBreaks'] = DelBreaks
     Handles['MinForce'] = MinForce
+    Handles['MaxForce'] = MaxForce
     Handles['MinZ'] = MinZ
     Handles['MaxZ'] = MaxZ
     Handles['MedFilt'] = MedFilt

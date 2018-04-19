@@ -99,7 +99,7 @@ def ratio(x, Pars):
     Lmin = Unwrapped bp with fiber fully folded
     Lmax = Countour length of the DNA in the beads on a string conformation, where the remaining nucleosomes are still attached
     Imputs can be arrays"""
-    if Pars['LFiber_bp']<0:
+    if Pars['LFiber_bp']<=0:
         return x*0
     Ratio = np.array((Pars['LFiber_bp']-(x-Pars['FiberStart_bp']))/(Pars['LFiber_bp']))
     Ratio[Ratio<=0] = 0                                                         #removes values below 0, makes them 0
@@ -145,7 +145,9 @@ def probsum(F, Z, PossibleStates, Pars, Fmax_Hook=10):
 def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2):
     """Finds states based on the probablitiy landscape"""     
     #Generate FE curves for possible states
-    PossibleStates = np.arange(Pars['FiberStart_bp']-200, Pars['L_bp']+50,1)    #range to fit 
+    start = Pars['FiberStart_bp']-200
+    if start <= 0: start = 1 
+    PossibleStates = np.arange(start, Pars['L_bp']+50,1)    #range to fit 
     ProbSum = probsum(F_Selected, Z_Selected, PossibleStates, Pars)             #Calculate probability landscape
     PeakInd, Peak = peakdetect(ProbSum, delta=1)                                      #Find Peaks    
     States = PossibleStates[PeakInd]                                            #Defines state for each peak
@@ -161,6 +163,14 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
     
     std = STD(F_Selected, Z_Selected, States, Pars)
     z_Score = z_score(Z_Selected, AllStates_Selected, std, States)    
+    
+#    import matplotlib.pyplot as plt
+#    fig, ax = plt.subplots()
+##    ax.plot(z_Score[:,3], F_Selected)
+#    for i in np.arange(len(States)-1):
+#        ax.plot(z_Score[:,i]-z_Score[:,i+1], F_Selected, label=i)
+#    ax.legend()
+    
     
     StateMask = np.abs(z_Score) < Z_Cutoff
     PointsPerState = np.sum(StateMask, axis=0)
@@ -199,23 +209,14 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
         MergedSum = np.sum(MergedStateMask)
 #        print("# Of point within 2.5 sigma in State", i, ":State", i+1, ":Merged =", PointsPerState[i],":", PointsPerState[i+1], ":", MergedSum)
         
-        #print(stats.f_oneway( Newz_Score[:,i], Newz_Score[:,i+1]))
-        #print(MergedStateMask)
+        #Fraction of overlapping points in datapoints between two initial states:                      
+        Overlap = np.sum(NewStateMask[:,i] * NewStateMask[:,i+1])/np.min([PointsPerState[i], PointsPerState[i+1]]) 
         
-        Diff = []
-        Diff.append(NewStateMask[:,i] * NewStateMask[:,i+1])
-        Diff.append(MergedStateMask * NewStateMask[:,i])
-        Diff.append(MergedStateMask * NewStateMask[:,i+1])
+        #Fraction overlapping points in datapoints between the merged state and sum of two initial states:   
+        overlap = np.sum(np.any([NewStateMask[:,i],NewStateMask[:,i+1]], axis=0)*MergedStateMask*1)/np.max([np.sum(NewStateMask[:,i]),np.sum(NewStateMask[:,i+1])])
         
-        Overlap = []
-        Overlap.append(len(Diff[0][Diff[0]==True])/np.min([PointsPerState[i], PointsPerState[i+1]]))
-        Overlap.append(len(Diff[1][Diff[1]==True])/np.min([MergedSum, PointsPerState[i]]))
-        Overlap.append(len(Diff[2][Diff[2]==True])/np.min([MergedSum, PointsPerState[i+1]]))
-
-#        print(Overlap, PointsPerState[i], PointsPerState[i+1], MergedSum)
-        
-
-        if stats.f_oneway(Newz_Score[:,i], Newz_Score[:,i+1])[1] > 0.1:        # #What criterium should be here?!
+        #Merge Overlapping states when new state is better:
+        if Overlap  > 0.5 and overlap > 0.8:                                   #stats.mannwhitneyu(Z_Selected[NewStateMask[:,i]], Z_Selected[NewStateMask[:,i+1]])[1] > 0.00001:        # #What criterium should be here?!
             NewStates = np.delete(NewStates, i)
             PointsPerState = np.delete(PointsPerState, i)
             NewStateMask = np.delete(NewStateMask, i, axis=1)
@@ -316,7 +317,7 @@ def RuptureForces(F_Selected, Z_Selected, States, Pars, ax1):
     F_Rup_up = []
     F_Rup_down = []
     for i, j in enumerate(MedianFilt):    
-        Plot.append(AllStates_Selected[i,j])
+        Plot.append(AllStates_Selected[i,int(j)])
         if k > j:
             F_Rup_up.append(F_Selected[i])
         if j > k:

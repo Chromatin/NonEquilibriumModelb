@@ -183,9 +183,9 @@ def onepull(F, Z, T, Jump=10):
     mask = T_Jump > Jump
     ind = np.where(mask)[0]
     if len(ind)>0:    
-        F = F[ind[-1]:]
-        Z = Z[ind[-1]:]
-        T = T[ind[-1]:]
+        F = F[ind[-1]+1:]
+        Z = Z[ind[-1]+1:]
+        T = T[ind[-1]+1:]
     return F, Z, T
     
 """

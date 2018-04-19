@@ -19,8 +19,7 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
-#folder = r'P:\NonEquilibriumModel\TestData'
+folder = r'N:\Rick\Fit Files\Pythontestfit'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -68,7 +67,7 @@ for Filenum, Filename in enumerate(Filenames):
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewStateMask, NewAllStates = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False) #Finds States
+    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewStateMask, NewAllStates = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2) #Finds States
     
     #Calculates stepsize
     Unwrapsteps = []
@@ -134,14 +133,15 @@ for Filenum, Filename in enumerate(Filenames):
     Statemask = NewStateMask
     AllStates = NewAllStates    
     
-    colors = [plt.cm.nipy_spectral(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
+    colors = [plt.cm.Set1(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
     dX = 10                                                                     #Offset for text in plot
 
     #Calculate the rupture forces using a median filter    
-#    func.RuptureForces(Z_Selected, F_Selected, States, Pars, ax1)
+    func.RuptureForces(F_Selected, Z_Selected, States, Pars, ax1)
 
     Sum = np.sum(Statemask, axis=1)        
     ax1.scatter(Z_Selected[Sum==0], F_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state
+    ax3.scatter(T_Selected[Sum==0], Z_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state
 
     #Plot the states and datapoints in the same color
     for j, col in zip(np.arange(len(colors)), colors):
@@ -201,7 +201,7 @@ ax6 = fig3.add_subplot(1,2,2)
 Range = [0,400]
 Bins = 50
 n = ax5.hist(Steps,  bins = Bins, range = Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
-ax6.hist(Stacks, bins = int(Bins/2), range = Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
+ax6.hist(Stacks, bins = Bins, range = Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
 
 
 #Fitting double gaussian over Steps
@@ -215,8 +215,8 @@ if not PlotSelected:
     mu = 2*mu
     x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
     ax5.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2*Norm, color='red', lw=4, zorder=10)
-    ax5.text(Range[-1]-100, np.max(n)-10, 'mean1:'+str(int(D_Gaus[0])), verticalalignment='bottom')
-    ax5.text(Range[-1]-100, np.max(n)-10, 'mean2:'+str(int(2*D_Gaus[0])), verticalalignment='top')
+    ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean1:'+str(int(D_Gaus[0])), verticalalignment='bottom')
+    ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean2:'+str(int(2*D_Gaus[0])), verticalalignment='top')
 
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
@@ -234,7 +234,7 @@ fig4, ax7 = plt.subplots()
 ax7.scatter(F_rup, dZ_rup, color='blue')       #What should be the errors?
 ax7.set_ylim(0,400)
 ax7.set_xlabel('Rupture Forces (pN)')
-ax7.set_ylabel('Jump in Z (bp)')
+ax7.set_ylabel('Stepsize (bp)')
 ax7.set_title("Rupture forces versus jump in z")
 fig4.savefig(newpath+r'\\'+'RF.png', format='png')
 

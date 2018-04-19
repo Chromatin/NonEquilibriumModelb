@@ -284,19 +284,47 @@ def fit_2step_gauss(Steps, Step = 80, Amp1 = 30, Amp2 = 10, Sigma = 15):
     #popt, pcov = curve_fit(double_indep_gauss, Steps, PDF, p0=[Step, 2*Step, Sigma, Amp1, Amp2])
     popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2])
     return popt
+
+
+def attribute2state(F, Z, States, Pars, Fmax_Hook=10):
+    """Calculates for each datapoint which state it most likely belongs too
+    Return an array with indexes referring to the State array"""
+    if len(States) <1:
+        print('No States were found')
+        return False
+    Ratio = ratio(States,Pars)
+    WLC = wlc(F,Pars).reshape(len(wlc(F,Pars)),1)
+    Hook = hook(F,Pars['k_pN_nm'],Fmax_Hook).reshape(len(hook(F,Pars['k_pN_nm'],Fmax_Hook)),1)
+    ZState = np.array( np.multiply(WLC,(States*Pars['DNAds_nm'])) + np.multiply(Hook,(Ratio*Pars['ZFiber_nm'])) )
+    ZminState = np.subtract(ZState,Z.reshape(len(Z),1)) 
+    StateMask = np.argmin(abs(ZminState),1)       
+    return StateMask 
    
-def RuptureForces(Z_Selected, F_Selected, States, Pars, ax1):
+def RuptureForces(F_Selected, Z_Selected, States, Pars, ax1):
     """Calculate and plot the rupture forces and jumps"""
-    MedFilt = signal.medfilt(Z_Selected, 9)
-#    MedFiltMask = attribute2state(F_Selected, MedFilt, States, Pars)               #For the Median Filter to which state it belongs
-#    k = 0
-#    for i, j in enumerate(MedFiltMask):
-#        if j > k:
-#            start = MedFilt[i-1]
-#            stop = MedFilt[i]
-#            ax1.hlines(F_Selected[i], start, stop, color='black', lw = 2)
-#        k = j      
-    ax1.plot(MedFilt, F_Selected, color='black')
+    Mask = attribute2state(F_Selected, Z_Selected, States, Pars)
+    MedianFilt = signal.medfilt(Mask, 5)
+    
+    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
+    for i, x in enumerate(States):
+        Ratio = ratio(x,Pars)
+        Fit_Selected = np.array(wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        AllStates_Selected[:,i] = Fit_Selected        
+ 
+    Plot = []
+    k = 0
+    F_Rup_up = []
+    F_Rup_down = []
+    for i, j in enumerate(MedianFilt):    
+        Plot.append(AllStates_Selected[i,j])
+        if k > j:
+            F_Rup_up.append(F_Selected[i])
+        if j > k:
+            F_Rup_down.append(F_Selected[i])
+        k = j
+    
+    ax1.plot(Plot, F_Selected, color='black', lw=2)
+
 
 def peakdetect(y_axis, lookahead = 10, delta=1.5):
     """

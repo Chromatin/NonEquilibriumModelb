@@ -6,7 +6,7 @@ Created on Mon Jan 22 11:52:49 2018
 """
 import os 
 import matplotlib
-matplotlib.rcParams['figure.figsize'] = (15, 10)
+matplotlib.rcParams['figure.figsize'] = (16, 9)
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.mlab as mlab
@@ -132,11 +132,11 @@ for Filenum, Filename in enumerate(Filenames):
     Statemask = NewStateMask
     AllStates = NewAllStates    
     
-    colors = [plt.cm.rainbow(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
+    colors = [plt.cm.brg(each) for each in np.linspace(0, 1, len(States))]     #Color pattern for the states
     dX = 10                                                                     #Offset for text in plot
 
     #Calculate the rupture forces using a median filter    
-    func.RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1)
+    func.RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
 
     Sum = np.sum(Statemask, axis=1)        
     ax1.scatter(Z_Selected[Sum==0], F_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state
@@ -152,13 +152,13 @@ for Filenum, Filename in enumerate(Filenames):
 #        ax1.text(Fit[np.argmin(np.abs(F-10))], F[np.argmin(np.abs(F-10))], j, horizontalalignment='center')
     
         ax2.vlines(States[j], 0, np.max(Peak), linestyle=':', color=tuple(col))
-        ax2.text(States[j], 0, int(States[j]), fontsize=8, horizontalalignment='center', verticalalignment='top', rotation=90)
+        ax2.text(States[j], 0, int(States[j]), fontsize=10, horizontalalignment='center', verticalalignment='top', rotation=90)
         
         ax3.plot(T, Fit, alpha=0.9, linestyle=':', color=tuple(col))
         ax3.scatter(T_Selected[Mask], Z_Selected[Mask], color=tuple(col), s=20, alpha=.6)
         
         ax4.hlines(States[j]*Pars['DNAds_nm'], 0, np.max(Peak), color=tuple(col), linestyle=':')
-        ax4.text(0, States[j]*Pars['DNAds_nm'], int(States[j]*Pars['DNAds_nm']), fontsize=8, verticalalignment='center', horizontalalignment='right')
+        ax4.text(0, States[j]*Pars['DNAds_nm'], int(States[j]*Pars['DNAds_nm']), fontsize=10, verticalalignment='center', horizontalalignment='right')
                
         #Rupture forces
         if j < len(States)-1:   #This should be done by median filter & in basepairs
@@ -183,12 +183,12 @@ for Filenum, Filename in enumerate(Filenames):
 ######################################################################################################################
     fig1.tight_layout()
 #    pickle.dump(fig1, open(newpath+r'\\'+Filename[0:-4]+'_FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
-    fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.png', format='png')
+    fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.png')
     fig1.show()
     
     fig2.tight_layout()
 #    pickle.dump(fig2, open(newpath+r'\\'+Filename[0:-4]+'_Time_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
-    fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.png', format='png')    
+    fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.png')    
     fig2.show()
 
     Fignum += 2
@@ -199,9 +199,8 @@ ax5 = fig3.add_subplot(1,2,1)
 ax6 = fig3.add_subplot(1,2,2)
 Range = [0,400]
 Bins = 50
-n = ax5.hist(Steps,  bins = Bins, range = Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
-ax6.hist(Stacks, bins = int(Bins / 2), range = Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
-
+n = ax5.hist(Steps,  bins=Bins, range=Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
+ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
 
 #Fitting double gaussian over Steps
 if not PlotSelected:
@@ -224,9 +223,9 @@ ax5.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(in
 ax6.set_xlabel('stepsize (bp)')
 ax6.set_ylabel('Count')
 ax6.set_title("Histogram stepsizes stacking steps")
-ax6.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/Bins))+'bp/bin')
+ax6.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/int(Bins/2)))+'bp/bin')
 fig3.tight_layout()
-fig3.savefig(newpath+r'\\'+'Hist.png', format='png')
+fig3.savefig(newpath+r'\\'+'Hist.png')
 
 #plotting the rupture forces
 fig4, ax7 = plt.subplots()
@@ -235,6 +234,6 @@ ax7.set_ylim(0,400)
 ax7.set_xlabel('Rupture Forces (pN)')
 ax7.set_ylabel('Stepsize (bp)')
 ax7.set_title("Rupture forces versus jump in z")
-fig4.savefig(newpath+r'\\'+'RF.png', format='png')
+fig4.savefig(newpath+r'\\'+'RF.png')
 
 print("DONE! Runtime:", np.round(time.time()-start_time, 1), 's')

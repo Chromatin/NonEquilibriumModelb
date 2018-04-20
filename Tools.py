@@ -128,7 +128,7 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
         Z_Selected = Z
         T_Selected = T
     
-    if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, 1000)
+    if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, 500)
     if Handles['Pulling']: F_Selected, Z_Selected, T_Selected = removerelease(F_Selected, Z_Selected, T_Selected )
     if Handles['MinForce'] > 0: F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
@@ -180,6 +180,7 @@ def maxextention(F, Z, T, Max_Extension):
     return F, Z ,T
 
 def onepull(F, Z, T, Jump=10):
+    """Selects only the last pulling curve"""
     T_Jump = np.diff(T)
     mask = T_Jump > Jump
     ind = np.where(mask)[0]

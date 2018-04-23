@@ -316,9 +316,9 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     k = 0
     F_Rup_up = []
     F_Rup_down = []    
-    Lifetime = np.zeros([len(States),])
+    TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
-        Lifetime[j] += 1        
+        TotalLifetime[j] += 1        
         Plot.append(AllStates_Selected[i,int(j)])
         if k > j:
             F_Rup_up.append(F_Selected[i])
@@ -327,10 +327,52 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         k = j
     
     dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
-    Lifetime *= dt
+    TotalLifetime *= dt
 
     ax1.plot(Plot, F_Selected, color='black', lw=2)
     ax3.plot(T_Selected, Plot, color='black', lw=2)
+
+
+def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
+    """Calculate and plot the rupture forces and jumps"""
+
+    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
+    
+    Mask = F_Selected > 15
+    F_Selected = F_Selected[Mask]
+    Z_Selected = Z_Selected[Mask]
+    T_Selected = T_Selected[Mask]
+    
+    
+    Mask = attribute2state(F_Selected, Z_Selected, States, Pars)
+    MedianFilt = signal.medfilt(Mask, 9)
+    
+    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
+    for i, x in enumerate(States):
+        Ratio = ratio(x,Pars)
+        Fit_Selected = np.array(wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        AllStates_Selected[:,i] = Fit_Selected        
+ 
+    Plot = []
+    k = 0
+    F_Rup = []
+    dF_dt = []
+    TotalLifetime = np.zeros([len(States),])
+    for i, j in enumerate(MedianFilt):    
+        TotalLifetime[j] += 1        
+        Plot.append(AllStates_Selected[i,int(j)])
+        if k < j:
+            F_Rup.append(F_Selected[i])
+            dF_dt.append((F_Selected[i+1]-F_Selected[i])/dt)
+        k = j
+    
+    N_nucl = Pars['N_tot']
+    print(F_Rup, dF_dt)    
+    
+    TotalLifetime *= dt
+    
+    ax1.plot(Plot, F_Selected, color='blue', lw=2)
+    ax3.plot(T_Selected, Plot, color='blue', lw=2)
 
 
 def peakdetect(y_axis, lookahead = 10, delta=1.5):

@@ -136,7 +136,8 @@ for Filenum, Filename in enumerate(Filenames):
     dX = 10                                                                     #Offset for text in plot
 
     #Calculate the rupture forces using a median filter    
-    func.RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
+#    func.RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
+    func.BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
 
     Sum = np.sum(Statemask, axis=1)        
     ax1.scatter(Z_Selected[Sum==0], F_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state

@@ -20,6 +20,7 @@ start_time = time.time()
 plt.close('all')                                                                #Close all the figures from previous sessions
 
 folder = r'N:\Rick\Fit Files\Pythontestfit'
+#folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
@@ -39,6 +40,7 @@ Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, M
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 F_rup, dZ_rup = np.array([]), np.array([])                                      #Rupture forces and corresponding jumps
+Ruptures = np.empty((0,3)) 
 
 Fignum = 1                                                                      #Used for output line
 
@@ -46,7 +48,7 @@ Filenames = []                                                                  
 for filename in filenames:
     if filename[-4:] == '.fit':
         Filenames.append(filename)        
-        
+
 for Filenum, Filename in enumerate(Filenames):
 
     F, Z, T, Z_Selected = Tools.read_data(Filename)                            #loads the data from the filename
@@ -137,8 +139,10 @@ for Filenum, Filename in enumerate(Filenames):
 
     #Calculate the rupture forces using a median filter    
 #    func.RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
-    func.BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
-
+    Rups = func.BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
+    Ruptures = np.append(Ruptures, Rups, axis=0)
+    
+    
     Sum = np.sum(Statemask, axis=1)        
     ax1.scatter(Z_Selected[Sum==0], F_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state
     ax3.scatter(T_Selected[Sum==0], Z_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state
@@ -193,6 +197,31 @@ for Filenum, Filename in enumerate(Filenames):
     fig2.show()
 
     Fignum += 2
+
+
+RFs = Ruptures[:,0]
+ln_dFdt_N = np.log(np.divide(Ruptures[:,2],Ruptures[:,1]))
+
+#Remove Ruptures at extensions larger than contour length (ln gets nan value)
+RFs = RFs[~np.isnan(ln_dFdt_N)]
+ln_dFdt_N = ln_dFdt_N[~np.isnan(ln_dFdt_N)]
+
+a, b = np.polyfit(ln_dFdt_N, RFs, 1)
+x = np.linspace(np.min(ln_dFdt_N), np.max(ln_dFdt_N), 10)
+
+fig, ax = plt.subplots()
+
+ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')
+ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
+ax.scatter(ln_dFdt_N, RFs, label='Data')
+
+ax.set_title("Brower-Toland analysis")
+ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
+ax.set_ylabel("Force (pN)")
+ax.legend(loc='best', title='Slope:'+str(np.round(a,1))+', intersect:'+str(np.round(b,1)))
+
+fig.savefig(newpath+r'\\'+'dF_dt_ln.png')
+
 
 #Plotting a hist of the stepsizes
 fig3 = plt.figure()

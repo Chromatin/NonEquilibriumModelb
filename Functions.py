@@ -14,7 +14,7 @@ def wlc(force,Pars): #in nm/pN, as fraction of L
     f = np.array(force)
     return 1 - 0.5*(np.sqrt(Pars['kBT_pN_nm']/(f*Pars['P_nm'])))+(f/Pars['S_pN'])
 
-def hook(force,k=1,fmax=10):
+def hook(force, k=1, fmax=10):
     """Calculates Hookian in nm/pN
     Returns Z_fiber as function of the number of bp in the fiber"""
     f = np.array(force)
@@ -303,6 +303,9 @@ def attribute2state(F, Z, States, Pars, Fmax_Hook=10):
    
 def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     """Calculate and plot the rupture forces and jumps"""
+
+    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
+    
     Mask = attribute2state(F_Selected, Z_Selected, States, Pars)
     MedianFilt = signal.medfilt(Mask, 9)
     
@@ -313,7 +316,7 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         AllStates_Selected[:,i] = Fit_Selected        
  
     Plot = []
-    k = 0
+    k = 10000
     F_Rup_up = []
     F_Rup_down = []    
     TotalLifetime = np.zeros([len(States),])
@@ -326,7 +329,6 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
             F_Rup_down.append(F_Selected[i])
         k = j
     
-    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
     TotalLifetime *= dt
 
     ax1.plot(Plot, F_Selected, color='black', lw=2)
@@ -334,7 +336,7 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
 
 
 def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
-    """Calculate and plot the rupture forces and jumps"""
+    """Returns a 2D-array with coloms 'ruptureforce', 'Number of nucleosomes left', 'dF/dt'"""
 
     dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
     
@@ -342,8 +344,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     F_Selected = F_Selected[Mask]
     Z_Selected = Z_Selected[Mask]
     T_Selected = T_Selected[Mask]
-    
-    
+        
     Mask = attribute2state(F_Selected, Z_Selected, States, Pars)
     MedianFilt = signal.medfilt(Mask, 9)
     
@@ -354,26 +355,24 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         AllStates_Selected[:,i] = Fit_Selected        
  
     Plot = []
-    k = 0
-    F_Rup = []
+    k = 10000
+    F_Rup = np.empty((0,3)) #RuptureForce, N-nucl left, dF/dt
     dF_dt = []
     TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
         TotalLifetime[j] += 1        
         Plot.append(AllStates_Selected[i,int(j)])
         if k < j:
-            F_Rup.append(F_Selected[i])
-            dF_dt.append((F_Selected[i+1]-F_Selected[i])/dt)
+            N =  (wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79 #Number of nucl left at i
+            dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
+            F_Rup = np.append(F_Rup, [[F_Selected[i-1], N, dF_dt]], axis=0)    
         k = j
-    
-    N_nucl = Pars['N_tot']
-    print(F_Rup, dF_dt)    
     
     TotalLifetime *= dt
     
     ax1.plot(Plot, F_Selected, color='blue', lw=2)
     ax3.plot(T_Selected, Plot, color='blue', lw=2)
-
+    return F_Rup
 
 def peakdetect(y_axis, lookahead = 10, delta=1.5):
     """

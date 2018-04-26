@@ -340,7 +340,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
 
     dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
     
-    Mask = F_Selected > 15
+    Mask = F_Selected > 6                                   #Force to calculate 
     F_Selected = F_Selected[Mask]
     Z_Selected = Z_Selected[Mask]
     T_Selected = T_Selected[Mask]
@@ -360,10 +360,11 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     dF_dt = []
     TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
-        TotalLifetime[j] += 1        
+        TotalLifetime[int(j)] += 1        
         Plot.append(AllStates_Selected[i,int(j)])
-        if k < j:
-            N =  (wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79 #Number of nucl left at i
+        DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
+        if k < j and DeltaZ > 20 and DeltaZ < 30:
+            N = np.round( (wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79 ) #Number of nucl left at i
             dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
             F_Rup = np.append(F_Rup, [[F_Selected[i-1], N, dF_dt]], axis=0)    
         k = j

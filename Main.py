@@ -19,9 +19,9 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\Pythontestfit'
+folder = r'P:\18S FitFiles\Leiden_wt'
 #folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
-folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
+#folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
 newpath = folder+r'\\Figures'                                                   #New path to save the figures
 if not os.path.exists(newpath):
@@ -197,14 +197,15 @@ for Filenum, Filename in enumerate(Filenames):
     fig2.show()
 
     Fignum += 2
+    plt.close('all')
 
 
 RFs = Ruptures[:,0]
 ln_dFdt_N = np.log(np.divide(Ruptures[:,2],Ruptures[:,1]))
 
 #Remove Ruptures at extensions larger than contour length (ln gets nan value)
-RFs = RFs[~np.isnan(ln_dFdt_N)]
-ln_dFdt_N = ln_dFdt_N[~np.isnan(ln_dFdt_N)]
+RFs = RFs[abs(ln_dFdt_N) < 10e6]
+ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
 
 a, b = np.polyfit(ln_dFdt_N, RFs, 1)
 x = np.linspace(np.min(ln_dFdt_N), np.max(ln_dFdt_N), 10)

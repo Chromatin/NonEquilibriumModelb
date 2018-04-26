@@ -19,7 +19,7 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'P:\18S FitFiles\Leiden_wt'
+folder = r'P:\18S FitFiles\wt_Regensburg_2017'
 #folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 #folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
@@ -69,6 +69,9 @@ for Filenum, Filename in enumerate(Filenames):
         continue
     
     PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewStateMask, NewAllStates = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2) #Finds States
+    if len(States) <1:
+        print("<<<<<<<<<<<", Filename,'==> No States were found>>>>>>>>>>>>')
+        continue
     
     #Calculates stepsize
     Unwrapsteps = []

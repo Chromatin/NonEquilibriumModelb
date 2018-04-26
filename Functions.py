@@ -290,9 +290,6 @@ def fit_2step_gauss(Steps, Step = 80, Amp1 = 30, Amp2 = 10, Sigma = 15):
 def attribute2state(F, Z, States, Pars, Fmax_Hook=10):
     """Calculates for each datapoint which state it most likely belongs too
     Return an array with indexes referring to the State array"""
-    if len(States) <1:
-        print('No States were found')
-        return False
     Ratio = ratio(States,Pars)
     WLC = wlc(F,Pars).reshape(len(wlc(F,Pars)),1)
     Hook = hook(F,Pars['k_pN_nm'],Fmax_Hook).reshape(len(hook(F,Pars['k_pN_nm'],Fmax_Hook)),1)

@@ -19,7 +19,7 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'P:\18S FitFiles\wt_Regensburg_2017'
+folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 #folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 #folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
@@ -41,6 +41,8 @@ steps , stacks = [],[]                                                          
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 F_rup, dZ_rup = np.array([]), np.array([])                                      #Rupture forces and corresponding jumps
 Ruptures = np.empty((0,3)) 
+
+F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps from func.ruptureforces
 
 Fignum = 1                                                                      #Used for output line
 
@@ -141,7 +143,13 @@ for Filenum, Filename in enumerate(Filenames):
     dX = 10                                                                     #Offset for text in plot
 
     #Calculate the rupture forces using a median filter    
-#    func.RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
+    a, b, c, d = func.RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
+    F_Rup_up.extend(a)
+    Step_up.extend(b)
+    F_Rup_down.extend(c)    
+    Step_down.extend(d)
+    
+    #Brower-Toland analysis    
     Rups = func.BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
     Ruptures = np.append(Ruptures, Rups, axis=0)
     
@@ -169,11 +177,11 @@ for Filenum, Filename in enumerate(Filenames):
         ax4.text(0, States[j]*Pars['DNAds_nm'], int(States[j]*Pars['DNAds_nm']), fontsize=10, verticalalignment='center', horizontalalignment='right')
                
         #Rupture forces
-        if j < len(States)-1:   #This should be done by median filter & in basepairs
+        if j < len(States)-1:   #This should be done by median filter
             Ruptureforce = np.mean((F_Selected[Mask])[-4:-1])                   #The 4 last datapoint in a group
             start = Fit[np.argmin(np.abs(F-Ruptureforce))]
             stop = (AllStates[:,j+1])[np.argmin(np.abs(F-Ruptureforce))]                #Same as start, but then for the next state
-#            ax1.hlines(Ruptureforce, start, stop, color='black')
+            ax1.hlines(Ruptureforce, start, stop, color='black')
             F_rup = np.append(F_rup, Ruptureforce)
             dZ_rup = np.append(dZ_rup, (stop-start)/Pars['DNAds_nm'])
       
@@ -236,7 +244,7 @@ Bins = 50
 n = ax5.hist(Steps,  bins=Bins, range=Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
 ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
 
-#Fitting double gaussian over Steps
+#Fitting double gaussian over 25nm Steps
 if not PlotSelected:
     Norm =  Range[-1]/Bins
     D_Gaus = func.fit_2step_gauss(Steps)
@@ -263,11 +271,14 @@ fig3.savefig(newpath+r'\\'+'Hist.png')
 
 #plotting the rupture forces
 fig4, ax7 = plt.subplots()
-ax7.scatter(F_rup, dZ_rup, color='blue')       #What should be the errors?
+ax7.scatter(F_rup, dZ_rup, color='blue', label='upward calculated by hand')       #What should be the errors?
+ax7.scatter(F_Rup_up, Step_up, color='red', label='func.rupterforces upward')       #What should be the errors?
+ax7.scatter(F_Rup_down, Step_down, color='Green', label='func.rupterforces down')       #What should be the errors?
 ax7.set_ylim(0,400)
 ax7.set_xlabel('Rupture Forces (pN)')
 ax7.set_ylabel('Stepsize (bp)')
-ax7.set_title("Rupture forces versus jump in z")
+ax7.set_title("Rupture forces versus stepsize")
+ax7.legend(loc='best')
 fig4.savefig(newpath+r'\\'+'RF.png')
 
-print("DONE! Runtime:", np.round(time.time()-start_time, 1), 's')
+print("DONE! Runtime:", np.round(time.time()-start_time, 1), 's',sep='')

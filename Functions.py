@@ -286,7 +286,6 @@ def fit_2step_gauss(Steps, Step = 80, Amp1 = 30, Amp2 = 10, Sigma = 15):
     popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2])
     return popt
 
-
 def attribute2state(F, Z, States, Pars, Fmax_Hook=10):
     """Calculates for each datapoint which state it most likely belongs too
     Return an array with indexes referring to the State array"""
@@ -299,7 +298,15 @@ def attribute2state(F, Z, States, Pars, Fmax_Hook=10):
     return StateMask 
    
 def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
-    """Calculate and plot the rupture forces and jumps"""
+    """
+    Calculates rupture forces and and corresponding stepsizes in bp by applying
+    a median filter over the data. Plots the median filtered data over the
+    Force-Extension curve, and in the timetrace curve.
+    Return--F_Rup_up: the forces for jumps to a higher state (tuple); 
+            Step_up: stepsizes for jumps to a higher state (tuple);
+            F_Rup_down: the forces for jumps to a lower state (tuple); 
+            Step_down: stepsizes for jumps to a lower state (tuple)
+    """
 
     dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
     
@@ -313,17 +320,22 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         AllStates_Selected[:,i] = Fit_Selected        
  
     Plot = []
-    k = 10000
+    k = 0
     F_Rup_up = []
-    F_Rup_down = []    
+    Step_up = []
+    F_Rup_down = []
+    Step_down = []    
     TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
         TotalLifetime[j] += 1        
         Plot.append(AllStates_Selected[i,int(j)])
         if k > j:
-            F_Rup_up.append(F_Selected[i])
-        if j > k:
             F_Rup_down.append(F_Selected[i])
+            Step_down.append((AllStates_Selected[i,j+1]-AllStates_Selected[i,j])/Pars['DNAds_nm'])
+        if k < j:
+            F_Rup_up.append(F_Selected[i])
+            Step_up.append((AllStates_Selected[i,j]-AllStates_Selected[i,j-1])/Pars['DNAds_nm'])
+
         k = j
     
     TotalLifetime *= dt
@@ -331,6 +343,7 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     ax1.plot(Plot, F_Selected, color='black', lw=2)
     ax3.plot(T_Selected, Plot, color='black', lw=2)
 
+    return F_Rup_up, Step_up, F_Rup_down, Step_down
 
 def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     """Returns a 2D-array with coloms 'ruptureforce', 'Number of nucleosomes left', 'dF/dt'"""

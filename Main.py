@@ -19,7 +19,7 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
+folder = r'N:\Rick\Fit Files\Pythontestfit'
 #folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 #folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
@@ -33,16 +33,14 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = False                                                             #Choose to plot selected only
+PlotSelected = False                                                            #Choose to plot selected only
 MeasurementERR = 5                                                              #nm
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
-F_rup, dZ_rup = np.array([]), np.array([])                                      #Rupture forces and corresponding jumps
+F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps
 Ruptures = np.empty((0,3)) 
-
-F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps from func.ruptureforces
 
 Fignum = 1                                                                      #Used for output line
 
@@ -125,13 +123,6 @@ for Filenum, Filename in enumerate(Filenames):
 
     ax3.set_xlim([np.min(T_Selected)-0.1*np.max(T_Selected), np.max(T_Selected)+0.1*np.max(T_Selected)])
     ax3.set_ylim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
-    
-    #Plot the states found initially
-#    for x in States:
-#        Ratio = func.ratio(x,Pars)
-#        Fit = np.array(func.wlc(F,Pars)*x*Pars['DNAds_nm'] + func.hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-#        ax1.plot(Fit, F, alpha=0.1, linestyle='-.')
-#        ax3.plot(T,Fit, alpha=0.1, linestyle='-.')
 
 ##############################################################################################
 ######## Begin Plotting Different States  
@@ -175,16 +166,7 @@ for Filenum, Filename in enumerate(Filenames):
         
         ax4.hlines(States[j]*Pars['DNAds_nm'], 0, np.max(Peak), color=tuple(col), linestyle=':')
         ax4.text(0, States[j]*Pars['DNAds_nm'], int(States[j]*Pars['DNAds_nm']), fontsize=10, verticalalignment='center', horizontalalignment='right')
-               
-        #Rupture forces
-        if j < len(States)-1:   #This should be done by median filter
-            Ruptureforce = np.mean((F_Selected[Mask])[-4:-1])                   #The 4 last datapoint in a group
-            start = Fit[np.argmin(np.abs(F-Ruptureforce))]
-            stop = (AllStates[:,j+1])[np.argmin(np.abs(F-Ruptureforce))]                #Same as start, but then for the next state
-            ax1.hlines(Ruptureforce, start, stop, color='black')
-            F_rup = np.append(F_rup, Ruptureforce)
-            dZ_rup = np.append(dZ_rup, (stop-start)/Pars['DNAds_nm'])
-      
+                     
     Unwrapsteps = []
     Stacksteps = []
     for x in NewStates:
@@ -208,12 +190,12 @@ for Filenum, Filename in enumerate(Filenames):
     fig2.show()
 
     Fignum += 2
-    plt.close('all')
+#    plt.close('all')
 
 
+#Brower-Toland Analysis
 RFs = Ruptures[:,0]
 ln_dFdt_N = np.log(np.divide(Ruptures[:,2],Ruptures[:,1]))
-
 #Remove Ruptures at extensions larger than contour length (ln gets nan value)
 RFs = RFs[abs(ln_dFdt_N) < 10e6]
 ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
@@ -222,18 +204,14 @@ a, b = np.polyfit(ln_dFdt_N, RFs, 1)
 x = np.linspace(np.min(ln_dFdt_N), np.max(ln_dFdt_N), 10)
 
 fig, ax = plt.subplots()
-
 ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')
 ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
 ax.scatter(ln_dFdt_N, RFs, label='Data')
-
 ax.set_title("Brower-Toland analysis")
 ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
 ax.set_ylabel("Force (pN)")
 ax.legend(loc='best', title='Slope:'+str(np.round(a,1))+', intersect:'+str(np.round(b,1)))
-
 fig.savefig(newpath+r'\\'+'dF_dt_ln.png')
-
 
 #Plotting a hist of the stepsizes
 fig3 = plt.figure()
@@ -271,9 +249,8 @@ fig3.savefig(newpath+r'\\'+'Hist.png')
 
 #plotting the rupture forces
 fig4, ax7 = plt.subplots()
-ax7.scatter(F_rup, dZ_rup, color='blue', label='upward calculated by hand')       #What should be the errors?
-ax7.scatter(F_Rup_up, Step_up, color='red', label='func.rupterforces upward')       #What should be the errors?
-ax7.scatter(F_Rup_down, Step_down, color='Green', label='func.rupterforces down')       #What should be the errors?
+ax7.scatter(F_Rup_up, Step_up, color='red', label='Jump to higher state')           #What should be the errors?
+ax7.scatter(F_Rup_down, Step_down, color='Green', label='Jump to lower state')      #What should be the errors?
 ax7.set_ylim(0,400)
 ax7.set_xlabel('Rupture Forces (pN)')
 ax7.set_ylabel('Stepsize (bp)')

@@ -128,7 +128,7 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
         Z_Selected = Z
         T_Selected = T
     
-    if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, 500)
+    if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, Jump = 500)
     if Handles['Pulling']: F_Selected, Z_Selected, T_Selected = removerelease(F_Selected, Z_Selected, T_Selected )
     if Handles['MinForce'] > 0: F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
@@ -140,14 +140,18 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
 
 def breaks(F, Z, T, Jump=1000):
     """Removes the data after a jump in z, presumably indicating the bead broke lose"""
-    Test = Z[0]
-    for i,x in enumerate(Z[1:]):
-        if abs(x - Test) > Jump :
+    LowPass = signal.medfilt(Z,3)
+    extra = 0
+    for i,x in enumerate(LowPass[1:]):
+        change = abs(x - LowPass[i]) + extra
+        if change > Jump :
             F = F[:i]
             Z = Z[:i] 
             T = T[:i] 
             break
-        Test = x
+        if abs(x - LowPass[i]) > 100:
+            extra = change
+        else: extra = 0
     return F, Z, T
 
 def removerelease(F, Z, T):

@@ -327,7 +327,8 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     Step_down = []    
     TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
-        TotalLifetime[j] += 1        
+        j = int(j)
+        TotalLifetime[int(j)] += 1        
         Plot.append(AllStates_Selected[i,int(j)])
         if k > j:
             F_Rup_down.append(F_Selected[i])
@@ -370,6 +371,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     dF_dt = []
     TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
+        j = int(j)
         TotalLifetime[int(j)] += 1        
         Plot.append(AllStates_Selected[i,int(j)])
         DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]

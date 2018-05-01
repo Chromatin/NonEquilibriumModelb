@@ -19,11 +19,10 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'N:\Rick\Fit Files\Pythontestfit'
+folder = r'P:\18S FitFiles\dUAF_Regensburg_2017'
 #folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
-#folder = folder.replace('\\', '\\\\')                                           #Replaces \ for \\
 
-newpath = folder+r'\\Figures'                                                   #New path to save the figures
+newpath = folder+r'\Figures'                                                   #New path to save the figures
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
@@ -47,7 +46,7 @@ Fignum = 1                                                                      
 Filenames = []                                                                  #All .fit files    
 for filename in filenames:
     if filename[-4:] == '.fit':
-        Filenames.append(filename)        
+        Filenames.append(filename)
 
 for Filenum, Filename in enumerate(Filenames):
 
@@ -69,10 +68,7 @@ for Filenum, Filename in enumerate(Filenames):
         continue
     
     PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewStateMask, NewAllStates = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2) #Finds States
-    if len(States) <1:
-        print("<<<<<<<<<<<", Filename,'==> No States were found>>>>>>>>>>>>')
-        continue
-    
+   
     #Calculates stepsize
     Unwrapsteps = []
     Stacksteps = []
@@ -123,7 +119,10 @@ for Filenum, Filename in enumerate(Filenames):
 
     ax3.set_xlim([np.min(T_Selected)-0.1*np.max(T_Selected), np.max(T_Selected)+0.1*np.max(T_Selected)])
     ax3.set_ylim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
-
+    
+    if len(States) <1:
+        print("<<<<<<<<<<<", Filename,'==> No States were found>>>>>>>>>>>>')
+        continue
 ##############################################################################################
 ######## Begin Plotting Different States  
     States = NewStates

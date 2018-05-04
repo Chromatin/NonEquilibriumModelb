@@ -35,7 +35,7 @@ def read_dat(Filename, Beads=3, MedianFilter=5):
     dZ = np.nanmax(Z_DriftCorrected,axis=0)- np.nanmin(Z_DriftCorrected,axis=0)
     Z_std = dZ * Z_std
     
-    AveragedStuckBead = np.zeros(len(Z))
+    AveragedStuckBead = np.zeros(len(T))
     StuckBead=np.array([])
     mean=0
     ReferenceBeads = []
@@ -69,7 +69,7 @@ def read_dat(Filename, Beads=3, MedianFilter=5):
        
     return Z_std, AveragedStuckBead, headers, data
 
-folder = r'G:\Klaas\Tweezers\Tests'
+folder = r'G:\Klaas\Tweezers\Unzipping\18S\Unzip dUAF'
 newpath = folder+r'\CorrectedDat'   
 
 if not os.path.exists(newpath):
@@ -84,7 +84,10 @@ for filename in filenames:
 
 for Filenum, DatFile in enumerate(Filenames):
     
-    Z_all, AveragedStuckBead, headers, data = read_dat(DatFile,5,11)
+    try: Z_all, AveragedStuckBead, headers, data = read_dat(DatFile,5,11)
+    except: 
+        print('>>>>>>>>>>>>no Z found in ', DatFile,' probably a calib file>>>>>>>>>' )
+        continue
     with open(newpath +'\\'+ DatFile, 'w') as outfile:    
         writer = csv.writer(outfile, delimiter ='\t') 
         writer.writerow(headers)

@@ -12,7 +12,7 @@ import os
 from scipy import signal
 plt.close()
 
-def read_dat(Filename, Av=3):
+def read_dat(Filename, Beads=3, MedianFilter=5):
     """Open .dat/.fit files from magnetic tweezers"""
     f = open(Filename, 'r')
     #get headers
@@ -28,30 +28,33 @@ def read_dat(Filename, Av=3):
     fit = np.polyfit(np.append(T[:100], T[len(T)-100:len(T)]),np.append(Z[:100], Z[len(Z)-100:len(Z)]),1)
     fit_fn = np.poly1d(fit) 
     # fit_fn is now a function which takes in x and returns an estimate for y  
-    plt.scatter(T,fit_fn(T), color = 'g')
+#    plt.scatter(T,fit_fn(T), color = 'g')
     
-    Z_std = np.std(np.subtract(Z_all, np.tile(fit_fn(T),[len(Z_all[0,:]),1]).T),axis=0)
+    Z_DriftCorrected = np.subtract(Z_all, np.tile(fit_fn(T),[len(Z_all[0,:]),1]).T)
+    Z_std = np.std(Z_DriftCorrected,axis=0)
+    dZ = np.nanmax(Z_DriftCorrected,axis=0)- np.nanmin(Z_DriftCorrected,axis=0)
+    Z_std = dZ * Z_std
     
     AveragedStuckBead = np.zeros(len(Z))
     StuckBead=np.array([])
     mean=0
     ReferenceBeads = []
     
-    for i in range(0,Av):
+    for i in range(0,Beads):
         Low = np.nanargmin(Z_std)
         ReferenceBeads = np.append(ReferenceBeads,Low)
         StuckBead = Z_all[:,Low]
         mean += np.mean(StuckBead)
         StuckBead = np.subtract(StuckBead,np.mean(StuckBead))
         StuckBead = np.nan_to_num(StuckBead)
-        AveragedStuckBead = np.sum([AveragedStuckBead,StuckBead/Av], axis=0)
+        AveragedStuckBead = np.sum([AveragedStuckBead,StuckBead/Beads], axis=0)
         Z_std[Low] = 100
         
-    mean = mean / Av    
-    AveragedStuckBead = signal.medfilt(AveragedStuckBead,5)
+    mean = mean / Beads    
+    AveragedStuckBead = signal.medfilt(AveragedStuckBead,MedianFilter)
    
-    for i in ReferenceBeads:
-        plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')], alpha=0.5, label=str(i), lw=0, c=np.random.rand(3,1)) 
+#    for i in ReferenceBeads:
+#        plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')], alpha=0.5, label=str(i), lw=0) 
             
     for i,x in enumerate(Z_std):
         Position = headers.index('Z'+str(i)+' (um)')
@@ -60,13 +63,13 @@ def read_dat(Filename, Av=3):
     plt.scatter(T,AveragedStuckBead, color = 'b')
     
     for i in ReferenceBeads:
-        plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')], alpha=0.5)
+        plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')], alpha=0.5, label=str(i), lw=0)
     plt.legend(loc='best')
     plt.show()
        
     return Z_std, AveragedStuckBead, headers, data
 
-folder = r'C:\Users\lion\Desktop\test'
+folder = r'G:\Klaas\Tweezers\Tests'
 newpath = folder+r'\CorrectedDat'   
 
 if not os.path.exists(newpath):
@@ -81,7 +84,7 @@ for filename in filenames:
 
 for Filenum, DatFile in enumerate(Filenames):
     
-    Z_all, AveragedStuckBead, headers, data = read_dat(DatFile)
+    Z_all, AveragedStuckBead, headers, data = read_dat(DatFile,5,11)
     with open(newpath +'\\'+ DatFile, 'w') as outfile:    
         writer = csv.writer(outfile, delimiter ='\t') 
         writer.writerow(headers)

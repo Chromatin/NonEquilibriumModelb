@@ -54,18 +54,18 @@ def read_dat(Filename, Av=3):
         ReferenceBeads = np.append(ReferenceBeads,Low)
         Position = headers.index('Z'+str(Low)+' (um)')
         StuckBead = data[:,Position]
-        mean = mean + np.mean(StuckBead)
-        StuckBead = np.subtract(StuckBead,mean)
+        mean += np.mean(StuckBead)
+        StuckBead = np.subtract(StuckBead,np.mean(StuckBead))
         StuckBead = np.nan_to_num(StuckBead)
         AveragedStuckBead = np.sum([AveragedStuckBead,StuckBead], axis=0)
         Z_all[Low] = 1
         
-        
-    AveragedStuckBead = signal.medfilt(np.divide(AveragedStuckBead,Av) )#- mean/Av,5)
+    mean = mean / Av    
+    #AveragedStuckBead = signal.medfilt(np.divide(AveragedStuckBead,Av) - mean,5)
     
     for i,x in enumerate(Z_all):
         Position = headers.index('Z'+str(i)+' (um)')
-        data[:,Position] = np.subtract(data[:,Position],AveragedStuckBead)
+        data[:,Position] = np.subtract(data[:,Position],AveragedStuckBead + mean)
     
     T = data[:,headers.index('Time (s)')]
     plt.scatter(T,AveragedStuckBead, color = 'b')

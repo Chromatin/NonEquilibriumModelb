@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu May 03 09:53:13 2018
-
-@author: nhermans
-"""
-
-# -*- coding: utf-8 -*-
-"""
 Created on Mon Apr 23 14:35:29 2018
 
 @author: nhermans
@@ -17,7 +10,6 @@ from numpy import genfromtxt
 import csv
 import os 
 from scipy import signal
-
 plt.close()
 
 def read_dat(Filename, Av=3):
@@ -26,23 +18,19 @@ def read_dat(Filename, Av=3):
     #get headers
     headers = f.readlines()[0]
     headers = headers.split('\t')
+    f.close()  
     #get data
     data = genfromtxt(Filename, skip_header = 1)
-    f.close()
-    Z_all = np.array([])
-    Beadnumber = 0
-    bead = True
-    Z = np.array([])
+    T = data[:,headers.index('Time (s)')]
+    Z_all = data[:,headers.index('Z0'+' (um)')::4]
+    Z_std =  np.std(Z_all, axis=0)
+    Z = Z_all[:,np.nanargmin(Z_std)]
+    fit = np.polyfit(np.append(T[:100], T[len(T)-100:len(T)]),np.append(Z[:100], Z[len(Z)-100:len(Z)]),1)
+    fit_fn = np.poly1d(fit) 
+    # fit_fn is now a function which takes in x and returns an estimate for y  
+    plt.scatter(T,fit_fn(T), color = 'g')
     
-    while bead == True:    
-        try:
-            Z = data[:,headers.index('Z'+str(Beadnumber)+' (um)')]
-            Z_all = np.append(Z_all, np.std(Z))
-        except:
-            bead = False
-            print('done at bead', Beadnumber)
-            break
-        Beadnumber+=1
+    Z_std = np.std(np.subtract(Z_all, np.tile(fit_fn(T),[len(Z_all[0,:]),1]).T),axis=0)
     
     AveragedStuckBead = np.zeros(len(Z))
     StuckBead=np.array([])
@@ -50,32 +38,35 @@ def read_dat(Filename, Av=3):
     ReferenceBeads = []
     
     for i in range(0,Av):
-        Low = np.nanargmin(Z_all) 
+        Low = np.nanargmin(Z_std)
         ReferenceBeads = np.append(ReferenceBeads,Low)
-        Position = headers.index('Z'+str(Low)+' (um)')
-        StuckBead = data[:,Position]
+        StuckBead = Z_all[:,Low]
         mean += np.mean(StuckBead)
         StuckBead = np.subtract(StuckBead,np.mean(StuckBead))
         StuckBead = np.nan_to_num(StuckBead)
-        AveragedStuckBead = np.sum([AveragedStuckBead,StuckBead], axis=0)
-        Z_all[Low] = 1
+        AveragedStuckBead = np.sum([AveragedStuckBead,StuckBead/Av], axis=0)
+        Z_std[Low] = 100
         
     mean = mean / Av    
-    #AveragedStuckBead = signal.medfilt(np.divide(AveragedStuckBead,Av) - mean,5)
-    
-    for i,x in enumerate(Z_all):
-        Position = headers.index('Z'+str(i)+' (um)')
-        data[:,Position] = np.subtract(data[:,Position],AveragedStuckBead + mean)
-    
-    T = data[:,headers.index('Time (s)')]
-    plt.scatter(T,AveragedStuckBead, color = 'b')
+    AveragedStuckBead = signal.medfilt(AveragedStuckBead,5)
+   
     for i in ReferenceBeads:
-        plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')])
-    plt.show()
+        plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')], alpha=0.5, label=str(i), lw=0, c=np.random.rand(3,1)) 
+            
+    for i,x in enumerate(Z_std):
+        Position = headers.index('Z'+str(i)+' (um)')
+        data[:,Position] = np.subtract(data[:,Position],AveragedStuckBead+mean)    
     
-    return Z_all, AveragedStuckBead, headers, data
+    plt.scatter(T,AveragedStuckBead, color = 'b')
+    
+    for i in ReferenceBeads:
+        plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')], alpha=0.5)
+    plt.legend(loc='best')
+    plt.show()
+       
+    return Z_std, AveragedStuckBead, headers, data
 
-folder = r'G:\Klaas\Tweezers\Tests'
+folder = r'C:\Users\lion\Desktop\test'
 newpath = folder+r'\CorrectedDat'   
 
 if not os.path.exists(newpath):

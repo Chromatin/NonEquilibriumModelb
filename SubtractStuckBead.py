@@ -12,8 +12,13 @@ import os
 from scipy import signal
 plt.close()
 
-def read_dat(Filename, Beads=3, MedianFilter=5):
-    """Open .dat/.fit files from magnetic tweezers"""
+def subtract_reference(Filename, Beads=3, MedianFilter=5):
+    """Open .dat file from magnetic tweezers, averages the least moving beads and substracts them from the signal. 
+    Output is a 2D array with all the data
+    ***kwargs:
+        Beads = number of beads to use for averaging, default = 3
+        MedianFilter = LowPass filter for applied to averaged signal, default = 5. Needs to be an odd number
+    """
     f = open(Filename, 'r')
     #get headers
     headers = f.readlines()[0]
@@ -32,7 +37,7 @@ def read_dat(Filename, Beads=3, MedianFilter=5):
     
     Z_DriftCorrected = np.subtract(Z_all, np.tile(fit_fn(T),[len(Z_all[0,:]),1]).T)
     Z_std = np.std(Z_DriftCorrected,axis=0)
-    dZ = np.nanmax(Z_DriftCorrected,axis=0)- np.nanmin(Z_DriftCorrected,axis=0)
+    dZ = np.nanmax(Z_DriftCorrected,axis=0) - np.nanmin(Z_DriftCorrected,axis=0)
     Z_std = dZ * Z_std
     
     AveragedStuckBead = np.zeros(len(T))
@@ -61,6 +66,9 @@ def read_dat(Filename, Beads=3, MedianFilter=5):
         data[:,Position] = np.subtract(data[:,Position],AveragedStuckBead+mean)    
     
     plt.scatter(T,AveragedStuckBead, color = 'b')
+    plt.title(Filename)
+    plt.xlabel('time (s)')
+    plt.ylabel('Z (nm)')
     
     for i in ReferenceBeads:
         plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')], alpha=0.5, label=str(i), lw=0)
@@ -84,7 +92,7 @@ for filename in filenames:
 
 for Filenum, DatFile in enumerate(Filenames):
     
-    try: Z_all, AveragedStuckBead, headers, data = read_dat(DatFile,5,11)
+    try: Z_all, AveragedStuckBead, headers, data = subtract_reference(DatFile,5,11)
     except: 
         print('>>>>>>>>>>>>no Z found in ', DatFile,' probably a calib file>>>>>>>>>' )
         continue

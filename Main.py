@@ -19,10 +19,10 @@ start_time = time.time()
 
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'P:\18S FitFiles\dUAF_Regensburg_2017'
+folder = r'N:\Artur\analysis\2018\final 167 twisting analysis\all selected'
 #folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 
-newpath = folder+r'\Figures'                                                   #New path to save the figures
+newpath = folder+r'\FiguresPython'                                                   #New path to save the figures
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
@@ -32,7 +32,7 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = False                                                            #Choose to plot selected only
+PlotSelected = True                                                            #Choose to plot selected only
 MeasurementERR = 5                                                              #nm
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
@@ -143,7 +143,6 @@ for Filenum, Filename in enumerate(Filenames):
     Rups = func.BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
     Ruptures = np.append(Ruptures, Rups, axis=0)
     
-    
     Sum = np.sum(Statemask, axis=1)        
     ax1.scatter(Z_Selected[Sum==0], F_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state
     ax3.scatter(T_Selected[Sum==0], Z_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state
@@ -205,6 +204,7 @@ x = np.linspace(np.min(ln_dFdt_N), np.max(ln_dFdt_N), 10)
 fig, ax = plt.subplots()
 ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')
 ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
+ax.plot(np.log(np.divide(Rups[:,2],Rups[:,1])), Rups[:,0], label='Data', color='red')
 ax.scatter(ln_dFdt_N, RFs, label='Data')
 ax.set_title("Brower-Toland analysis")
 ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
@@ -222,7 +222,7 @@ n = ax5.hist(Steps,  bins=Bins, range=Range, lw=0.5, zorder = 1, color='blue', l
 ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
 
 #Fitting double gaussian over 25nm Steps
-if not PlotSelected:
+try: 
     Norm =  Range[-1]/Bins
     D_Gaus = func.fit_2step_gauss(Steps)
     mu = D_Gaus[0]
@@ -234,7 +234,9 @@ if not PlotSelected:
     ax5.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2*Norm, color='red', lw=4, zorder=10)
     ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean1:'+str(int(D_Gaus[0])), verticalalignment='bottom')
     ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean2:'+str(int(2*D_Gaus[0])), verticalalignment='top')
-
+except ValueError:
+    print('>>No 25 nm steps to fit gauss')
+    
 ax5.set_xlabel('stepsize (bp)')
 ax5.set_ylabel('Count')
 ax5.set_title("Histogram stepsizes 25nm steps")

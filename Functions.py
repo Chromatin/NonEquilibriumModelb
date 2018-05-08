@@ -6,7 +6,6 @@ Created on Wed Jan  3 13:44:01 2018
 """
 import numpy as np
 from scipy import signal
-from scipy import stats
 
 def wlc(force,Pars): #in nm/pN, as fraction of L
     """Calculates WLC in nm/pN, as a fraction the Contour Length.
@@ -25,16 +24,18 @@ def exp(x):
     return np.exp(x)
 
 def fjc(f, Pars): 
-    """calculates a Freely Jointed Chain with a kungslength of b""" 
+    """calculates a Freely Jointed Chain with a kungslength of 
+    b = 3 KbT / k*L
+    where L is the length of the fiber in nm, and k the stiffness in nm pN per nucleosome""" 
     #Function is independent on length of the DNA #L_nm = Pars['L_bp']*Pars['DNAds_nm']
-    b = 3 * Pars['kBT_pN_nm'] / (Pars['k_pN_nm'])#*L_nm)
+    b = 3 * Pars['kBT_pN_nm'] / (Pars['k_pN_nm']*Pars['ZFiber_nm'])
     x = f * b / Pars['kBT_pN_nm']
     # coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
     z = (exp(x) + 1 / exp(x)) / (exp(x) - 1 / exp(x)) - 1 / x
     #z *= Pars['L_bp']*Pars['DNAds_nm']
     #z_df = (Pars['kBT_pN_nm'] / b) * (np.log(np.sinh(x)) - np.log(x))  #*L_nm #  + constant --> integrate over f (finish it
     #w = f * z - z_df
-    return z
+    return z * (Pars['N_tot']-Pars['N4'])
 
 def forcecalib(Pos,FMax=85): 
     """Calibration formula for 0.8mm gapsize magnet
@@ -115,6 +116,42 @@ def STD(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     Ratio = np.tile(Ratio,(len(F),1))
     Ratio = np.transpose(Ratio)
     dF = 0.01 #delta used to calculate the RC of the curve
+    StateExtension = np.array(np.multiply(wlc(F, Pars),(States*Pars['DNAds_nm'])) + np.multiply(fjc(F,Pars),Ratio))
+    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Pars),(States*Pars['DNAds_nm'])) + np.multiply(fjc(F+dF,Pars),Ratio))
+    LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
+    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
+    std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.square(sigma))    #sqrt([measuring error]^2 + [thermal fluctuations]^2)  
+    return std
+
+#Including Hookian    
+def probsum(F, Z, PossibleStates, Pars, Fmax_Hook=10):
+    """Calculates the probability landscape of the intermediate states. 
+    F is the Force Data, 
+    Z is the Extension Data (needs to have the same size as F)"""
+    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
+    Ratio = ratio(PossibleStates, Pars)
+    Ratio = np.tile(Ratio,(len(F),1))
+    Ratio = np.transpose(Ratio)
+    dF = 0.01 #delta used to calculate the RC of the curve
+    StateExtension = np.array(np.multiply(wlc(F, Pars),(States*Pars['DNAds_nm'])) + np.multiply(fjc(F,Pars),Ratio))
+    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Pars),(States*Pars['DNAds_nm'])) +  np.multiply(fjc(F+dF,Pars),Ratio))
+    DeltaZ = abs(np.subtract(StateExtension,Z))
+    LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
+    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
+    NormalizedDeltaZ = np.divide(DeltaZ,sigma)    
+    Pz = np.array((1-erfaprox(NormalizedDeltaZ)))
+    ProbSum = np.sum(Pz, axis=1) 
+    return ProbSum
+
+def STD_hook(F, Z, PossibleStates, Pars, Fmax_Hook=10):
+    """Calculates the probability landscape of the intermediate states. 
+    F is the Force Data, 
+    Z is the Extension Data (needs to have the same size as F)"""
+    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
+    Ratio = ratio(PossibleStates, Pars)
+    Ratio = np.tile(Ratio,(len(F),1))
+    Ratio = np.transpose(Ratio)
+    dF = 0.01 #delta used to calculate the RC of the curve
     StateExtension = np.array(np.multiply(wlc(F, Pars),(States*Pars['DNAds_nm'])) + np.multiply(hook(F,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
     StateExtension_dF = np.array(np.multiply(wlc(F+dF, Pars),(States*Pars['DNAds_nm'])) + np.multiply(hook(F+dF,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
     LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
@@ -123,7 +160,7 @@ def STD(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     return std
 
 #Including Hookian    
-def probsum(F, Z, PossibleStates, Pars, Fmax_Hook=10):
+def probsum_hook(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
     Z is the Extension Data (needs to have the same size as F)"""
@@ -351,7 +388,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
 
     dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
     
-    Mask = F_Selected > 6                                   #Force to calculate 
+    Mask = Z_Selected > ( Pars['Fiber0_bp']  * Pars['DNAds_nm'] ) - 15  #Start of the bead on the string state, - 1 Std                
     F_Selected = F_Selected[Mask]
     Z_Selected = Z_Selected[Mask]
     T_Selected = T_Selected[Mask]
@@ -376,7 +413,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         Plot.append(AllStates_Selected[i,int(j)])
         DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
         if k < j and DeltaZ > 20 and DeltaZ < 30:
-            N = np.round( (wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79 ) #Number of nucl left at i
+            N = round( (wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79 ) #Number of nucl left at i, rounded to the nearest int.
             dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
             F_Rup = np.append(F_Rup, [[F_Selected[i-1], N, dF_dt]], axis=0)    
         k = j

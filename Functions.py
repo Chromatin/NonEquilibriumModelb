@@ -27,12 +27,12 @@ def fjc(f, Pars):
     """calculates a Freely Jointed Chain with a kungslength of 
     b = 3 KbT / k*L
     where L is the length of the fiber in nm, and k the stiffness in nm pN per nucleosome""" 
-    #Function is independent on length of the DNA #L_nm = Pars['L_bp']*Pars['DNAds_nm']
+    
     b = 3 * Pars['kBT_pN_nm'] / (Pars['k_pN_nm']*Pars['ZFiber_nm'])
     x = f * b / Pars['kBT_pN_nm']
     # coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
     z = (exp(x) + 1 / exp(x)) / (exp(x) - 1 / exp(x)) - 1 / x
-    #z *= Pars['L_bp']*Pars['DNAds_nm']
+    #z *= Pars['L_bp']*Pars['DNAds_nm']   #work /dG term not used atm
     #z_df = (Pars['kBT_pN_nm'] / b) * (np.log(np.sinh(x)) - np.log(x))  #*L_nm #  + constant --> integrate over f (finish it
     #w = f * z - z_df
     return z * (Pars['N_tot']-Pars['N4'])

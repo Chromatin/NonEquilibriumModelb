@@ -106,7 +106,9 @@ def default_pars():
     return par
 
 def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
-    """Reads in parameters from the logfile generate by the labview fitting program"""
+    """Can be used to remove data that disrupts proper fitting
+    Please read 'handles' to see the options"""
+    
     if Handles['Select']:                                                       #If only the selected column is use do this
         F_Selected = np.delete(F, np.argwhere(np.isnan(Z_Selected)))
         T_Selected = np.delete(T, np.argwhere(np.isnan(Z_Selected)))

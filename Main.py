@@ -13,14 +13,12 @@ import matplotlib.mlab as mlab
 import Functions as func
 import Tools
 import time
-
 start_time = time.time()
 #import pickle
-
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-#folder = r'N:\Rick\Fit Files\15x197 H1'
-folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
+folder = r'P:\18S FitFiles\Leiden_wt'
+#folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 
 newpath = folder+r'\FiguresPython'                                                   #New path to save the figures
 if not os.path.exists(newpath):
@@ -32,7 +30,7 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = False                                                            #Choose to plot selected only
+PlotSelected = True                                                           #Choose to plot selected only
 MeasurementERR = 5                                                              #nm
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
@@ -198,9 +196,10 @@ ln_dFdt_N = np.log(np.divide(Ruptures[:,2],Ruptures[:,1]))
 RFs = RFs[abs(ln_dFdt_N) < 10e6]
 ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
 
-a, b = np.polyfit(ln_dFdt_N, RFs, 1)
+Fit = np.polyfit(ln_dFdt_N, RFs, 1, full = True)
 x = np.linspace(np.min(ln_dFdt_N), np.max(ln_dFdt_N), 10)
-
+a = Fit[0][0]
+b = Fit[0][1]
 d = Pars['kBT_pN_nm']/a
 k_d0 = np.exp(-b/a)/a
 
@@ -210,10 +209,12 @@ ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
 ax.plot(np.log(np.divide(Rups[:,2],Rups[:,1])), Rups[:,0], label='Data', color='red')
 ax.scatter(ln_dFdt_N, RFs, label='Data')
 ax.set_title("Brower-Toland analysis")
-fig.suptitle("d="+str(d)+"nm, k_D(0)="+str(k_d0)+"s^-1")
+fig.suptitle("d = "+str(np.round(d,2))+"nm, k_D(0)={:.2e}".format(k_d0)+" / sec")
 ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
 ax.set_ylabel("Force (pN)")
-ax.legend(loc='best', title='Slope:'+str(np.round(a,1))+', intersect:'+str(np.round(b,1)))
+#ax.set_ylim(5,40)
+ax.set_xlim(-4,2)
+ax.legend(loc='best', title='Slope:' + str(np.round(a,1)) + '±' + str(np.round(Fit[3][0],1)) + ', intersect:' + str(np.round(b,1)) + '±' + str(np.round(Fit[3][1],1)))
 fig.savefig(newpath+r'\\'+'dF_dt_ln.png')
 
 #Plotting a hist of the stepsizes

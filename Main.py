@@ -30,8 +30,8 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = False                                                           #Choose to plot selected only
-MeasurementERR = 5                                                              #nm
+PlotSelected = True                                                           #Choose to plot selected only
+MeasurementERR = 5                                                             #tracking inaccuracy in nm
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
@@ -54,8 +54,7 @@ for Filenum, Filename in enumerate(Filenames):
     else: continue                                                                       
 
     if Pars['FiberStart_bp'] <0: 
-        print('<<<<<<<< warning: ',Filename, ': bad fit >>>>>>>>>>>>')
-        continue
+        print('<<<<<<<< warning: ',Filename, ': fit starts below 0, probably not enough tetrasomes >>>>>>>>>>>>')
     print(Filenum+1, "/", len(Filenames), ": ", "%02d" % (int(Pars['N_tot']),), " Nucl. ", Filename, " (Fig. ", Fignum, " & ", Fignum+1, "). Runtime:", np.round(time.time()-start_time, 1), "s", sep='')
 
     #Remove all datapoints that should not be fitted
@@ -195,7 +194,7 @@ ln_dFdt_N = np.log(np.divide(Ruptures[:,2],Ruptures[:,1]))
 RFs = RFs[abs(ln_dFdt_N) < 10e6]
 ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
 x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
-a,a_err,b,b_err,d, D_err, K_d0, K_d0_err = func.dG_browertoland(ln_dFdt_N, RFs, Pars)
+a, a_err, b, b_err, d, D_err, K_d0, K_d0_err = func.dG_browertoland(ln_dFdt_N, RFs, Pars)
 
 #BowerToland plot
 fig, ax = plt.subplots()
@@ -204,8 +203,9 @@ ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
 ax.plot(np.log(np.divide(Rups[:,2],Rups[:,1])), Rups[:,0], label='Data', color='red')
 ax.scatter(ln_dFdt_N, RFs, label='Data')
 ax.set_title("Brower-Toland analysis")
-fig.suptitle("d = "+str(np.round(d,2))+"nm, k_D(0)={:.2e}".format(K_d0)+" / sec")
-fig.suptitle("d = "+str(np.round(d,2))+"±"+str(D_err)+"nm, k_D(0)={:.1e}".format(K_d0)+"±{:.1e}".format(K_d0_err)+" / sec")
+Subtitle = "d = " + str(np.round(d,1)) + "±" + str(np.round(D_err,1))
+Subtitle = Subtitle + " nm, k_D(0) = {:.1e}".format(K_d0) + "±{:.1e}".format(K_d0_err)+" / sec"
+fig.suptitle(Subtitle)
 ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
 ax.set_ylabel("Force (pN)")
 #ax.set_ylim(5,40)

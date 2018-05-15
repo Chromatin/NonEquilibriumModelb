@@ -448,10 +448,10 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars):
     a_err = Fit[3][0]
     b_err = Fit[3][1]
     
-    from math import log10, floor
-    D_err = round(d_err(a, a_err, Pars), -int(floor(log10(abs(d_err(a, a_err, Pars))))))
-    K_d0_err = round(k_D0_err(a, a_err, b, b_err, Pars), -int(floor(log10(abs(k_D0_err(a, a_err, b, b_err, Pars))))))
-    return a,a_err,b,b_err,d, D_err, K_d0, K_d0_err
+    #from math import log10, floor
+    D_err = d_err(a, a_err, Pars) #-int(floor(log10(abs(d_err(a, a_err, Pars)))))
+    K_d0_err = k_D0_err(a, a_err, b, b_err, Pars) #-int(floor(log10(abs(k_D0_err(a, a_err, b, b_err, Pars)))))
+    return a, a_err, b, b_err, d, D_err, K_d0, K_d0_err
 
 def peakdetect(y_axis, lookahead = 10, delta=1.5):
     """

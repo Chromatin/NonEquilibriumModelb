@@ -424,6 +424,35 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     ax3.plot(T_Selected, Plot, color='blue', lw=2)
     return F_Rup
 
+def dG_browertoland(ln_dFdt_N, RFs, Pars):
+    """ 
+    Linear fit of the BT plot (a + bx)
+    Calculates d (distance to transition) and K_d0 (energy of transition)
+    Calculates errors of the fit and the propagated error in the K_d and d
+    """
+    
+    Fit = np.polyfit(ln_dFdt_N, RFs, 1, full = True)
+    a = Fit[0][0]
+    b = Fit[0][1]
+    d = Pars['kBT_pN_nm']/a
+    K_d0 = np.exp(-b/a)/a
+    
+    def d_err(a, d_a, Pars):
+        return Pars['kBT_pN_nm']/a*(d_a/a) #http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
+        
+    def k_D0_err(a, d_a, b, d_b, Pars):
+        d_ab = b/a*((d_b/b)**2+(d_a/a)**2)**(1/2)
+        d_e_ab = np.exp(-b/a)*d_ab
+        return 1/a*np.exp(-b/a)*((d_e_ab/np.exp(-a/b))**2+(d_a/a)**2)**(1/2) #http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
+    
+    a_err = Fit[3][0]
+    b_err = Fit[3][1]
+    
+    from math import log10, floor
+    D_err = round(d_err(a, a_err, Pars), -int(floor(log10(abs(d_err(a, a_err, Pars))))))
+    K_d0_err = round(k_D0_err(a, a_err, b, b_err, Pars), -int(floor(log10(abs(k_D0_err(a, a_err, b, b_err, Pars))))))
+    return a,a_err,b,b_err,d, D_err, K_d0, K_d0_err
+
 def peakdetect(y_axis, lookahead = 10, delta=1.5):
     """
     Converted from/based on a MATLAB script at: 

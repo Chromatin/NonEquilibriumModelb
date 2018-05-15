@@ -17,10 +17,10 @@ start_time = time.time()
 #import pickle
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'P:\18S FitFiles\Leiden_wt'
+folder = r'N:\Rick\Fit Files\Pythontestfit'
 #folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 
-newpath = folder+r'\FiguresPython'                                                   #New path to save the figures
+newpath = folder+r'\Figures'                                                   #New path to save the figures
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
@@ -30,7 +30,7 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = True                                                           #Choose to plot selected only
+PlotSelected = False                                                           #Choose to plot selected only
 MeasurementERR = 5                                                              #nm
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
@@ -216,6 +216,22 @@ ax.set_ylabel("Force (pN)")
 ax.set_xlim(-4,2)
 ax.legend(loc='best', title='Slope:' + str(np.round(a,1)) + '±' + str(np.round(Fit[3][0],1)) + ', intersect:' + str(np.round(b,1)) + '±' + str(np.round(Fit[3][1],1)))
 fig.savefig(newpath+r'\\'+'dF_dt_ln.png')
+
+
+def d_err(a, d_a, Pars):
+    return Pars['kBT_pN_nm']/a*(d_a/a)**4 #http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
+    
+def k_D0_err(a, d_a, b, d_b, Pars):
+    d_ab = b/a*((d_b/b)**2+(d_a/a)**2)**2
+    d_e_ab = np.exp(-b/a)*d_ab
+    return 1/a*np.exp(-b/a)*((d_e_ab/np.exp(-a/b))**2+(d_a/a)**2)**2 #http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
+
+a_err = Fit[3][0]
+b_err = Fit[3][1]
+
+print(d, ' +- ', d_err(a, a_err, Pars))
+print(k_d0, ' +- ', k_D0_err(a, a_err, b, b_err, Pars))
+
 
 #Plotting a hist of the stepsizes
 fig3 = plt.figure()

@@ -203,6 +203,23 @@ b = Fit[0][1]
 d = Pars['kBT_pN_nm']/a
 k_d0 = np.exp(-b/a)/a
 
+def d_err(a, d_a, Pars):
+    return Pars['kBT_pN_nm']/a*(d_a/a) #http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
+    
+def k_D0_err(a, d_a, b, d_b, Pars):
+    d_ab = b/a*((d_b/b)**2+(d_a/a)**2)**(1/2)
+    d_e_ab = np.exp(-b/a)*d_ab
+    return 1/a*np.exp(-b/a)*((d_e_ab/np.exp(-a/b))**2+(d_a/a)**2)**(1/2) #http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
+
+a_err = Fit[3][0]
+b_err = Fit[3][1]
+
+from math import log10, floor
+D_err = round(d_err(a, a_err, Pars), -int(floor(log10(abs(d_err(a, a_err, Pars))))))
+K_d0_err = round(k_D0_err(a, a_err, b, b_err, Pars), -int(floor(log10(abs(k_D0_err(a, a_err, b, b_err, Pars))))))
+
+
+
 fig, ax = plt.subplots()
 ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')
 ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
@@ -210,27 +227,13 @@ ax.plot(np.log(np.divide(Rups[:,2],Rups[:,1])), Rups[:,0], label='Data', color='
 ax.scatter(ln_dFdt_N, RFs, label='Data')
 ax.set_title("Brower-Toland analysis")
 fig.suptitle("d = "+str(np.round(d,2))+"nm, k_D(0)={:.2e}".format(k_d0)+" / sec")
+fig.suptitle("d = "+str(np.round(d,2))+"+-"+str(D_err)+"nm, k_D(0)={:.2e}".format(k_d0)+"+-"+str(K_d0_err)+" / sec")
 ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
 ax.set_ylabel("Force (pN)")
 #ax.set_ylim(5,40)
 ax.set_xlim(-4,2)
 ax.legend(loc='best', title='Slope:' + str(np.round(a,1)) + '±' + str(np.round(Fit[3][0],1)) + ', intersect:' + str(np.round(b,1)) + '±' + str(np.round(Fit[3][1],1)))
 fig.savefig(newpath+r'\\'+'dF_dt_ln.png')
-
-
-def d_err(a, d_a, Pars):
-    return Pars['kBT_pN_nm']/a*(d_a/a)**4 #http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
-    
-def k_D0_err(a, d_a, b, d_b, Pars):
-    d_ab = b/a*((d_b/b)**2+(d_a/a)**2)**2
-    d_e_ab = np.exp(-b/a)*d_ab
-    return 1/a*np.exp(-b/a)*((d_e_ab/np.exp(-a/b))**2+(d_a/a)**2)**2 #http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
-
-a_err = Fit[3][0]
-b_err = Fit[3][1]
-
-print(d, ' +- ', d_err(a, a_err, Pars))
-print(k_d0, ' +- ', k_D0_err(a, a_err, b, b_err, Pars))
 
 
 #Plotting a hist of the stepsizes

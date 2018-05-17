@@ -16,6 +16,7 @@ def read_dat(Filename):
     f = open(Filename, 'r')
     #get headers
     headers = f.readlines()[0]
+    headers.rstrip()
     headers = headers.split('\t')
     f.close()  
     #get data
@@ -69,7 +70,7 @@ def subtract_reference(data, headers, Beads=3, MedianFilter=5):
 #        plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')], alpha=0.5, label=str(i), lw=0) 
     return ReferenceBeads, Z_std, AveragedStuckBead, headers, data
 
-folder = r'G:\Klaas\Tweezers\Yeast Chromatin\Regensburg_18S\2017\170728\FlowCell PDMS'
+folder = r'N:\Rick\Tweezer data\2018_05_14 4x167n197 Chromatin\20180514 FC2 4x167M Chromatin'
 newpath = folder+r'\CorrectedDat'   
 
 if not os.path.exists(newpath):
@@ -107,7 +108,8 @@ for Filenum, DatFile in enumerate(Filenames):
     plt.show()
     
     with open(newpath +'\\'+ DatFile, 'w') as outfile:    
-        writer = csv.writer(outfile, delimiter ='\t') 
-        writer.writerow(headers)
+        writer = csv.writer(outfile, delimiter ='\t', lineterminator="\n", quotechar = " ") 
+        headers[len(headers)-1] = "Amp a.u."
+        data=np.vstack([np.array(headers), data])
         for row in data:
             writer.writerow(row)

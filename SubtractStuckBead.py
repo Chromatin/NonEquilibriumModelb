@@ -23,7 +23,7 @@ def read_dat(Filename):
     data = genfromtxt(Filename, skip_header = 1)
     return data, headers
     
-def subtract_reference(data, headers, Beads=3, MedianFilter=5):
+def subtract_reference(data, headers, Beads=3, MedianFilter=5, XY_correct = False):
     """Open .dat file from magnetic tweezers, averages the least moving beads and substracts them from the signal. 
     Output is a 2D array with all the data
     ***kwargs:
@@ -46,6 +46,7 @@ def subtract_reference(data, headers, Beads=3, MedianFilter=5):
     Z_std = dZ * Z_std
     
     AveragedStuckBead = np.zeros(len(T))
+    AveragedStuckBead_X, AveragedStuckBead_Y = AveragedStuckBead, AveragedStuckBead
     StuckBead=np.array([])
     mean=0
     ReferenceBeads = []
@@ -58,19 +59,30 @@ def subtract_reference(data, headers, Beads=3, MedianFilter=5):
         StuckBead = np.subtract(StuckBead,np.mean(StuckBead))
         StuckBead = np.nan_to_num(StuckBead)
         AveragedStuckBead = np.sum([AveragedStuckBead,StuckBead/Beads], axis=0)
+        AveragedStuckBead_X = np.sum([AveragedStuckBead_X,X_all[:,Low]/Beads], axis=0)
+        AveragedStuckBead_Y = np.sum([AveragedStuckBead_Y,Y_all[:,Low]/Beads], axis=0)
         Z_std[Low] = np.nan
         
     mean = mean / Beads    
     AveragedStuckBead = signal.medfilt(AveragedStuckBead,MedianFilter)
-    for i,x in enumerate(Z_std):
-        Position = headers.index('Z'+str(i)+' (um)')
-        data[:,Position] = np.subtract(data[:,Position], AveragedStuckBead + mean )
-        
+    AveragedStuckBead_X = signal.medfilt(AveragedStuckBead_X,MedianFilter)
+    AveragedStuckBead_Y = signal.medfilt(AveragedStuckBead_Y,MedianFilter)
+    if XY_correct == False:
+        for i,x in enumerate(Z_std):
+            Position = headers.index('Z'+str(i)+' (um)')
+            data[:,Position] = np.subtract(data[:,Position], AveragedStuckBead + mean )
+    else:
+        for i,x in enumerate(Z_std):
+            Position = headers.index('Z'+str(i)+' (um)')
+            data[:,Position] = np.subtract(data[:,Position], AveragedStuckBead + mean )
+            data[:,Position-2] = np.subtract(data[:,Position-2], AveragedStuckBead_X )
+            data[:,Position-1] = np.subtract(data[:,Position-1], AveragedStuckBead_Y )
+    
 #    for i in ReferenceBeads:
 #        plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')], alpha=0.5, label=str(i), lw=0) 
     return ReferenceBeads, Z_std, AveragedStuckBead, headers, data
 
-folder = r'N:\Rick\Tweezer data\2018_05_14 4x167n197 Chromatin\20180514 FC2 4x167M Chromatin'
+folder = r'G:\Klaas\Tweezers\Yeast Chromatin\Regensburg_18S\2018\2018_02_02_dUAF_Reg\FC3 15ul'
 newpath = folder+r'\CorrectedDat'   
 
 if not os.path.exists(newpath):
@@ -89,7 +101,7 @@ for Filenum, DatFile in enumerate(Filenames):
     except OSError: 
         print('>>>>>>>>>>>>File ', DatFile,' skipped>>>>>>>>>' ) 
         continue
-    try: ReferenceBeads, Z_std, AveragedStuckBead, headers, data = subtract_reference(data, headers,3,11)
+    try: ReferenceBeads, Z_std, AveragedStuckBead, headers, data = subtract_reference(data, headers,5,11)
     except ValueError:
         print('>>>>>>>>>>>>no Z found in ', DatFile,', probably a calibration file>>>>>>>>>' )
         continue
@@ -108,7 +120,7 @@ for Filenum, DatFile in enumerate(Filenames):
     plt.show()
     
     with open(newpath +'\\'+ DatFile, 'w') as outfile:    
-        writer = csv.writer(outfile, delimiter ='\t', lineterminator="\n", quotechar = " ") 
+        writer = csv.writer(outfile, delimiter ='\t', lineterminator="\r") 
         headers[len(headers)-1] = "Amp a.u."
         data=np.vstack([np.array(headers), data])
         for row in data:

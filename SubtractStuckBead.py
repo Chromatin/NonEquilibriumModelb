@@ -101,7 +101,7 @@ for Filenum, DatFile in enumerate(Filenames):
     except OSError: 
         print('>>>>>>>>>>>>File ', DatFile,' skipped>>>>>>>>>' ) 
         continue
-    try: ReferenceBeads, Z_std, AveragedStuckBead, headers, data = subtract_reference(data, headers,5,11)
+    try: ReferenceBeads, Z_std, AveragedStuckBead, headers, data = subtract_reference(data, headers, Beads = 5, MedianFilter = 11)
     except ValueError:
         print('>>>>>>>>>>>>no Z found in ', DatFile,', probably a calibration file>>>>>>>>>' )
         continue

@@ -3,7 +3,22 @@
 Created on Mon Apr 23 14:35:29 2018
 
 @author: nhermans
+
+Corrects .dat files from multiplexed magnetic tweezers, using stuck beads 
+within the sample. Plots the substracted signal and the beads that have been
+used to generate this reference. Always visually inspect this trace and judge 
+take care the subtracted signal actually makes sense. After the reference 
+subtraction, the used reference beads should be essentially straight lines.
+
 """
+
+###############################################################################
+#############   How to use:
+#############   1) Put all the .dat files you want to correct in one folder
+#############   2) Copy-Paste the foldername down below
+#############   3) Rename the Subfolder for the corrected .dat files
+###############################################################################
+
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy import genfromtxt
@@ -11,6 +26,16 @@ import csv
 import os 
 from scipy import signal
 plt.close()
+           
+
+folder = r'G:\Klaas\Tweezers\Yeast Chromatin\Regensburg_18S\2018\2018_02_02_dUAF_Reg\FC3 15ul'
+newpath = folder+r'\CorrectedDat'   
+if not os.path.exists(newpath):
+    os.makedirs(newpath)
+    
+###############################################################################
+##########################   Functions   ######################################
+###############################################################################
 
 def read_dat(Filename):
     f = open(Filename, 'r')
@@ -23,7 +48,7 @@ def read_dat(Filename):
     data = genfromtxt(Filename, skip_header = 1)
     return data, headers
     
-def subtract_reference(data, headers, Beads=3, MedianFilter=5, XY_correct = False):
+def subtract_reference(data, headers, Beads=3, MedianFilter=11, XY_correct = False):
     """Open .dat file from magnetic tweezers, averages the least moving beads and substracts them from the signal. 
     Output is a 2D array with all the data
     ***kwargs:
@@ -82,16 +107,14 @@ def subtract_reference(data, headers, Beads=3, MedianFilter=5, XY_correct = Fals
 #        plt.scatter(T,data[:,headers.index('Z'+str(int(i))+' (um)')], alpha=0.5, label=str(i), lw=0) 
     return ReferenceBeads, Z_std, AveragedStuckBead, headers, data
 
-folder = r'G:\Klaas\Tweezers\Yeast Chromatin\Regensburg_18S\2018\2018_02_02_dUAF_Reg\FC3 15ul'
-newpath = folder+r'\CorrectedDat'   
+###############################################################################
+##########################     Script    ######################################
+###############################################################################
 
-if not os.path.exists(newpath):
-    os.makedirs(newpath)
-    
 filenames = os.listdir(folder)
 os.chdir(folder)
     
-Filenames = []                                                                  #All .fit files    
+Filenames = []                                                                  #All .dat files    
 for filename in filenames:
     if filename[-4:] == '.dat':
         Filenames.append(filename)
@@ -103,7 +126,7 @@ for Filenum, DatFile in enumerate(Filenames):
         continue
     try: ReferenceBeads, Z_std, AveragedStuckBead, headers, data = subtract_reference(data, headers, Beads = 5, MedianFilter = 11)
     except ValueError:
-        print('>>>>>>>>>>>>no Z found in ', DatFile,', probably a calibration file>>>>>>>>>' )
+        print('>>>>>>>>>>>>Value error in ', DatFile,', probably a calibration file missing Z data>>>>>>>>>' )
         continue
     
     plt.figure(Filenum)
@@ -119,7 +142,7 @@ for Filenum, DatFile in enumerate(Filenames):
     plt.legend(loc='best')
     plt.show()
     
-    with open(newpath +'\\'+ DatFile, 'w') as outfile:    
+    with open(newpath +'\\'+ DatFile, 'w') as outfile:          #writes new .dat file  
         writer = csv.writer(outfile, delimiter ='\t', lineterminator="\r") 
         headers[len(headers)-1] = "Amp a.u."
         data=np.vstack([np.array(headers), data])

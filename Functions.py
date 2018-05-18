@@ -338,7 +338,7 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     """
     Calculates rupture forces and and corresponding stepsizes in bp by applying
     a median filter over the data. Plots the median filtered data over the
-    Force-Extension curve, and in the timetrace curve.
+    Force-Extension curve (ax1), and in the timetrace curve (ax3).
     Return--F_Rup_up: the forces for jumps to a higher state (tuple); 
             Step_up: stepsizes for jumps to a higher state (tuple);
             F_Rup_down: the forces for jumps to a lower state (tuple); 
@@ -347,7 +347,7 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
 
     dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
     
-    Mask = attribute2state(F_Selected, Z_Selected, States, Pars)
+    Mask = attribute2state(F_Selected, Z_Selected, States, Pars)                #Tels to which state a datapoint belongs
     MedianFilt = signal.medfilt(Mask, 9)
     
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
@@ -356,79 +356,119 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         Fit_Selected = np.array(wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         AllStates_Selected[:,i] = Fit_Selected        
  
-    Plot = []
-    k = 0
-    F_Rup_up = []
-    Step_up = []
-    F_Rup_down = []
-    Step_down = []    
-    TotalLifetime = np.zeros([len(States),])
+    NonEqFit = []                                                               #Highlights the occupied state at a given time/force
+    k = 0                                                                       #For the first loop
+    F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                   #Rupture forces and corresponding jumps
+    TotalLifetime = np.zeros([len(States),])                                    #Total lifetime for each State in seconds
     for i, j in enumerate(MedianFilt):    
         j = int(j)
         TotalLifetime[int(j)] += 1        
-        Plot.append(AllStates_Selected[i,int(j)])
+        NonEqFit.append(AllStates_Selected[i,int(j)])
         if k > j:
             F_Rup_down.append(F_Selected[i])
             Step_down.append((AllStates_Selected[i,j+1]-AllStates_Selected[i,j])/Pars['DNAds_nm'])
         if k < j:
             F_Rup_up.append(F_Selected[i])
             Step_up.append((AllStates_Selected[i,j]-AllStates_Selected[i,j-1])/Pars['DNAds_nm'])
-
         k = j
     
     TotalLifetime *= dt
 
-    ax1.plot(Plot, F_Selected, color='black', lw=2)
-    ax3.plot(T_Selected, Plot, color='black', lw=2)
+    ax1.plot(NonEqFit, F_Selected, color='black', lw=2)
+    ax3.plot(T_Selected, NonEqFit, color='black', lw=2)
 
     return F_Rup_up, Step_up, F_Rup_down, Step_down
 
 def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     """Returns a 2D-array with coloms 'ruptureforce', 'Number of nucleosomes left', 'dF/dt'"""
 
-    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
+    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)                         #Time interval
     
-    Mask = Z_Selected > ( Pars['Fiber0_bp']  * Pars['DNAds_nm'] ) - 15  #Start of the bead on the string state, - 1 Std                
+    Mask = Z_Selected > ( Pars['Fiber0_bp']  * Pars['DNAds_nm'] ) - 15  #Only select data from the start of the bead on the string state, - 1 Std                
     F_Selected = F_Selected[Mask]
     Z_Selected = Z_Selected[Mask]
     T_Selected = T_Selected[Mask]
         
-    Mask = attribute2state(F_Selected, Z_Selected, States, Pars)
+    Mask = attribute2state(F_Selected, Z_Selected, States, Pars)                #Tels to which state a datapoint belongs
     MedianFilt = signal.medfilt(Mask, 9)
     
-    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
+    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])         #2D Array containing extensions for each state
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
         Fit_Selected = np.array(wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         AllStates_Selected[:,i] = Fit_Selected        
  
-    Plot = []
-    k = 10000
-    F_Rup = np.empty((0,3)) #RuptureForce, N-nucl left, dF/dt
-    dF_dt = []
+    NonEqFit = []                                                               #Highlights the occupied state at a given time/force
+    k = 10000                                                                   #For the first loop 
+    F_Rup = np.empty((0,3)) #np.array([RuptureForce, N-nucl left, dF/dt])
     TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
         j = int(j)
         TotalLifetime[int(j)] += 1        
-        Plot.append(AllStates_Selected[i,int(j)])
+        NonEqFit.append(AllStates_Selected[i,int(j)])
         DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
-        if k < j and DeltaZ > 20 and DeltaZ < 30:
-            N = round( (wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79 ) #Number of nucl left at i, rounded to the nearest int.
+        if k < j and DeltaZ > 20 and DeltaZ < 30:                               #Only analyse 25 +- 5 nm steps
+            N = round((wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79) #Number of nucl left at i, rounded to the nearest int.
             dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
             F_Rup = np.append(F_Rup, [[F_Selected[i-1], N, dF_dt]], axis=0)    
         k = j
     
     TotalLifetime *= dt
     
-    ax1.plot(Plot, F_Selected, color='blue', lw=2)
-    ax3.plot(T_Selected, Plot, color='blue', lw=2)
+    ax1.plot(NonEqFit, F_Selected, color='blue', lw=2)
+    ax3.plot(T_Selected, NonEqFit, color='blue', lw=2)
     return F_Rup
+
+def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
+    """Returns a 2D-array with coloms 'ruptureforce', 'Number of nucleosomes left', 'dF/dt'"""
+
+    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)                         #Time interval
+    
+    Mask = Z_Selected < ( Pars['Fiber0_bp']  * Pars['DNAds_nm'] ) + 15  #Only select data up to the start of the bead on the string state, + 1 Std                
+    F_Selected = F_Selected[Mask]
+    Z_Selected = Z_Selected[Mask]
+    T_Selected = T_Selected[Mask]
+        
+    Mask = attribute2state(F_Selected, Z_Selected, States, Pars)                #Tels to which state a datapoint belongs
+    MedianFilt = signal.medfilt(Mask, 9)
+    
+    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])         #2D Array containing extensions for each state
+    for i, x in enumerate(States):
+        Ratio = ratio(x,Pars)
+        Fit_Selected = np.array(wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        AllStates_Selected[:,i] = Fit_Selected        
+ 
+    NonEqFit = []                                                               #Highlights the occupied state at a given time/force
+    k = 10000                                                                   #For the first loop 
+    N = 1
+    BT = np.empty((0,3)) #np.array([RuptureForce, N-nucl left, dF/dt])
+    TotalLifetime = np.zeros([len(States),])
+    for i, j in enumerate(MedianFilt):    
+        j = int(j)
+        TotalLifetime[int(j)] += 1        
+        NonEqFit.append(AllStates_Selected[i,int(j)])
+        DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
+        if k < j and DeltaZ > 60:                                               #Only analyse 25 +- 5 nm steps
+            dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
+            BT = np.append(BT, [[F_Selected[i-1], N, dF_dt]], axis=0)           
+            N += 1
+        k = j
+    
+    TotalLifetime *= dt
+    
+    BT[:,1] = BT[::-1,1] #reverse the 2nd column telling us now how many steps there are
+
+    ax1.plot(NonEqFit, F_Selected, color='green', lw=2)
+    ax3.plot(T_Selected, NonEqFit, color='green', lw=2)
+    return BT
+
 
 def dG_browertoland(ln_dFdt_N, RFs, Pars):
     """ 
     Linear fit of the BT plot (a + bx)
     Calculates d (distance to transition) and K_d0 (energy of transition)
     Calculates errors of the fit and the propagated error in the K_d and d
+    For error propagation: http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
     """
     
     Fit = np.polyfit(ln_dFdt_N, RFs, 1, full = True)
@@ -438,19 +478,18 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars):
     K_d0 = np.exp(-b/a)/a
     
     def d_err(a, d_a, Pars):
-        return Pars['kBT_pN_nm']/a*(d_a/a) #http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
+        return Pars['kBT_pN_nm']/a*(d_a/a) 
         
     def k_D0_err(a, d_a, b, d_b, Pars):
         d_ab = b/a*((d_b/b)**2+(d_a/a)**2)**(1/2)
         d_e_ab = np.exp(-b/a)*d_ab
-        return 1/a*np.exp(-b/a)*((d_e_ab/np.exp(-a/b))**2+(d_a/a)**2)**(1/2) #http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
+        return 1/a*np.exp(-b/a)*((d_e_ab/np.exp(-a/b))**2+(d_a/a)**2)**(1/2) 
     
     a_err = Fit[3][0]
     b_err = Fit[3][1]
-    
-    #from math import log10, floor
-    D_err = d_err(a, a_err, Pars) #-int(floor(log10(abs(d_err(a, a_err, Pars)))))
-    K_d0_err = k_D0_err(a, a_err, b, b_err, Pars) #-int(floor(log10(abs(k_D0_err(a, a_err, b, b_err, Pars)))))
+
+    D_err = d_err(a, a_err, Pars)
+    K_d0_err = k_D0_err(a, a_err, b, b_err, Pars)
     return a, a_err, b, b_err, d, D_err, K_d0, K_d0_err
 
 def peakdetect(y_axis, lookahead = 10, delta=1.5):

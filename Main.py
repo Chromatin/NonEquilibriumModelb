@@ -17,8 +17,8 @@ start_time = time.time()
 #import pickle
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-folder = r'P:\18S FitFiles\Leiden_wt'
-#folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
+#folder = r'P:\18S FitFiles\Leiden_wt'
+folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 
 newpath = folder+r'\Figures'                                                   #New path to save the figures
 if not os.path.exists(newpath):
@@ -30,14 +30,16 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = True                                                           #Choose to plot selected only
+PlotSelected = False                                                           #Choose to plot selected only
 MeasurementERR = 5                                                             #tracking inaccuracy in nm
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps
-Ruptures = np.empty((0,3)) 
+
+BT_Ruptures = np.empty((0,3))                                                   #Brower-Toland
+BT_Ruptures_Stacks = np.empty((0,3)) 
 
 Fignum = 1                                                                      #Used for output line
 
@@ -138,8 +140,12 @@ for Filenum, Filename in enumerate(Filenames):
     
     #Brower-Toland analysis    
     Rups = func.BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
-    Ruptures = np.append(Ruptures, Rups, axis=0)
+    BT_Ruptures = np.append(BT_Ruptures, Rups, axis=0)
     
+    #Brower-Toland analysis for stacking steps    
+    A = func.BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
+    BT_Ruptures_Stacks = np.append(BT_Ruptures_Stacks, A, axis=0)
+
     Sum = np.sum(Statemask, axis=1)        
     ax1.scatter(Z_Selected[Sum==0], F_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state
     ax3.scatter(T_Selected[Sum==0], Z_Selected[Sum==0], color='black', s=20)    #Datapoint that do not belong to any state
@@ -187,31 +193,38 @@ for Filenum, Filename in enumerate(Filenames):
     Fignum += 2
 #    plt.close('all')
 
-#Brower-Toland Analysis
-RFs = Ruptures[:,0]
-ln_dFdt_N = np.log(np.divide(Ruptures[:,2],Ruptures[:,1]))
-#Remove Ruptures at extensions larger than contour length (ln gets nan value)
-RFs = RFs[abs(ln_dFdt_N) < 10e6]
-ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
-x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
-a, a_err, b, b_err, d, D_err, K_d0, K_d0_err = func.dG_browertoland(ln_dFdt_N, RFs, Pars)
+def BT(BT_Ruptures, Steps=True):
+    #Brower-Toland Analysis
+    RFs = BT_Ruptures[:,0]
+    ln_dFdt_N = np.log(np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
+    #Remove Ruptures at extensions larger than contour length (ln gets nan value)
+    RFs = RFs[abs(ln_dFdt_N) < 10e6]
+    ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
+    x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
+    a, a_err, b, b_err, d, D_err, K_d0, K_d0_err = func.dG_browertoland(ln_dFdt_N, RFs, Pars)
+    
+    #BowerToland plot
+    fig, ax = plt.subplots()
+    ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')
+    ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
+#    ax.plot(np.log(np.divide(A[:,2],A[:,1])), A[:,0], label='Data', color='red')
+    ax.scatter(ln_dFdt_N, RFs, label='Data')
+    ax.set_title("Brower-Toland analysis")
+    Subtitle = "d = " + str(np.round(d,1)) + "±" + str(np.round(D_err,1))
+    Subtitle = Subtitle + " nm, k_D(0) = {:.1e}".format(K_d0) + "±{:.1e}".format(K_d0_err)+" / sec"
+    fig.suptitle(Subtitle)
+    ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
+    ax.set_ylabel("Force (pN)")
+#    ax.set_ylim(5,40)
+#    ax.set_xlim(-4,2)
+    ax.legend(loc='best', title='Slope:' + str(np.round(a,1)) + '±' + str(np.round(a_err,1)) + ', intersect:' + str(np.round(b,1)) + '±' + str(np.round(b_err,1)))
+    if Steps:    
+        fig.savefig(newpath+r'\\'+'BT_Steps.png')
+    else:
+        fig.savefig(newpath+r'\\'+'BT_Stacks.png')
 
-#BowerToland plot
-fig, ax = plt.subplots()
-ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')
-ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
-ax.plot(np.log(np.divide(Rups[:,2],Rups[:,1])), Rups[:,0], label='Data', color='red')
-ax.scatter(ln_dFdt_N, RFs, label='Data')
-ax.set_title("Brower-Toland analysis")
-Subtitle = "d = " + str(np.round(d,1)) + "±" + str(np.round(D_err,1))
-Subtitle = Subtitle + " nm, k_D(0) = {:.1e}".format(K_d0) + "±{:.1e}".format(K_d0_err)+" / sec"
-fig.suptitle(Subtitle)
-ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
-ax.set_ylabel("Force (pN)")
-#ax.set_ylim(5,40)
-ax.set_xlim(-4,2)
-ax.legend(loc='best', title='Slope:' + str(np.round(a,1)) + '±' + str(np.round(a_err,1)) + ', intersect:' + str(np.round(b,1)) + '±' + str(np.round(b_err,1)))
-fig.savefig(newpath+r'\\'+'dF_dt_ln.png')
+BT(BT_Ruptures, True)
+BT(BT_Ruptures_Stacks, False)
 
 #Plotting a histogram of the stepsizes
 fig3 = plt.figure()

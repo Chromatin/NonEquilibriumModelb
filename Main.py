@@ -203,6 +203,9 @@ def BT(BT_Ruptures, Steps=True):
     x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
     a, a_err, b, b_err, d, D_err, K_d0, K_d0_err = func.dG_browertoland(ln_dFdt_N, RFs, Pars)
     
+    K0 = 5e9
+    Delta_G = -np.log(K_d0/K0) #in k_BT    
+    
     #BowerToland plot
     fig, ax = plt.subplots()
     ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')
@@ -210,8 +213,9 @@ def BT(BT_Ruptures, Steps=True):
 #    ax.plot(np.log(np.divide(A[:,2],A[:,1])), A[:,0], label='Data', color='red')
     ax.scatter(ln_dFdt_N, RFs, label='Data')
     ax.set_title("Brower-Toland analysis")
-    Subtitle = "d = " + str(np.round(d,1)) + "±" + str(np.round(D_err,1))
-    Subtitle = Subtitle + " nm, k_D(0) = {:.1e}".format(K_d0) + "±{:.1e}".format(K_d0_err)+" / sec"
+    Subtitle = "d = " + str(np.round(d,1)) + "±" + str(np.round(D_err,1)) + " nm"
+    Subtitle = Subtitle + ", k_D(0) = {:.1e}".format(K_d0) + "±{:.1e}".format(K_d0_err)+" / sec"
+    Subtitle = Subtitle + ", Delta G=" + str(Delta_G) + " k_BT"
     fig.suptitle(Subtitle)
     ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
     ax.set_ylabel("Force (pN)")

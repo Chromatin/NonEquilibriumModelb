@@ -440,7 +440,6 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
  
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
     k = 10000                                                                   #For the first loop 
-    N = 1
     BT = np.empty((0,3)) #np.array([RuptureForce, N-nucl left, dF/dt])
     TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
@@ -448,15 +447,14 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
         TotalLifetime[int(j)] += 1        
         NonEqFit.append(AllStates_Selected[i,int(j)])
         DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
-        if k < j and DeltaZ > 60:                                               #Only analyse 25 +- 5 nm steps
+        if k < j and DeltaZ > 0:                                               #Only analyse Steps larger than 0nm
             dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
-            BT = np.append(BT, [[F_Selected[i-1], N, dF_dt]], axis=0)           
-            N += 1
+            BT = np.append(BT, [[F_Selected[i-1], j, dF_dt]], axis=0)           
         k = j
     
     TotalLifetime *= dt
-    
-    BT[:,1] = BT[::-1,1] #reverse the 2nd column telling us now how many steps there are
+    if len(BT[:,1]) > 0:
+        BT[:,1] = np.abs(BT[:,1]-np.max(BT[:,1])) + 1                           #Tels how much states are left
 
     ax1.plot(NonEqFit, F_Selected, color='green', lw=2)
     ax3.plot(T_Selected, NonEqFit, color='green', lw=2)

@@ -66,7 +66,7 @@ for Filenum, Filename in enumerate(Filenames):
         print("<<<<<<<<<<<", Filename,'==> No data points left after filtering!>>>>>>>>>>>>')
         continue
     
-    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewStateMask, NewAllStates = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2) #Finds States
+    PossibleStates, ProbSum, Peak, States, AllStates, Statemask, NewStates, NewAllStates, NewStateMask = func.find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2) #Finds States
    
     #Calculates stepsize
     Unwrapsteps = []
@@ -202,9 +202,7 @@ def BT(BT_Ruptures, Steps=True):
     ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
     x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
     a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err = func.dG_browertoland(ln_dFdt_N, RFs, Pars)
-    
-    print("d_G=", Delta_G, "+-", Delta_G_err, "kT")
-   
+       
     #BowerToland plot
     fig, ax = plt.subplots()
     ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')

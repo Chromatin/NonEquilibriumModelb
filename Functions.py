@@ -180,16 +180,17 @@ def probsum_hook(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     return ProbSum
 
 def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2):
-    """Finds states based on the probablitiy landscape"""     
+    """Finds states based on the probablitiy landscape and merges where necessary"""     
     #Generate FE curves for possible states
     start = Pars['FiberStart_bp']-200
     if start <= 0: start = 1 
     PossibleStates = np.arange(start, Pars['L_bp']+50,1)    #range to fit 
     ProbSum = probsum(F_Selected, Z_Selected, PossibleStates, Pars)             #Calculate probability landscape
-    PeakInd, Peak = peakdetect(ProbSum, delta=1)                                      #Find Peaks    
+    PeakInd, Peak = peakdetect(ProbSum, delta=1)                                #Find Peaks    
     States = PossibleStates[PeakInd]                                            #Defines state for each peak
 
-    AllStates = np.empty(shape=[len(Z), len(States)])                           #2d array of the states  
+    #2d array of the states: Containts coloms of states with each entry in a row the extension corresponding to the force in F(_Selected)  
+    AllStates = np.empty(shape=[len(Z), len(States)])                           
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])  
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
@@ -199,22 +200,13 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
         AllStates_Selected[:,i] = Fit_Selected        
     
     std = STD(F_Selected, Z_Selected, States, Pars)
-    z_Score = z_score(Z_Selected, AllStates_Selected, std, States)    
+    Z_Score = z_score(Z_Selected, AllStates_Selected, std, States)    
     
-#    import matplotlib.pyplot as plt
-#    fig, ax = plt.subplots()
-##    ax.plot(z_Score[:,3], F_Selected)
-#    for i in np.arange(len(States)-1):
-#        ax.plot(z_Score[:,i]-z_Score[:,i+1], F_Selected, label=i)
-#    ax.legend()
-    
-    
-    StateMask = np.abs(z_Score) < Z_Cutoff
+    StateMask = np.abs(Z_Score) < Z_Cutoff
     PointsPerState = np.sum(StateMask, axis=0)
-#    #Remove states with 5 or less datapoints
+
+    #Remove states with 'Minpoints' or less datapoints
     RemoveStates = removestates(StateMask, MinPoints=1)
-    #StateMask = np.abs(z_Score) < 2.5
-    
     if len(RemoveStates)>0:
         States = np.delete(States, RemoveStates)
         Peak = np.delete(Peak, RemoveStates)
@@ -222,51 +214,56 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
         StateMask = np.delete(StateMask, RemoveStates, axis=1)
         AllStates = np.delete(AllStates, RemoveStates, axis=1)
         AllStates_Selected = np.delete(AllStates_Selected, RemoveStates, axis=1)
+        Z_Score = np.delete(Z_Score, RemoveStates, axis=1)
     
     PointsPerState = np.sum(StateMask, axis=0)
 
     #Merging 2 states and checking whether is better or not
+    #Make copies of all crucial arrays, so the original maintains its values
     NewStates = np.copy(States)
     NewStateMask = np.copy(StateMask)
     NewAllStates = np.copy(AllStates)
-    Newz_Score = np.copy(z_Score)
-    k = 0
+    NewZ_Score = np.copy(Z_Score)
+    
+    N_Merged = 0                                                                #Keeps track of the number merges that have taken place
     for i in np.arange(0,len(States)-1): 
-        i = i - k
-        MergedState = (NewStates[i]*PointsPerState[i]+NewStates[i+1]*PointsPerState[i+1])/(PointsPerState[i]+PointsPerState[i+1])
+        i = i - N_Merged #Correct for the states that are removed
+
+        MergedState = (NewStates[i]*PointsPerState[i]+NewStates[i+1]*PointsPerState[i+1])/(PointsPerState[i]+PointsPerState[i+1]) #New state that is weigheted average of two neighbouring states
         Ratio = ratio(MergedState,Pars)
-        MergedStateArr = np.array(wlc(F_Selected,Pars)*MergedState*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        MergedStateAllArr = np.array(wlc(F,Pars)*MergedState*Pars['DNAds_nm'] + hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        MergedStateArr = np.array(wlc(F,Pars)*MergedState*Pars['DNAds_nm'] + hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        MergedStateArr_Selected = np.array(wlc(F_Selected,Pars)*MergedState*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
         
         Std = STD(F_Selected, Z_Selected, MergedState, Pars)
-        Z_Score = z_score(Z_Selected, MergedStateArr, Std, 1).ravel()
+        Z_Score_MergedState = z_score(Z_Selected, MergedStateArr_Selected, Std, 1).ravel()
         
-        MergedStateMask = np.abs(Z_Score) < Z_Cutoff
-        MergedStateMask = MergedStateMask.ravel()
+        MergedStateMask = np.abs(Z_Score_MergedState) < Z_Cutoff
+#        MergedStateMask = MergedStateMask.ravel() ###################Not necessary anymore?
         MergedSum = np.sum(MergedStateMask)
-#        print("# Of point within 2.5 sigma in State", i, ":State", i+1, ":Merged =", PointsPerState[i],":", PointsPerState[i+1], ":", MergedSum)
         
-        #Fraction of overlapping points in datapoints between two initial states:                      
+        #Fraction of overlapping points in datapoints between two initial states                      
         Overlap = np.sum(NewStateMask[:,i] * NewStateMask[:,i+1])/np.min([PointsPerState[i], PointsPerState[i+1]]) 
         
-        #Fraction overlapping points in datapoints between the merged state and sum of two initial states:   
+        #Fraction overlapping points in datapoints between the merged state and sum of two initial states 
         overlap = np.sum(np.any([NewStateMask[:,i],NewStateMask[:,i+1]], axis=0)*MergedStateMask*1)/np.max([np.sum(NewStateMask[:,i]),np.sum(NewStateMask[:,i+1])])
         
         #Merge Overlapping states when new state is better:
-        if Overlap  > 0.5 and overlap > 0.8:                                   #stats.mannwhitneyu(Z_Selected[NewStateMask[:,i]], Z_Selected[NewStateMask[:,i+1]])[1] > 0.00001:        # #What criterium should be here?!
+        if Overlap  > 0.5 and overlap > 0.8:       
+            #Delete 1 of the two initial states            
             NewStates = np.delete(NewStates, i)
             PointsPerState = np.delete(PointsPerState, i)
             NewStateMask = np.delete(NewStateMask, i, axis=1)
             NewAllStates = np.delete(NewAllStates, i, axis=1)
-            Newz_Score = np.delete(Newz_Score, i, axis=1)
+            NewZ_Score = np.delete(NewZ_Score, i, axis=1)
+            #Replace the other state by the new (merged) state
             NewStates[i] = MergedState
             PointsPerState[i] = MergedSum
             NewStateMask[:,i] = MergedStateMask
-            NewAllStates[:,i] = MergedStateAllArr
-            Newz_Score[:,i] = Z_Score
-            k += 1
+            NewAllStates[:,i] = MergedStateArr
+            NewZ_Score[:,i] = Z_Score_MergedState
+            N_Merged += 1
                           
-    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates, NewStateMask, NewAllStates
+    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates, NewAllStates, NewStateMask
 
 def conv(y, box_pts=5):
     """Convolution of a signal y with a box of size box_pts with height 1/box_pts"""

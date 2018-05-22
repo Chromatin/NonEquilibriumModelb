@@ -488,7 +488,12 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars):
 
     D_err = d_err(a, a_err, Pars)
     K_d0_err = k_D0_err(a, a_err, b, b_err, Pars)
-    return a, a_err, b, b_err, d, D_err, K_d0, K_d0_err
+    
+    K0 = 5e9
+    Delta_G = -np.log(K_d0/K0) #in k_BT    
+    Delta_G_err = K_d0_err/(K_d0)
+    
+    return a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err
 
 def peakdetect(y_axis, lookahead = 10, delta=1.5):
     """

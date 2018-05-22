@@ -179,23 +179,27 @@ def probsum_hook(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     ProbSum = np.sum(Pz, axis=1) 
     return ProbSum
 
+def TheModel(F, State, Ratio, Pars):
+    """Calculates the extension for a state given the model of wlc + Hookian spring"""
+    return wlc(F,Pars)*State*Pars['DNAds_nm'] + hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm']
+
 def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2):
     """Finds states based on the probablitiy landscape and merges where necessary"""     
     #Generate FE curves for possible states
-    start = Pars['FiberStart_bp']-200
+    start = Pars['FiberStart_bp'] - 200
     if start <= 0: start = 1 
-    PossibleStates = np.arange(start, Pars['L_bp']+50,1)    #range to fit 
+    PossibleStates = np.arange(start, Pars['L_bp'] + 50, 1)    #range to fit 
     ProbSum = probsum(F_Selected, Z_Selected, PossibleStates, Pars)             #Calculate probability landscape
     PeakInd, Peak = peakdetect(ProbSum, delta=1)                                #Find Peaks    
     States = PossibleStates[PeakInd]                                            #Defines state for each peak
 
-    #2d array of the states: Containts coloms of states with each entry in a row the extension corresponding to the force in F(_Selected)  
+    #2D array of the states: Containts coloms of states with each entry in a row the extension corresponding to the force in F(_Selected)  
     AllStates = np.empty(shape=[len(Z), len(States)])                           
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])  
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit = np.array(wlc(F,Pars)*x*Pars['DNAds_nm'] + hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        Fit_Selected = np.array(wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        Fit = TheModel(F, x, Ratio, Pars) 
+        Fit_Selected = TheModel(F_Selected, x, Ratio, Pars)
         AllStates[:,i] = Fit        
         AllStates_Selected[:,i] = Fit_Selected        
     
@@ -207,32 +211,36 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
 
     #Remove states with 'Minpoints' or less datapoints
     RemoveStates = removestates(StateMask, MinPoints=1)
-    if len(RemoveStates)>0:
-        States = np.delete(States, RemoveStates)
-        Peak = np.delete(Peak, RemoveStates)
-        PeakInd = np.delete(PeakInd, RemoveStates)
-        StateMask = np.delete(StateMask, RemoveStates, axis=1)
-        AllStates = np.delete(AllStates, RemoveStates, axis=1)
-        AllStates_Selected = np.delete(AllStates_Selected, RemoveStates, axis=1)
-        Z_Score = np.delete(Z_Score, RemoveStates, axis=1)
+    if len(RemoveStates) > 0:
+        States              = np.delete(States, RemoveStates)
+        Peak                = np.delete(Peak, RemoveStates)
+        PeakInd             = np.delete(PeakInd, RemoveStates)
+        StateMask           = np.delete(StateMask, RemoveStates, axis=1)
+        AllStates           = np.delete(AllStates, RemoveStates, axis=1)
+        AllStates_Selected  = np.delete(AllStates_Selected, RemoveStates, axis=1)
+        Z_Score             = np.delete(Z_Score, RemoveStates, axis=1)
     
     PointsPerState = np.sum(StateMask, axis=0)
 
     #Merging 2 states and checking whether is better or not
-    #Make copies of all crucial arrays, so the original maintains its values
-    NewStates = np.copy(States)
-    NewStateMask = np.copy(StateMask)
-    NewAllStates = np.copy(AllStates)
-    NewZ_Score = np.copy(Z_Score)
+    #Make copies of all crucial arrays, so the original maintain their values
+    NewStates       = np.copy(States)
+    NewStateMask    = np.copy(StateMask)
+    NewAllStates    = np.copy(AllStates)
+    NewZ_Score      = np.copy(Z_Score)
     
     N_Merged = 0                                                                #Keeps track of the number merges that have taken place
     for i in np.arange(0,len(States)-1): 
-        i = i - N_Merged #Correct for the states that are removed
+        i = i - N_Merged                                                        #Correct for the states that are removed
 
-        MergedState = (NewStates[i]*PointsPerState[i]+NewStates[i+1]*PointsPerState[i+1])/(PointsPerState[i]+PointsPerState[i+1]) #New state that is weigheted average of two neighbouring states
+        #New state that is weigheted average of two neighbouring states
+        MergedState = (NewStates[i]*PointsPerState[i]+NewStates[i+1]*PointsPerState[i+1])/(PointsPerState[i]+PointsPerState[i+1]) 
+        
         Ratio = ratio(MergedState,Pars)
-        MergedStateArr = np.array(wlc(F,Pars)*MergedState*Pars['DNAds_nm'] + hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
-        MergedStateArr_Selected = np.array(wlc(F_Selected,Pars)*MergedState*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        
+        #Each entry is the extension corresponding to the force in F(_Selected)         
+        MergedStateArr =TheModel(F, MergedState, Ratio, Pars)
+        MergedStateArr_Selected = TheModel(F_Selected, MergedState, Ratio, Pars)
         
         Std = STD(F_Selected, Z_Selected, MergedState, Pars)
         Z_Score_MergedState = z_score(Z_Selected, MergedStateArr_Selected, Std, 1).ravel()
@@ -250,17 +258,17 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
         #Merge Overlapping states when new state is better:
         if Overlap  > 0.5 and overlap > 0.8:       
             #Delete 1 of the two initial states            
-            NewStates = np.delete(NewStates, i)
-            PointsPerState = np.delete(PointsPerState, i)
-            NewStateMask = np.delete(NewStateMask, i, axis=1)
-            NewAllStates = np.delete(NewAllStates, i, axis=1)
-            NewZ_Score = np.delete(NewZ_Score, i, axis=1)
+            NewStates       = np.delete(NewStates, i)
+            PointsPerState  = np.delete(PointsPerState, i)
+            NewStateMask    = np.delete(NewStateMask, i, axis=1)
+            NewAllStates    = np.delete(NewAllStates, i, axis=1)
+            NewZ_Score      = np.delete(NewZ_Score, i, axis=1)
             #Replace the other state by the new (merged) state
-            NewStates[i] = MergedState
-            PointsPerState[i] = MergedSum
-            NewStateMask[:,i] = MergedStateMask
-            NewAllStates[:,i] = MergedStateArr
-            NewZ_Score[:,i] = Z_Score_MergedState
+            NewStates[i]        = MergedState
+            PointsPerState[i]   = MergedSum
+            NewStateMask[:,i]   = MergedStateMask
+            NewAllStates[:,i]   = MergedStateArr
+            NewZ_Score[:,i]     = Z_Score_MergedState
             N_Merged += 1
                           
     return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates, NewAllStates, NewStateMask
@@ -279,25 +287,16 @@ def removestates(StateMask, MinPoints=5):
             RemoveStates = np.append(RemoveStates,i)
     return RemoveStates
 
-def mergestates(States,MergeStates):
-    """Merges states as specied in the second array. If two consequtive states are to be merged, only one is removed.
-    Returns a new State array"""
-    old = 0
-    for i,x in enumerate(MergeStates):
-        if x-old != 1: 
-            States = np.delete(States, x)
-            old = x
-    return States
-
 def z_score(Z_Selected, Z_States, std, States):
     """Calculate the z score of each value in the sample, relative to the a given mean and standard deviation.
     Parameters:	
             a : array_like
-            An array like object containing the sample data.
+                An array like object containing the sample data.
             mean: float
             std : float
+            States: ndarray, int
     """
-    if type(States) == np.ndarray: #while merging states, Z_States is only 1 state, this fixes dimensions
+    if type(States) == np.ndarray: #while merging states, Z_States is only 1 state (int), this fixes dimensions
         Z_Selected_New = (np.tile(Z_Selected,(len(States),1))).T               #Copies Z_Selected array into colomns of States with len(Z_States[0,:]) rows    
     else:
         Z_Selected_New = np.reshape(Z_Selected, (len(Z_Selected),1))
@@ -305,12 +304,14 @@ def z_score(Z_Selected, Z_States, std, States):
     return np.divide(Z_Selected_New-Z_States, std.T)
 
 def double_gauss(x, step=75, Sigma=15, a1=1, a2=1):
+    """Double gaussian with mean2 = 2*mean1"""
     return a1*(1+erfaprox((x-step)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-(step*2))/(Sigma*np.sqrt(2))))
 
 def double_indep_gauss(x, step1=80, step2=160, Sigma=15, a1=1, a2=1):
+    """Double gaussian with independent means"""
     return a1*(1+erfaprox((x-step1)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-step2)))/(Sigma*np.sqrt(2))
 
-def fit_2step_gauss(Steps, Step = 80, Amp1 = 30, Amp2 = 10, Sigma = 15):
+def fit_2step_gauss(Steps, Step=80, Amp1=30, Amp2=10, Sigma=15):
     """Function to fit 25nm steps with a double gauss, as a PDF"""
     from scipy.optimize import curve_fit
     Steps = np.array(Steps)
@@ -326,7 +327,7 @@ def attribute2state(F, Z, States, Pars, Fmax_Hook=10):
     Ratio = ratio(States,Pars)
     WLC = wlc(F,Pars).reshape(len(wlc(F,Pars)),1)
     Hook = hook(F,Pars['k_pN_nm'],Fmax_Hook).reshape(len(hook(F,Pars['k_pN_nm'],Fmax_Hook)),1)
-    ZState = np.array( np.multiply(WLC,(States*Pars['DNAds_nm'])) + np.multiply(Hook,(Ratio*Pars['ZFiber_nm'])) )
+    ZState = np.array(np.multiply(WLC,(States*Pars['DNAds_nm'])) + np.multiply(Hook,(Ratio*Pars['ZFiber_nm'])))
     ZminState = np.subtract(ZState,Z.reshape(len(Z),1)) 
     StateMask = np.argmin(abs(ZminState),1)       
     return StateMask 
@@ -350,7 +351,7 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = np.array(wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        Fit_Selected = TheModel(F_Selected, x, Ratio, Pars) 
         AllStates_Selected[:,i] = Fit_Selected        
  
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
@@ -392,7 +393,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])         #2D Array containing extensions for each state
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = np.array(wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        Fit_Selected = TheModel(F_Selected, x, Ratio, Pars)
         AllStates_Selected[:,i] = Fit_Selected        
  
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
@@ -412,8 +413,8 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     
     TotalLifetime *= dt
     
-    ax1.plot(NonEqFit, F_Selected, color='blue', lw=2)
-    ax3.plot(T_Selected, NonEqFit, color='blue', lw=2)
+#    ax1.plot(NonEqFit, F_Selected, color='blue', lw=2)
+#    ax3.plot(T_Selected, NonEqFit, color='blue', lw=2)
     return F_Rup
 
 def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
@@ -432,7 +433,7 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])         #2D Array containing extensions for each state
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = np.array(wlc(F_Selected,Pars)*x*Pars['DNAds_nm'] + hook(F_Selected,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm'])
+        Fit_Selected = TheModel(F_Selected, x, Ratio, Pars)
         AllStates_Selected[:,i] = Fit_Selected        
  
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
@@ -453,8 +454,8 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
     if len(BT[:,1]) > 0:
         BT[:,1] = np.abs(BT[:,1]-np.max(BT[:,1])) + 1                           #Tels how much states are left
 
-    ax1.plot(NonEqFit, F_Selected, color='green', lw=2)
-    ax3.plot(T_Selected, NonEqFit, color='green', lw=2)
+#    ax1.plot(NonEqFit, F_Selected, color='green', lw=2)
+#    ax3.plot(T_Selected, NonEqFit, color='green', lw=2)
     return BT
 
 

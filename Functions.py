@@ -257,15 +257,11 @@ def fit_2step_gauss(Steps, Step=80, Amp1=30, Amp2=10, Sigma=15):
     popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2])
     return popt
 
-def attribute2state(F, Z, States, Pars, Fmax_Hook=10):
+def attribute2state(Z, States_Selected):
     """Calculates for each datapoint which state it most likely belongs too
     Return an array with indexes referring to the State array"""
-    Ratio = ratio(States,Pars)
-    WLC = wlc(F,Pars).reshape(len(wlc(F,Pars)),1)
-    Hook = hook(F,Pars['k_pN_nm'],Fmax_Hook).reshape(len(hook(F,Pars['k_pN_nm'],Fmax_Hook)),1)
-    ZState = np.array(np.multiply(WLC,(States*Pars['DNAds_nm'])) + np.multiply(Hook,(Ratio*Pars['ZFiber_nm'])))
-    ZminState = np.subtract(ZState,Z.reshape(len(Z),1)) 
-    StateMask = np.argmin(abs(ZminState),1)       
+    States_diff = States_Selected-Z[:,None]
+    StateMask = np.argmin(abs(States_diff),1)       
     return StateMask 
    
 def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
@@ -281,15 +277,15 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
 
     dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)    
     
-    Mask = attribute2state(F_Selected, Z_Selected, States, Pars)                #Tels to which state a datapoint belongs
-    MedianFilt = signal.medfilt(Mask, 9)
-    
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
         Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars) 
         AllStates_Selected[:,i] = Fit_Selected        
- 
+        
+    Mask = attribute2state(Z_Selected, AllStates_Selected)                #Tels to which state a datapoint belongs
+    MedianFilt = signal.medfilt(Mask, 9)
+    
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
     k = 0                                                                       #For the first loop
     F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                   #Rupture forces and corresponding jumps
@@ -323,15 +319,15 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     Z_Selected = Z_Selected[Mask]
     T_Selected = T_Selected[Mask]
         
-    Mask = attribute2state(F_Selected, Z_Selected, States, Pars)                #Tels to which state a datapoint belongs
-    MedianFilt = signal.medfilt(Mask, 9)
-    
-    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])         #2D Array containing extensions for each state
+    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars)
+        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars) 
         AllStates_Selected[:,i] = Fit_Selected        
- 
+        
+    Mask = attribute2state(Z_Selected, AllStates_Selected)                #Tels to which state a datapoint belongs
+    MedianFilt = signal.medfilt(Mask, 9)
+    
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
     k = 10000                                                                   #For the first loop 
     F_Rup = np.empty((0,3)) #np.array([RuptureForce, N-nucl left, dF/dt])
@@ -363,14 +359,14 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
     Z_Selected = Z_Selected[Mask]
     T_Selected = T_Selected[Mask]
         
-    Mask = attribute2state(F_Selected, Z_Selected, States, Pars)                #Tels to which state a datapoint belongs
-    MedianFilt = signal.medfilt(Mask, 9)
-    
-    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])         #2D Array containing extensions for each state
+    AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars)
+        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars) 
         AllStates_Selected[:,i] = Fit_Selected        
+        
+    Mask = attribute2state(Z_Selected, AllStates_Selected)                #Tells to which state a datapoint belongs
+    MedianFilt = signal.medfilt(Mask, 9)  
  
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
     k = 10000                                                                   #For the first loop 

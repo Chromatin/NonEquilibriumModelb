@@ -27,11 +27,11 @@ def fjc(f, Pars):
     """calculates a Freely Jointed Chain with a kungslength of 
     b = 3 KbT / k*L
     where L is the length of the fiber in nm, and k the stiffness in nm pN per nucleosome""" 
-    
     b = 3 * Pars['kBT_pN_nm'] / (Pars['k_pN_nm']*Pars['ZFiber_nm'])
     x = f * b / Pars['kBT_pN_nm']
-    # coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
     z = (exp(x) + 1 / exp(x)) / (exp(x) - 1 / exp(x)) - 1 / x
+    
+    # coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
     #z *= Pars['L_bp']*Pars['DNAds_nm']   #work /dG term not used atm
     #z_df = (Pars['kBT_pN_nm'] / b) * (np.log(np.sinh(x)) - np.log(x))  #*L_nm #  + constant --> integrate over f (finish it
     #w = f * z - z_df
@@ -143,7 +143,6 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
     Z_Score = z_score(Z_Selected, AllStates_Selected, std, States)    
     
     StateMask = np.abs(Z_Score) < Z_Cutoff
-    PointsPerState = np.sum(StateMask, axis=0)
 
     #Remove states with 'Minpoints' or less datapoints
     RemoveStates = removestates(StateMask, MinPoints=1)
@@ -154,11 +153,21 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
         StateMask           = np.delete(StateMask, RemoveStates, axis=1)
         AllStates           = np.delete(AllStates, RemoveStates, axis=1)
         AllStates_Selected  = np.delete(AllStates_Selected, RemoveStates, axis=1)
-        Z_Score             = np.delete(Z_Score, RemoveStates, axis=1)
-    
-    PointsPerState = np.sum(StateMask, axis=0)
+        Z_Score             = np.delete(Z_Score, RemoveStates, axis=1)  
 
     #Merging 2 states and checking whether is better or not
+    NewStates, NewAllStates, NewStateMask = merge(F, F_Selected, Z_Selected, States, StateMask, AllStates, Z_Score, Z_Cutoff, Pars)
+                              
+    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates, NewAllStates, NewStateMask
+
+def merge(F, F_Selected, Z_Selected, States, StateMask, AllStates, Z_Score, Z_Cutoff, Pars):
+    """Merge states based on overlap following these 2 criteria: 
+        1.The two initial states must have at least 50% overlap;
+        2.The new state must have at least 80% overlap with the two old states combined.
+        Returns: NewStates, NewAllStates, NewStateMask
+    """
+    PointsPerState = np.sum(StateMask, axis=0)
+    
     #Make copies of all crucial arrays, so the original maintain their values
     NewStates       = np.copy(States)
     NewStateMask    = np.copy(StateMask)
@@ -175,14 +184,13 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
         Ratio = ratio(MergedState,Pars)
         
         #Each entry is the extension corresponding to the force in F(_Selected)         
-        MergedStateArr =TheModel_FJC(F, MergedState, Ratio, Pars)
+        MergedStateArr = TheModel_FJC(F, MergedState, Ratio, Pars)
         MergedStateArr_Selected = TheModel_FJC(F_Selected, MergedState, Ratio, Pars)
         
         Std = STD(F_Selected, Z_Selected, MergedState, Pars)
         Z_Score_MergedState = z_score(Z_Selected, MergedStateArr_Selected, Std, 1).ravel()
         
         MergedStateMask = np.abs(Z_Score_MergedState) < Z_Cutoff
-#        MergedStateMask = MergedStateMask.ravel() ###################Not necessary anymore?
         MergedSum = np.sum(MergedStateMask)
         
         #Fraction of overlapping points in datapoints between two initial states                      
@@ -205,9 +213,9 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
             NewStateMask[:,i]   = MergedStateMask
             NewAllStates[:,i]   = MergedStateArr
             NewZ_Score[:,i]     = Z_Score_MergedState
-            N_Merged += 1
-                          
-    return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates, NewAllStates, NewStateMask
+            N_Merged += 1  
+    
+    return NewStates, NewAllStates, NewStateMask
 
 def conv(y, box_pts=5):
     """Convolution of a signal y with a box of size box_pts with height 1/box_pts"""
@@ -253,7 +261,6 @@ def fit_2step_gauss(Steps, Step=80, Amp1=30, Amp2=10, Sigma=15):
     Steps = np.array(Steps)
     Steps = np.sort(Steps)
     PDF = np.arange(len(Steps))
-    #popt, pcov = curve_fit(double_indep_gauss, Steps, PDF, p0=[Step, 2*Step, Sigma, Amp1, Amp2])
     popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2])
     return popt
 

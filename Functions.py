@@ -83,7 +83,7 @@ def TheModel_Hook(F, State, Ratio, Pars, Fmax_Hook=10): #Not used atm
     """Calculates the extension for a state given the model of wlc + Hookian spring"""
     return np.array(np.multiply(wlc(F, Pars),(State*Pars['DNAds_nm'])) + np.multiply(hook(F,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
 
-def STD(F, Z, PossibleStates, Pars, Fmax_Hook=10):
+def STD(F, Z, PossibleStates, Pars):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
     Z is the Extension Data (needs to have the same size as F)"""
@@ -95,12 +95,11 @@ def STD(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     StateExtension = TheModel_FJC(F, States, Ratio, Pars)
     StateExtension_dF = TheModel_FJC(F+dF, States, Ratio, Pars)
     LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
-    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
-    std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.square(sigma))    #sqrt([measuring error]^2 + [thermal fluctuations]^2)  
-    return std
+    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness + Pars['MeasurementERR (nm)']**2)    
+    return sigma
 
 #Including Hookian    
-def probsum(F, Z, PossibleStates, Pars, Fmax_Hook=10):
+def probsum(F, Z, PossibleStates, Pars):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
     Z is the Extension Data (needs to have the same size as F)"""
@@ -113,7 +112,7 @@ def probsum(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     StateExtension_dF = TheModel_FJC(F+dF, States, Ratio, Pars)
     DeltaZ = abs(np.subtract(StateExtension,Z))
     LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
-    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
+    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness + Pars['MeasurementERR (nm)']**2)    
     NormalizedDeltaZ = np.divide(DeltaZ,sigma)    
     Pz = np.array((1-erfaprox(NormalizedDeltaZ)))
     ProbSum = np.sum(Pz, axis=1) 

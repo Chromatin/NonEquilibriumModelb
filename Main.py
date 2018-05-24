@@ -13,8 +13,8 @@ import matplotlib.mlab as mlab
 import Functions as func
 import Tools
 import time
+
 start_time = time.time()
-#import pickle
 plt.close('all')                                                                #Close all the figures from previous sessions
 
 #folder = r'P:\18S FitFiles\Leiden_wt'
@@ -124,6 +124,7 @@ for Filenum, Filename in enumerate(Filenames):
         continue
 ##############################################################################################
 ######## Begin Plotting Different States  
+        
     States = NewStates
     Statemask = NewStateMask
     AllStates = NewAllStates    
@@ -157,7 +158,6 @@ for Filenum, Filename in enumerate(Filenames):
       
         ax1.plot(Fit, F, alpha=0.9, linestyle=':', color=tuple(col)) 
         ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=20, alpha=.6)
-#        ax1.text(Fit[np.argmin(np.abs(F-10))], F[np.argmin(np.abs(F-10))], j, horizontalalignment='center')
     
         ax2.vlines(States[j], 0, np.max(Peak), linestyle=':', color=tuple(col))
         ax2.text(States[j], 0, int(States[j]), fontsize=10, horizontalalignment='center', verticalalignment='top', rotation=90)
@@ -181,17 +181,14 @@ for Filenum, Filename in enumerate(Filenames):
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
 ######################################################################################################################
     fig1.tight_layout()
-#    pickle.dump(fig1, open(newpath+r'\\'+Filename[0:-4]+'_FoEx_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
     fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.png')
     fig1.show()
     
     fig2.tight_layout()
-#    pickle.dump(fig2, open(newpath+r'\\'+Filename[0:-4]+'_Time_all.pickle', 'wb'))            #Saves the figure, so it can be reopend
     fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.png')    
     fig2.show()
 
     Fignum += 2
-#    plt.close('all')
 
 def BT(BT_Ruptures, Steps=True):
     #Brower-Toland Analysis
@@ -212,7 +209,7 @@ def BT(BT_Ruptures, Steps=True):
     ax.set_title("Brower-Toland analysis")
     Subtitle = "d = " + str(np.round(d,1)) + "±" + str(np.round(D_err,1)) + " nm"
     Subtitle = Subtitle + ", k_D(0) = {:.1e}".format(K_d0) + "±{:.1e}".format(K_d0_err)+" / sec"
-    Subtitle = Subtitle + ", Delta G=" + str(Delta_G) + " k_BT"
+    Subtitle = Subtitle + ", Delta G=" + str(Delta_G) + "±" +str(Delta_G_err) + " k_BT"
     fig.suptitle(Subtitle)
     ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
     ax.set_ylabel("Force (pN)")

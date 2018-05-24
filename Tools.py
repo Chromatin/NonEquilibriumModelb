@@ -161,6 +161,9 @@ def removerelease(F, Z, T):
     F = np.delete(F, Pullingtest)
     Z = np.delete(Z, Pullingtest)
     T = np.delete(T, Pullingtest)
+    F = F[:-2]
+    Z = Z[:-2]
+    T = T[:-2]
     return F, Z, T 
 
 def minforce(F, Z,  T, Min_Force=2):

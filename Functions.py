@@ -45,38 +45,6 @@ def forcecalib(Pos,FMax=85):
     f0 = 0.01 #force-offset (pN)    
     return FMax*(0.7*np.exp(-Pos/l1)+0.3*np.exp(-Pos/l2))+f0
 
-def findpeaks(y,n=25):
-    """Peakfinder writen with Thomas Brouwer
-    Finds y peaks at position x in xy graph"""
-    y = np.array(y)
-    Yy = np.append(y[:-1],y[::-1])
-    yYy = np.append(y[::-1][:-1],Yy)
-    from scipy.signal import argrelextrema
-    maxInd = argrelextrema(yYy, np.greater,order=n)
-    r = np.array(yYy)[maxInd] 
-    a = maxInd[0]
-    #discard all peaks for negative dimers
-    peaks_index=[]
-    peaks_height=[]
-    for n,i in enumerate(a):
-        i=1+i-len(y)
-        if i >= 0 and i <= len(y):
-            peaks_height.append(r[n])
-            peaks_index.append(i)
-    return peaks_index, peaks_height
-
-def findpeaks_simple(y):
-    """Finds y peaks at position x in xy graph"""
-    y = np.array(y)
-    y = conv(y, box_pts=25)
-    peaks_index=np.array([])
-    peaks_height=np.array([])
-    for i,x in enumerate(y[1:-1]):
-        if x > y[i] and  x > y[i+2]:
-            peaks_index=np.append(peaks_index,i+1)
-            peaks_height=np.append(peaks_height,x)
-    return peaks_index.astype(int), peaks_height
-
 def erfaprox(x):
     """Approximation of the error function"""
     x = np.array(x)
@@ -107,6 +75,14 @@ def ratio(x, Pars):
     Ratio[Ratio>=1] = 1                                                         #removes values above 1, makes them 1
     return np.abs(Ratio)
 
+def TheModel_FJC(F, State, Ratio, Pars):
+    """Calculates the extension for a state given the model of wlc + fjc"""
+    return np.array(np.multiply(wlc(F, Pars),(State*Pars['DNAds_nm'])) + np.multiply(fjc(F,Pars),Ratio))
+
+def TheModel_Hook(F, State, Ratio, Pars, Fmax_Hook=10): #Not used atm
+    """Calculates the extension for a state given the model of wlc + Hookian spring"""
+    return np.array(np.multiply(wlc(F, Pars),(State*Pars['DNAds_nm'])) + np.multiply(hook(F,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
+
 def STD(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
@@ -116,8 +92,8 @@ def STD(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     Ratio = np.tile(Ratio,(len(F),1))
     Ratio = np.transpose(Ratio)
     dF = 0.01 #delta used to calculate the RC of the curve
-    StateExtension = np.array(np.multiply(wlc(F, Pars),(States*Pars['DNAds_nm'])) + np.multiply(fjc(F,Pars),Ratio))
-    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Pars),(States*Pars['DNAds_nm'])) + np.multiply(fjc(F+dF,Pars),Ratio))
+    StateExtension = TheModel_FJC(F, States, Ratio, Pars)
+    StateExtension_dF = TheModel_FJC(F+dF, States, Ratio, Pars)
     LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
     sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
     std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.square(sigma))    #sqrt([measuring error]^2 + [thermal fluctuations]^2)  
@@ -133,8 +109,8 @@ def probsum(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     Ratio = np.tile(Ratio,(len(F),1))
     Ratio = np.transpose(Ratio)
     dF = 0.01 #delta used to calculate the RC of the curve
-    StateExtension = np.array(np.multiply(wlc(F, Pars),(States*Pars['DNAds_nm'])) + np.multiply(fjc(F,Pars),Ratio))
-    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Pars),(States*Pars['DNAds_nm'])) +  np.multiply(fjc(F+dF,Pars),Ratio))
+    StateExtension = TheModel_FJC(F, States, Ratio, Pars)
+    StateExtension_dF = TheModel_FJC(F+dF, States, Ratio, Pars)
     DeltaZ = abs(np.subtract(StateExtension,Z))
     LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
     sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
@@ -142,46 +118,6 @@ def probsum(F, Z, PossibleStates, Pars, Fmax_Hook=10):
     Pz = np.array((1-erfaprox(NormalizedDeltaZ)))
     ProbSum = np.sum(Pz, axis=1) 
     return ProbSum
-
-def STD_hook(F, Z, PossibleStates, Pars, Fmax_Hook=10):
-    """Calculates the probability landscape of the intermediate states. 
-    F is the Force Data, 
-    Z is the Extension Data (needs to have the same size as F)"""
-    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
-    Ratio = ratio(PossibleStates, Pars)
-    Ratio = np.tile(Ratio,(len(F),1))
-    Ratio = np.transpose(Ratio)
-    dF = 0.01 #delta used to calculate the RC of the curve
-    StateExtension = np.array(np.multiply(wlc(F, Pars),(States*Pars['DNAds_nm'])) + np.multiply(hook(F,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
-    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Pars),(States*Pars['DNAds_nm'])) + np.multiply(hook(F+dF,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
-    LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
-    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
-    std = np.sqrt(Pars['MeasurementERR (nm)']**2 + np.square(sigma))    #sqrt([measuring error]^2 + [thermal fluctuations]^2)  
-    return std
-
-#Including Hookian    
-def probsum_hook(F, Z, PossibleStates, Pars, Fmax_Hook=10):
-    """Calculates the probability landscape of the intermediate states. 
-    F is the Force Data, 
-    Z is the Extension Data (needs to have the same size as F)"""
-    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
-    Ratio = ratio(PossibleStates, Pars)
-    Ratio = np.tile(Ratio,(len(F),1))
-    Ratio = np.transpose(Ratio)
-    dF = 0.01 #delta used to calculate the RC of the curve
-    StateExtension = np.array(np.multiply(wlc(F, Pars),(States*Pars['DNAds_nm'])) + np.multiply(hook(F,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
-    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Pars),(States*Pars['DNAds_nm'])) + np.multiply(hook(F+dF,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
-    DeltaZ = abs(np.subtract(StateExtension,Z))
-    LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
-    sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness)    
-    NormalizedDeltaZ = np.divide(DeltaZ,sigma)    
-    Pz = np.array((1-erfaprox(NormalizedDeltaZ)))
-    ProbSum = np.sum(Pz, axis=1) 
-    return ProbSum
-
-def TheModel(F, State, Ratio, Pars):
-    """Calculates the extension for a state given the model of wlc + Hookian spring"""
-    return wlc(F,Pars)*State*Pars['DNAds_nm'] + hook(F,Pars['k_pN_nm'])*Ratio*Pars['ZFiber_nm']
 
 def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2):
     """Finds states based on the probablitiy landscape and merges where necessary"""     
@@ -198,8 +134,8 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])  
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit = TheModel(F, x, Ratio, Pars) 
-        Fit_Selected = TheModel(F_Selected, x, Ratio, Pars)
+        Fit = TheModel_FJC(F, x, Ratio, Pars) 
+        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars)
         AllStates[:,i] = Fit        
         AllStates_Selected[:,i] = Fit_Selected        
     
@@ -239,8 +175,8 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
         Ratio = ratio(MergedState,Pars)
         
         #Each entry is the extension corresponding to the force in F(_Selected)         
-        MergedStateArr =TheModel(F, MergedState, Ratio, Pars)
-        MergedStateArr_Selected = TheModel(F_Selected, MergedState, Ratio, Pars)
+        MergedStateArr =TheModel_FJC(F, MergedState, Ratio, Pars)
+        MergedStateArr_Selected = TheModel_FJC(F_Selected, MergedState, Ratio, Pars)
         
         Std = STD(F_Selected, Z_Selected, MergedState, Pars)
         Z_Score_MergedState = z_score(Z_Selected, MergedStateArr_Selected, Std, 1).ravel()
@@ -351,7 +287,7 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = TheModel(F_Selected, x, Ratio, Pars) 
+        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars) 
         AllStates_Selected[:,i] = Fit_Selected        
  
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
@@ -393,7 +329,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])         #2D Array containing extensions for each state
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = TheModel(F_Selected, x, Ratio, Pars)
+        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars)
         AllStates_Selected[:,i] = Fit_Selected        
  
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
@@ -433,7 +369,7 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])         #2D Array containing extensions for each state
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = TheModel(F_Selected, x, Ratio, Pars)
+        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars)
         AllStates_Selected[:,i] = Fit_Selected        
  
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
@@ -606,24 +542,25 @@ def peakdetect(y_axis, lookahead = 10, delta=1.5):
     max_peaks=np.array(max_peaks)
         
     return max_peaks[:,0].astype(int), max_peaks[:,1]
-
-
-#Including FJC
-#def probsum(F,Z,PossibleStates,Par,Fmax_Hook=10):
-#    """Calculates the probability landscape of the intermediate states using a combination of Freely jointed chain for the fiber, and Worm like chain for the DNA. 
-#    F is the Force Data, 
-#    Z is the Extension Data (needs to have the same size as F)
-#    Stepsize is the precision -> how many possible states are generated. Typically 1 for each bp unwrapped"""
-#    States = np.transpose(np.tile(PossibleStates,(len(F),1))) #Copies PossibleStates array into colomns of States with len(F) rows
-#    Ratio = ratio(PossibleStates, Par)
-#    Ratio = np.tile(Ratio,(len(F),1))
-#    Ratio = np.transpose(Ratio)
-#    dF = 0.01 #delta used to calculate the RC of the curve
-#    StateExtension = np.array(np.multiply(wlc(F, Par),(States*Par['DNAds_nm'])) + np.multiply(fjc(F,Par),Ratio)*Par['DNAds_nm'])
-#    StateExtension_dF = np.array(np.multiply(wlc(F+dF, Par),(States*Par['DNAds_nm'])) + np.multiply(fjc(F+dF,Par),Ratio)*Par['DNAds_nm'])
-#    LocalStiffness = np.subtract(StateExtension_dF,StateExtension)*Par['kBT_pN_nm'] / dF 
-#    DeltaZ = abs(np.subtract(StateExtension,Z))
-#    Std = np.divide(DeltaZ,np.sqrt(LocalStiffness))
-#    Pz = np.array(np.multiply((1-erfaprox(Std)),F))
-#    ProbSum = np.sum(Pz, axis=1) 
-#    return ProbSum
+    
+"""
+def findpeaks(y,n=25):
+#    Peakfinder writen with Thomas Brouwer
+#    Finds y peaks at position x in xy graph
+    y = np.array(y)
+    Yy = np.append(y[:-1],y[::-1])
+    yYy = np.append(y[::-1][:-1],Yy)
+    from scipy.signal import argrelextrema
+    maxInd = argrelextrema(yYy, np.greater,order=n)
+    r = np.array(yYy)[maxInd] 
+    a = maxInd[0]
+    #discard all peaks for negative dimers
+    peaks_index=[]
+    peaks_height=[]
+    for n,i in enumerate(a):
+        i=1+i-len(y)
+        if i >= 0 and i <= len(y):
+            peaks_height.append(r[n])
+            peaks_index.append(i)
+    return peaks_index, peaks_height
+"""

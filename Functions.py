@@ -20,17 +20,16 @@ def hook(force, k=1, fmax=10):
     np.place(f,f>fmax,[fmax])
     return f/k 
 
-def exp(x):
-    return np.exp(x)
-
 def fjc(f, Pars): 
     """calculates a Freely Jointed Chain with a kungslength of 
     b = 3 KbT / k*L
     where L is the length of the fiber in nm, and k the stiffness in nm pN per nucleosome""" 
+    if Pars['k_pN_nm'] < 0.3:
+        Pars['k_pN_nm'] = 0.3
+        print('>>Warning, Low stiffness, FJC breaks with low stiffness, k=0.2 used instead. If k<0.2 is needed, use Hookian spring model instead')
     b = 3 * Pars['kBT_pN_nm'] / (Pars['k_pN_nm']*Pars['ZFiber_nm'])
     x = f * b / Pars['kBT_pN_nm']
-    z = (exp(x) + 1 / exp(x)) / (exp(x) - 1 / exp(x)) - 1 / x
-    
+    z = (np.exp(x) + 1 / np.exp(x)) / (np.exp(x) - 1 / np.exp(x)) - 1 / x
     # coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
     #z *= Pars['L_bp']*Pars['DNAds_nm']   #work /dG term not used atm
     #z_df = (Pars['kBT_pN_nm'] / b) * (np.log(np.sinh(x)) - np.log(x))  #*L_nm #  + constant --> integrate over f (finish it

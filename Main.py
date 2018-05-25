@@ -18,7 +18,7 @@ start_time = time.time()
 plt.close('all')                                                                #Close all the figures from previous sessions
 
 #folder = r'P:\18S FitFiles\Leiden_wt'
-folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
+folder = r'N:\Artur\analysis\2018\hannah\R1 - fit check AK'
 
 newpath = folder+r'\Figures'                                                   #New path to save the figures
 if not os.path.exists(newpath):
@@ -30,8 +30,7 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = False                                                           #Choose to plot selected only
-MeasurementERR = 5                                                             #tracking inaccuracy in nm
+PlotSelected = True                                                           #Choose to plot selected only
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
@@ -89,6 +88,7 @@ for Filenum, Filename in enumerate(Filenames):
     ax1.set_ylabel(r'Force (pN)')
     ax1.set_xlabel(r'Extension (nm)')
     ax1.scatter(Z, F, color='grey', lw=0.1, s=5)
+    ax1.scatter(Z_Selected, F_Selected, color='black', lw=0.1, s=5)
     ax1.set_ylim([np.min(F_Selected)-0.1*np.max(F_Selected), np.max(F_Selected)+0.1*np.max(F_Selected)])
     ax1.set_xlim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
 

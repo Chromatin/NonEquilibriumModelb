@@ -24,9 +24,11 @@ def fjc(f, Pars):
     """calculates a Freely Jointed Chain with a kungslength of 
     b = 3 KbT / k*L
     where L is the length of the fiber in nm, and k the stiffness in nm pN per nucleosome""" 
-    if Pars['k_pN_nm'] < 0.3:
-        Pars['k_pN_nm'] = 0.3
-        print('>>Warning, Low stiffness, FJC breaks with low stiffness, k=0.2 used instead. If k<0.2 is needed, use Hookian spring model instead')
+    k_Cutof = 0.2   
+    if Pars['k_pN_nm'] < k_Cutof:
+        Pars['k_pN_nm'] = k_Cutof
+        print('>>Warning, Low stiffness, FJC breaks with low stiffness, k=', k_Cutof, 
+              ' used instead. If k<', k_Cutof, ' is needed, use Hookian spring model instead')
     b = 3 * Pars['kBT_pN_nm'] / (Pars['k_pN_nm']*Pars['ZFiber_nm'])
     x = f * b / Pars['kBT_pN_nm']
     z = (np.exp(x) + 1 / np.exp(x)) / (np.exp(x) - 1 / np.exp(x)) - 1 / x
@@ -117,7 +119,7 @@ def probsum(F, Z, PossibleStates, Pars):
     ProbSum = np.sum(Pz, axis=1) 
     return ProbSum
 
-def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cutoff=2):
+def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=True, Z_Cutoff=2):
     """Finds states based on the probablitiy landscape and merges where necessary"""     
     #Generate FE curves for possible states
     start = Pars['FiberStart_bp'] - 200
@@ -154,7 +156,8 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=False, Z_Cu
         Z_Score             = np.delete(Z_Score, RemoveStates, axis=1)  
 
     #Merging 2 states and checking whether is better or not
-    NewStates, NewAllStates, NewStateMask = merge(F, F_Selected, Z_Selected, States, StateMask, AllStates, Z_Score, Z_Cutoff, Pars)
+    if MergeStates:    
+        NewStates, NewAllStates, NewStateMask = merge(F, F_Selected, Z_Selected, States, StateMask, AllStates, Z_Score, Z_Cutoff, Pars)
                               
     return PossibleStates, ProbSum, Peak, States, AllStates, StateMask, NewStates, NewAllStates, NewStateMask
 
@@ -430,7 +433,7 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars):
     
     return a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err
 
-def peakdetect(y_axis, lookahead = 10, delta=1.5):
+def peakdetect(y_axis, lookahead = 10, delta=1):
     """
     Converted from/based on a MATLAB script at: 
     http://billauer.co.il/peakdet.html

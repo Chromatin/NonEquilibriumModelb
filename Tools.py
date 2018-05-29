@@ -152,26 +152,25 @@ def breaks(F, Z, T, Jump=1000):
 
 def removerelease(F, Z, T):
     """Removes the release curve from the selected data"""
-    test = 0
-    Pullingtest = np.array([])
-    for i,x in enumerate(F):
-        if x < test:
-            Pullingtest = np.append(Pullingtest,i)
-        test = x
-    F = np.delete(F, Pullingtest)
-    Z = np.delete(Z, Pullingtest)
-    T = np.delete(T, Pullingtest)
-    F = F[:-2]
-    Z = Z[:-2]
-    T = T[:-2]
-    return F, Z, T 
+    F_diff = np.diff(F)
+    F_diff = np.insert(F_diff,0,0)
+    F = F[F_diff>0]
+    Z = Z[F_diff>0]
+    T = T[F_diff>0]
+    return F, Z, T
+
+def maxforce(F, Z, T,  Max_Force=10):
+    """Removes the data above Max force given"""
+    T = T[F<Max_Force]
+    Z = Z[F<Max_Force]
+    F = F[F<Max_Force]
+    return F, Z, T
 
 def minforce(F, Z,  T, Min_Force=2):
     """Removes the data below minimum force given"""
-    Mask = F > Min_Force
-    Z = Z[Mask]
-    F = F[Mask]
-    T = T[Mask]
+    Z = Z[F>Min_Force]
+    T = T[F>Min_Force]
+    F = F[F>Min_Force]
     return F, Z, T
 
 def maxextention(F, Z, T, Max_Extension): 

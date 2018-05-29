@@ -94,7 +94,7 @@ for Filenum, Filename in enumerate(Filenames):
 
     ax2 = fig1.add_subplot(1, 2, 2)
     ax2.set_title(r'Probability Landscape')
-    ax2.set_xlabel(r'Free base pair (nm)') #(nm) should be removed
+    ax2.set_xlabel(r'Contour Length (bp)') #(nm) should be removed
     ax2.set_ylabel(r'Probability (AU)')
     ax2.plot(PossibleStates, ProbSum, label='ProbSum')
     ax2.scatter(States, Peak)
@@ -106,7 +106,7 @@ for Filenum, Filename in enumerate(Filenames):
     ax3 = fig2.add_subplot(1, 2, 1)
     ax3.set_title(r'Timetrace Curve')
     ax3.set_xlabel(r'Time (s)')
-    ax3.set_ylabel(r'Extension (bp nm)')
+    ax3.set_ylabel(r'Extension (nm)')
     ax3.set_ylim([0, Pars['L_bp']*Pars['DNAds_nm']+100])
     ax3.scatter(T, Z, color='grey', lw=0.1, s=5)
 

@@ -18,7 +18,7 @@ start_time = time.time()
 plt.close('all')                                                                #Close all the figures from previous sessions
 
 #folder = r'P:\18S FitFiles\Leiden_wt'
-folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
+folder = r'N:\Artur\analysis\2018\final analysis LH\160429\fit files'
 
 newpath = folder+r'\Figures'                                                   #New path to save the figures
 if not os.path.exists(newpath):
@@ -30,7 +30,7 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = False                                                           #Choose to plot selected only
+PlotSelected = True                                                           #Choose to plot selected only
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
@@ -96,8 +96,8 @@ for Filenum, Filename in enumerate(Filenames):
     ax2.set_title(r'Probability Landscape')
     ax2.set_xlabel(r'Contour Length (bp)') #(nm) should be removed
     ax2.set_ylabel(r'Probability (AU)')
-    ax2.plot(PossibleStates, ProbSum, label='ProbSum')
-    ax2.scatter(States, Peak)
+    ax2.plot(PossibleStates, ProbSum/np.sum(ProbSum), label='ProbSum')
+    ax2.scatter(States, Peak/np.sum(ProbSum))
 
     # this plots the Timetrace
     fig2 = plt.figure()

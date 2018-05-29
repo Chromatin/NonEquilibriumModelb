@@ -124,7 +124,7 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
         Z_Selected = Z
         T_Selected = T
     
-    if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, Jump = 500)
+    if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, Jump = 1500)
     if Handles['Pulling']: F_Selected, Z_Selected, T_Selected = removerelease(F_Selected, Z_Selected, T_Selected )
     if Handles['MinForce'] > 0: F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
@@ -154,9 +154,9 @@ def removerelease(F, Z, T):
     """Removes the release curve from the selected data"""
     F_diff = np.diff(F)
     F_diff = np.insert(F_diff,0,0)
-    F = F[F_diff>0]
-    Z = Z[F_diff>0]
-    T = T[F_diff>0]
+    F = F[F_diff>=0]
+    Z = Z[F_diff>=0]
+    T = T[F_diff>=0]
     return F, Z, T
 
 def maxforce(F, Z, T,  Max_Force=10):

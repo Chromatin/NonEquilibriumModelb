@@ -346,7 +346,8 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         NonEqFit.append(AllStates_Selected[i,int(j)])
         DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
         if k < j and DeltaZ > 20 and DeltaZ < 30:                               #Only analyse 25 +- 5 nm steps
-            N = round((wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79) #Number of nucl left at i, rounded to the nearest int.
+            IntactNucleosomes = round((wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79) 
+            N = (Pars['N_tot']-IntactNucleosomes + 1) / IntactNucleosomes #Number of nucl left at i, rounded to the nearest int.
             dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
             F_Rup = np.append(F_Rup, [[F_Selected[i-1], N, dF_dt]], axis=0)    
         k = j

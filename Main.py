@@ -18,7 +18,7 @@ start_time = time.time()
 plt.close('all')                                                                #Close all the figures from previous sessions
 
 #folder = r'P:\18S FitFiles\Leiden_wt'
-folder = r'N:\Artur\analysis\2018\final analysis LH\160429\fit files'
+folder = r'N:\Artur\analysis\2018\final 167 twisting analysis\all selected nicked'
 
 newpath = folder+r'\Figures'                                                   #New path to save the figures
 if not os.path.exists(newpath):
@@ -30,9 +30,9 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = True                                                           #Choose to plot selected only
+PlotSelected = True                                                          #Choose to plot selected only
 
-Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False)
+Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=True, Onepull=True, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps
@@ -48,7 +48,7 @@ for filename in filenames:
         Filenames.append(filename)
 
 for Filenum, Filename in enumerate(Filenames):
-
+    plt.close('all')
     F, Z, T, Z_Selected = Tools.read_data(Filename)                            #loads the data from the filename
     LogFile = Tools.read_log(Filename[:-4]+'.log')                             #loads the log file with the same name
     if LogFile: Pars = Tools.log_pars(LogFile)                                 #Reads in all the parameters from the logfile
@@ -193,7 +193,10 @@ for Filenum, Filename in enumerate(Filenames):
 def BT(BT_Ruptures, Steps=True):
     #Brower-Toland Analysis
     RFs = BT_Ruptures[:,0]
-    ln_dFdt_N = np.log(np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
+###############################################################################
+##########################   Let op, minnetje voor log, anders negatieve slope   ##############################
+###############################################################################    
+    ln_dFdt_N = -np.log(np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
     #Remove Ruptures at extensions larger than contour length (ln gets nan value)
     RFs = RFs[abs(ln_dFdt_N) < 10e6]
     ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]

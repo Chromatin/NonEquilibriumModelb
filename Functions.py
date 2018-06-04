@@ -334,7 +334,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         AllStates_Selected[:,i] = Fit_Selected        
         
     Mask = attribute2state(Z_Selected, AllStates_Selected)                #Tels to which state a datapoint belongs
-    MedianFilt = signal.medfilt(Mask, 9)
+    MedianFilt = signal.medfilt(Mask, 5)
     
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
     k = 10000                                                                   #For the first loop 
@@ -383,17 +383,21 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
     TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
         j = int(j)
-        TotalLifetime[int(j)] += 1        
-        NonEqFit.append(AllStates_Selected[i,int(j)])
-        DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
-        if k < j and DeltaZ > 0:                                               #Only analyse Steps larger than 0nm
+        TotalLifetime[j] += 1        
+        NonEqFit.append(AllStates_Selected[i,j])
+        DeltaZ = AllStates_Selected[i,j]-AllStates_Selected[i,j-1]
+        if k < j and DeltaZ > 0 and F_Selected[i] < 8:                                               #Only analyse Steps larger than 0nm
             dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
             BT = np.append(BT, [[F_Selected[i-1], j, dF_dt]], axis=0)           
         k = j
     
     TotalLifetime *= dt
     if len(BT[:,1]) > 0:
-        BT[:,1] = np.abs(BT[:,1]-np.max(BT[:,1])) + 1                           #Tels how much states are left
+        StackingNumber = BT[:,1][::-1]                              #inverse BT for total number of stacks (I dont understand this, pls hlp)
+        TotalStackingInteractions = np.max(StackingNumber)
+        RupturedStacks = TotalStackingInteractions - StackingNumber
+        CorrectionFactor = (1 + RupturedStacks) / StackingNumber    #BT correctionfactor 1/N with velocity clamp
+        BT[:,1] = CorrectionFactor                                             #Tels how much states are left
 
 #    ax1.plot(NonEqFit, F_Selected, color='green', lw=2)
 #    ax3.plot(T_Selected, NonEqFit, color='green', lw=2)

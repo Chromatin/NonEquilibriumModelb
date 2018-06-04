@@ -18,7 +18,7 @@ start_time = time.time()
 plt.close('all')                                                                #Close all the figures from previous sessions
 
 #folder = r'P:\18S FitFiles\Leiden_wt'
-folder = r'N:\Artur\analysis\2018\final 167 twisting analysis\all selected nicked'
+folder = r'N:\Artur\analysis\2018\final 167 twisting analysis\all selected'
 
 newpath = folder+r'\Figures'                                                   #New path to save the figures
 if not os.path.exists(newpath):

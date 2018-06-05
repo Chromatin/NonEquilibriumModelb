@@ -20,7 +20,7 @@ plt.close('all')                                                                
 #folder = r'P:\18S FitFiles\Leiden_wt'
 folder = r'N:\Artur\analysis\2018\final 167 twisting analysis\all selected'
 
-newpath = folder+r'\Figures'                                                   #New path to save the figures
+newpath = folder+r'\Figures_NewBTFactor'                                                   #New path to save the figures
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
@@ -30,9 +30,9 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = True                                                          #Choose to plot selected only
+PlotSelected = True                                                         #Choose to plot selected only
 
-Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=True, Onepull=True, MedFilt=False)
+Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=True, Onepull=False, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
 Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
 F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps
@@ -190,45 +190,11 @@ for Filenum, Filename in enumerate(Filenames):
 
     Fignum += 2
 
-def BT(BT_Ruptures, Steps=True):
-    #Brower-Toland Analysis
-    RFs = BT_Ruptures[:,0]
-###############################################################################
-##########################   Let op, minnetje voor log, anders negatieve slope   ##############################
-###############################################################################    
-    ln_dFdt_N = -np.log(np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
-    #Remove Ruptures at extensions larger than contour length (ln gets nan value)
-    RFs = RFs[abs(ln_dFdt_N) < 10e6]
-    ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
-    x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
-    a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err = func.dG_browertoland(ln_dFdt_N, RFs, Pars)
-       
-    #BowerToland plot
-    fig, ax = plt.subplots()
-    ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')
-    ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
-#    ax.plot(np.log(np.divide(A[:,2],A[:,1])), A[:,0], label='Data', color='red')
-    ax.scatter(ln_dFdt_N, RFs, label='Data')
-    ax.set_title("Brower-Toland analysis")
-    Subtitle = "d = " + str(np.round(d,1)) + "±" + str(np.round(D_err,1)) + " nm"
-    Subtitle = Subtitle + ", k_D(0) = {:.1e}".format(K_d0) + "±{:.1e}".format(K_d0_err)+" / sec"
-    Subtitle = Subtitle + ", Delta G=" + str(Delta_G) + "±" +str(Delta_G_err) + " k_BT"
-    fig.suptitle(Subtitle)
-    ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
-    ax.set_ylabel("Force (pN)")
-#    ax.set_ylim(5,40)
-#    ax.set_xlim(-4,2)
-    ax.legend(loc='best', title='Slope:' + str(np.round(a,1)) + '±' + str(np.round(a_err,1)) + ', intersect:' + str(np.round(b,1)) + '±' + str(np.round(b_err,1)))
-    if Steps:    
-        fig.savefig(newpath+r'\\'+'BT_Steps.png')
-    else:
-        fig.savefig(newpath+r'\\'+'BT_Stacks.png')
-
 try:
-    BT(BT_Ruptures, True)
-except:
-    pass
-BT(BT_Ruptures_Stacks, False)
+    func.plot_brower_toland(BT_Ruptures, Pars, newpath, Steps=True)
+except ValueError:
+    print(">>>>>>>>>> Warning, no 25 nm steps were found")
+func.plot_brower_toland(BT_Ruptures_Stacks, Pars, newpath, Steps=False)
 
 #Plotting a histogram of the stepsizes
 fig3 = plt.figure()
@@ -241,18 +207,24 @@ ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orang
 
 #Fitting double gaussian over 25nm Steps
 try: 
+    Mode="triple"
     Norm =  Range[-1]/Bins
-    D_Gaus = func.fit_2step_gauss(Steps)
+    D_Gaus = func.fit_gauss(Steps, Step=80, Amp1=30, Amp2=10, Sigma=15, Mode=Mode)
     mu = D_Gaus[0]
     sigma = D_Gaus[1]
     x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
     ax5.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[2]*2*Norm, color='red', lw=4, zorder=10, label = 'Gaussian fit')
     mu = 2*mu
-    x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
+    x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100)
     ax5.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2*Norm, color='red', lw=4, zorder=10)
     ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean1:'+str(int(D_Gaus[0])), verticalalignment='bottom')
-    ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean2:'+str(int(2*D_Gaus[0])), verticalalignment='top')
-except:
+    #ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean2:'+str(int(2*D_Gaus[0])), verticalalignment='top')
+    if Mode=="triple":
+        mu = 1.5*mu
+        x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
+        ax5.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[4]*2*Norm, color='red', lw=4, zorder=10)
+
+except ValueError:
     print('>>No 25 nm steps to fit gauss')
     
 ax5.set_xlabel('stepsize (bp)')

@@ -6,6 +6,7 @@ Created on Wed Jan  3 13:44:01 2018
 """
 import numpy as np
 from scipy import signal
+import matplotlib.pyplot as plt
 
 def wlc(force,Pars): #in nm/pN, as fraction of L
     """Calculates WLC in nm/pN, as a fraction the Contour Length.
@@ -248,21 +249,36 @@ def z_score(Z_Selected, Z_States, std, States):
         Z_States = np.reshape(Z_States, (len(Z_States),1))
     return np.divide(Z_Selected_New-Z_States, std.T)
 
+def single_gauss(x, step=75, Sigma=15, a1=1):
+    return a1*(1+erfaprox((x-step)/(Sigma*np.sqrt(2))))
+
 def double_gauss(x, step=75, Sigma=15, a1=1, a2=1):
     """Double gaussian with mean2 = 2*mean1"""
     return a1*(1+erfaprox((x-step)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-(step*2))/(Sigma*np.sqrt(2))))
+
+def triple_gauss(x, step=75, Sigma=15, a1=1, a2=1, a3=1):
+    """Triple gaussian with mean2 = 2*mean1 etc"""
+    return a1*(1+erfaprox((x-step)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-(step*2))/(Sigma*np.sqrt(2))))+a3*(1+erfaprox((x-(step*3))/(Sigma*np.sqrt(2))))
 
 def double_indep_gauss(x, step1=80, step2=160, Sigma=15, a1=1, a2=1):
     """Double gaussian with independent means"""
     return a1*(1+erfaprox((x-step1)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-step2)))/(Sigma*np.sqrt(2))
 
-def fit_2step_gauss(Steps, Step=80, Amp1=30, Amp2=10, Sigma=15):
-    """Function to fit 25nm steps with a double gauss, as a PDF"""
+def fit_gauss(Steps, Step=80, Amp1=30, Amp2=10, Amp3=3, Sigma=15, Mode="triple"):
+    """Function to fit 25nm steps with a double gauss, as a PDF
+    Mode can be single, double and triple
+    """
     from scipy.optimize import curve_fit
     Steps = np.array(Steps)
     Steps = np.sort(Steps)
     PDF = np.arange(len(Steps))
-    popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2])
+    if Mode=="single":
+        popt, pcov = curve_fit(single_gauss, Steps, PDF, p0=[Step, Sigma, Amp1])
+    if Mode=="double":
+        popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2])
+    if Mode=="triple":
+        popt, pcov = curve_fit(triple_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2, Amp3])
+    else: print(">>>>>No guassian fit selected, see Functions")
     return popt
 
 def attribute2state(Z, States_Selected):
@@ -345,9 +361,10 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         TotalLifetime[int(j)] += 1        
         NonEqFit.append(AllStates_Selected[i,int(j)])
         DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
-        if k < j and DeltaZ > 20 and DeltaZ < 30:                               #Only analyse 25 +- 5 nm steps
+        if k < j and DeltaZ > 20 and DeltaZ < 30 and F_Selected[i] > 12:                               #Only analyse 25 +- 5 nm steps
             IntactNucleosomes = round((wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79) 
             N = (Pars['N_tot']-IntactNucleosomes + 1) / IntactNucleosomes #Number of nucl left at i, rounded to the nearest int.
+            #N = IntactNucleosomes
             dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
             F_Rup = np.append(F_Rup, [[F_Selected[i-1], N, dF_dt]], axis=0)    
         k = j
@@ -397,7 +414,7 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
         TotalStackingInteractions = np.max(StackingNumber)
         RupturedStacks = TotalStackingInteractions - StackingNumber
         CorrectionFactor = (1 + RupturedStacks) / StackingNumber    #BT correctionfactor 1/N with velocity clamp
-        BT[:,1] = CorrectionFactor                                             #Tels how much states are left
+        BT[:,1] = CorrectionFactor                                             #Saves the correctionfactor
 
 #    ax1.plot(NonEqFit, F_Selected, color='green', lw=2)
 #    ax3.plot(T_Selected, NonEqFit, color='green', lw=2)
@@ -437,6 +454,40 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars):
     Delta_G_err = K_d0_err/(K_d0)
     
     return a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err
+
+def plot_brower_toland(BT_Ruptures, Pars, newpath, Steps=True):
+    #Brower-Toland Analysis
+    RFs = BT_Ruptures[:,0]
+#############################################################################################################
+##########################   Let op, minnetje voor log, anders negatieve slope ##############################
+#############################################################################################################  
+    ln_dFdt_N = -np.log(np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
+    #Remove Ruptures at extensions larger than contour length (ln gets nan value)
+    RFs = RFs[abs(ln_dFdt_N) < 10e6]
+    ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
+    x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
+    a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err = dG_browertoland(ln_dFdt_N, RFs, Pars)
+       
+    #BowerToland plot
+    fig, ax = plt.subplots()
+    ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')
+    ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
+#    ax.plot(np.log(np.divide(A[:,2],A[:,1])), A[:,0], label='Data', color='red')
+    ax.scatter(ln_dFdt_N, RFs, label='Data')
+    ax.set_title("Brower-Toland analysis")
+    Subtitle = "d = " + str(np.round(d,1)) + "±" + str(np.round(D_err,1)) + " nm"
+    Subtitle = Subtitle + ", k_D(0) = {:.1e}".format(K_d0) + "±{:.1e}".format(K_d0_err)+" / sec"
+    Subtitle = Subtitle + ", Delta G=" + str(Delta_G) + "±" +str(Delta_G_err) + " k_BT"
+    fig.suptitle(Subtitle)
+    ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
+    ax.set_ylabel("Force (pN)")
+#    ax.set_ylim(5,40)
+#    ax.set_xlim(-4,2)
+    ax.legend(loc='best', title='Slope:' + str(np.round(a,1)) + '±' + str(np.round(a_err,1)) + ', intersect:' + str(np.round(b,1)) + '±' + str(np.round(b_err,1)))
+    if Steps:    
+        fig.savefig(newpath+r'\\'+'BT_Steps.png')
+    else:
+        fig.savefig(newpath+r'\\'+'BT_Stacks.png')
 
 def peakdetect(y_axis, lookahead = 10, delta=1):
     """
@@ -551,7 +602,7 @@ def peakdetect(y_axis, lookahead = 10, delta=1):
     max_peaks=np.array(max_peaks)
         
     return max_peaks[:,0].astype(int), max_peaks[:,1]
-    
+        
 """
 def findpeaks(y,n=25):
 #    Peakfinder writen with Thomas Brouwer

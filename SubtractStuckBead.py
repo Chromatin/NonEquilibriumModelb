@@ -124,7 +124,7 @@ for Filenum, DatFile in enumerate(Filenames):
     except OSError: 
         print('>>>>>>>>>>>>File ', DatFile,' skipped>>>>>>>>>' ) 
         continue
-    try: ReferenceBeads, Z_std, AveragedStuckBead, headers, data = subtract_reference(data, headers, Beads = 5, MedianFilter = 11)
+    try: ReferenceBeads, Z_std, AveragedStuckBead, headers, data = subtract_reference(data, headers, Beads = 3, MedianFilter = 7)
     except ValueError:
         print('>>>>>>>>>>>>Value error in ', DatFile,', probably a calibration file missing Z data>>>>>>>>>' )
         continue
@@ -143,7 +143,7 @@ for Filenum, DatFile in enumerate(Filenames):
     plt.show()
     
     with open(newpath +'\\'+ DatFile, 'w') as outfile:          #writes new .dat file  
-        writer = csv.writer(outfile, delimiter ='\t', lineterminator="\r") 
+        writer = csv.writer(outfile, delimiter ='\t', lineterminator="\n") 
         headers[len(headers)-1] = "Amp a.u."
         data=np.vstack([np.array(headers), data])
         for row in data:

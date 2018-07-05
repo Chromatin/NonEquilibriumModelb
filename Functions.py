@@ -77,11 +77,11 @@ def ratio(x, Pars):
     Ratio[Ratio>=1] = 1                                                         #removes values above 1, makes them 1
     return np.abs(Ratio)
 
-def TheModel_FJC(F, State, Ratio, Pars):
+def model_fjc(F, State, Ratio, Pars):
     """Calculates the extension for a state given the model of wlc + fjc"""
     return np.array(np.multiply(wlc(F, Pars),(State*Pars['DNAds_nm'])) + np.multiply(fjc(F,Pars),Ratio))
 
-def TheModel_Hook(F, State, Ratio, Pars, Fmax_Hook=10): #Not used atm
+def model_hookian(F, State, Ratio, Pars, Fmax_Hook=10): #Not used atm
     """Calculates the extension for a state given the model of wlc + Hookian spring"""
     return np.array(np.multiply(wlc(F, Pars),(State*Pars['DNAds_nm'])) + np.multiply(hook(F,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
 
@@ -94,8 +94,8 @@ def STD(F, Z, PossibleStates, Pars):
     Ratio = np.tile(Ratio,(len(F),1))
     Ratio = np.transpose(Ratio)
     dF = 0.01 #delta used to calculate the RC of the curve
-    StateExtension = TheModel_FJC(F, States, Ratio, Pars)
-    StateExtension_dF = TheModel_FJC(F+dF, States, Ratio, Pars)
+    StateExtension = model_fjc(F, States, Ratio, Pars)
+    StateExtension_dF = model_fjc(F+dF, States, Ratio, Pars)
     LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
     sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness + Pars['MeasurementERR (nm)']**2)    
     return sigma
@@ -110,8 +110,8 @@ def probsum(F, Z, PossibleStates, Pars):
     Ratio = np.tile(Ratio,(len(F),1))
     Ratio = np.transpose(Ratio)
     dF = 0.01 #delta used to calculate the RC of the curve
-    StateExtension = TheModel_FJC(F, States, Ratio, Pars)
-    StateExtension_dF = TheModel_FJC(F+dF, States, Ratio, Pars)
+    StateExtension = model_fjc(F, States, Ratio, Pars)
+    StateExtension_dF = model_fjc(F+dF, States, Ratio, Pars)
     DeltaZ = abs(np.subtract(StateExtension,Z))
     LocalStiffness = dF / np.subtract(StateExtension_dF,StateExtension)         #[pN/nm]            #*Pars['kBT_pN_nm']    
     sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness + Pars['MeasurementERR (nm)']**2)    
@@ -135,8 +135,8 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=True, Z_Cut
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])  
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit = TheModel_FJC(F, x, Ratio, Pars) 
-        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars)
+        Fit = model_fjc(F, x, Ratio, Pars) 
+        Fit_Selected = model_fjc(F_Selected, x, Ratio, Pars)
         AllStates[:,i] = Fit        
         AllStates_Selected[:,i] = Fit_Selected        
     
@@ -146,7 +146,7 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=True, Z_Cut
     StateMask = np.abs(Z_Score) < Z_Cutoff
 
     #Remove states with 'Minpoints' or less datapoints
-    RemoveStates = removestates(StateMask, MinPoints=1)
+    RemoveStates = remove_states(StateMask, MinPoints=1)
     if len(RemoveStates) > 0:
         States              = np.delete(States, RemoveStates)
         Peak                = np.delete(Peak, RemoveStates)
@@ -186,8 +186,8 @@ def merge(F, F_Selected, Z_Selected, States, StateMask, AllStates, Z_Score, Z_Cu
         Ratio = ratio(MergedState,Pars)
         
         #Each entry is the extension corresponding to the force in F(_Selected)         
-        MergedStateArr = TheModel_FJC(F, MergedState, Ratio, Pars)
-        MergedStateArr_Selected = TheModel_FJC(F_Selected, MergedState, Ratio, Pars)
+        MergedStateArr = model_fjc(F, MergedState, Ratio, Pars)
+        MergedStateArr_Selected = model_fjc(F_Selected, MergedState, Ratio, Pars)
         
         Std = STD(F_Selected, Z_Selected, MergedState, Pars)
         Z_Score_MergedState = z_score(Z_Selected, MergedStateArr_Selected, Std, 1).ravel()
@@ -225,7 +225,7 @@ def conv(y, box_pts=5):
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
 
-def removestates(StateMask, MinPoints=5):
+def remove_states(StateMask, MinPoints=5):
     """Removes states with less than n data points, returns indexes of states to be removed"""
     RemoveStates = np.array([])    
     for i in np.arange(0,len(StateMask[0,:]),1):
@@ -288,7 +288,7 @@ def attribute2state(Z, States_Selected):
     StateMask = np.argmin(abs(States_diff),1)       
     return StateMask 
    
-def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
+def rupture_forces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     """
     Calculates rupture forces and and corresponding stepsizes in bp by applying
     a median filter over the data. Plots the median filtered data over the
@@ -304,7 +304,7 @@ def RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars) 
+        Fit_Selected = model_fjc(F_Selected, x, Ratio, Pars) 
         AllStates_Selected[:,i] = Fit_Selected        
         
     Mask = attribute2state(Z_Selected, AllStates_Selected)                #Tels to which state a datapoint belongs
@@ -346,7 +346,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars) 
+        Fit_Selected = model_fjc(F_Selected, x, Ratio, Pars) 
         AllStates_Selected[:,i] = Fit_Selected        
         
     Mask = attribute2state(Z_Selected, AllStates_Selected)                #Tels to which state a datapoint belongs
@@ -385,7 +385,7 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
     AllStates_Selected = np.empty(shape=[len(Z_Selected), len(States)])     
     for i, x in enumerate(States):
         Ratio = ratio(x,Pars)
-        Fit_Selected = TheModel_FJC(F_Selected, x, Ratio, Pars) 
+        Fit_Selected = model_fjc(F_Selected, x, Ratio, Pars) 
         AllStates_Selected[:,i] = Fit_Selected        
         
     Mask = attribute2state(Z_Selected, AllStates_Selected)                #Tells to which state a datapoint belongs
@@ -400,7 +400,7 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
         TotalLifetime[j] += 1        
         NonEqFit.append(AllStates_Selected[i,j])
         DeltaZ = AllStates_Selected[i,j]-AllStates_Selected[i,j-1]
-        if k < j and DeltaZ > 0 and F_Selected[i] < 8:                                               #Only analyse Steps larger than 0nm
+        if k < j and DeltaZ > 0 and F_Selected[i] < 10:                                               #Only analyse Steps larger than 0nm
             dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
             BT = np.append(BT, [[F_Selected[i-1], j, dF_dt]], axis=0)           
         k = j
@@ -451,7 +451,7 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars, K_off = 5e9):
 def plot_brower_toland(BT_Ruptures, Pars, newpath, Steps=True):
     #Brower-Toland Analysis
     RFs = BT_Ruptures[:,0]
-    ln_dFdt_N = np.log(BT_Ruptures[:,2])#np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
+    ln_dFdt_N = -np.log(np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
     #Remove Ruptures at extensions larger than contour length (ln gets nan value)
     RFs = RFs[abs(ln_dFdt_N) < 10e6]
     ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]

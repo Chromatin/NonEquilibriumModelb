@@ -18,7 +18,7 @@ start_time = time.time()
 plt.close('all')                                                                #Close all the figures from previous sessions
 
 #folder = r'P:\18S FitFiles\Leiden_wt'
-folder = r'N:\Artur\analysis\2018\final 167 twisting analysis\all selected'
+folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
 
 newpath = folder+r'\Figures_NewBTFactor'                                                   #New path to save the figures
 if not os.path.exists(newpath):
@@ -30,7 +30,7 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = True                                                         #Choose to plot selected only
+PlotSelected = False                                                         #Choose to plot selected only
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=True, Onepull=False, MedFilt=False)
 steps , stacks = [],[]                                                          #used to save data (T-test)
@@ -203,7 +203,7 @@ ax6 = fig3.add_subplot(1,2,2)
 Range = [0,400]
 Bins = 50
 n = ax5.hist(Steps,  bins=Bins, range=Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
-ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
+ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='green', label='Stacking transitions')
 
 #Fitting double gaussian over 25nm Steps
 try: 

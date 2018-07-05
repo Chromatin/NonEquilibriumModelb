@@ -351,7 +351,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         
     Mask = attribute2state(Z_Selected, AllStates_Selected)                #Tels to which state a datapoint belongs
     MedianFilt = signal.medfilt(Mask, 5)
-    
+    import math
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
     k = 10000                                                                   #For the first loop 
     F_Rup = np.empty((0,3)) #np.array([RuptureForce, N-nucl left, dF/dt])
@@ -363,10 +363,14 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
         if k < j and DeltaZ > 20 and DeltaZ < 30 and F_Selected[i] > 12:                               #Only analyse 25 +- 5 nm steps
             IntactNucleosomes = round((wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79) 
-            N = (Pars['N_tot']-IntactNucleosomes + 1) / IntactNucleosomes #Number of nucl left at i, rounded to the nearest int.
-            #N = IntactNucleosomes
-            dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
-            F_Rup = np.append(F_Rup, [[F_Selected[i-1], N, dF_dt]], axis=0)    
+            if round(IntactNucleosomes) > 0            :
+                N = (Pars['N_tot']-IntactNucleosomes + 1) / IntactNucleosomes #Number of nucl left at i, rounded to the nearest int.
+#                N_fac = math.factorial(int(round(IntactNucleosomes)))
+#                N_tot = math.factorial(int(Pars['N_tot']))
+#                N_tot_N = math.factorial(int(round(Pars['N_tot']-IntactNucleosomes)))
+#                N = 1/(IntactNucleosomes*(N_fac+N_tot_N)/N_tot)
+                dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
+                F_Rup = np.append(F_Rup, [[F_Selected[i-1], N, dF_dt]], axis=0)    
         k = j
     
     TotalLifetime *= dt
@@ -410,11 +414,14 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
     
     TotalLifetime *= dt
     if len(BT[:,1]) > 0:
-        StackingNumber = BT[:,1][::-1]                              #inverse BT for total number of stacks (I dont understand this, pls hlp)
-        TotalStackingInteractions = np.max(StackingNumber)
-        RupturedStacks = TotalStackingInteractions - StackingNumber
-        CorrectionFactor = (1 + RupturedStacks) / StackingNumber    #BT correctionfactor 1/N with velocity clamp
-        BT[:,1] = CorrectionFactor                                             #Saves the correctionfactor
+        IntactNucleosomes = np.abs(BT[:,1]-np.max(BT[:,1])) + 1                           #Tels how much states are left
+        BT[:,1] = (BT[:,1] + 1) / IntactNucleosomes #Number of nucl left at i, rounded to the nearest int.
+
+#        StackingNumber = BT[:,1][::-1]                              #inverse BT for total number of stacks (I dont understand this, pls hlp)
+#        TotalStackingInteractions = np.max(StackingNumber)
+#        RupturedStacks = TotalStackingInteractions - StackingNumber
+#        CorrectionFactor = (1 + RupturedStacks) / StackingNumber    #BT correctionfactor 1/N with velocity clamp
+#        BT[:,1] = CorrectionFactor                                             #Saves the correctionfactor
 
 #    ax1.plot(NonEqFit, F_Selected, color='green', lw=2)
 #    ax3.plot(T_Selected, NonEqFit, color='green', lw=2)
@@ -429,7 +436,7 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars):
     For error propagation: http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
     """
     
-    Fit = np.polyfit(ln_dFdt_N, RFs, 1, full = True)
+    Fit = np.polyfit(ln_dFdt_N, RFs, 1, full = False, cov = True)
     a = Fit[0][0]
     b = Fit[0][1]
     d = Pars['kBT_pN_nm']/a
@@ -443,8 +450,8 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars):
         d_e_ab = np.exp(-b/a)*d_ab
         return 1/a*np.exp(-b/a)*((d_e_ab/np.exp(-a/b))**2+(d_a/a)**2)**(1/2) 
     
-    a_err = Fit[3][0]
-    b_err = Fit[3][1]
+    a_err = np.sqrt(Fit[1][0,0])
+    b_err = np.sqrt(Fit[1][1,1])
 
     D_err = d_err(a, a_err, Pars)
     K_d0_err = k_D0_err(a, a_err, b, b_err, Pars)

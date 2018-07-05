@@ -17,10 +17,17 @@ import time
 start_time = time.time()
 plt.close('all')                                                                #Close all the figures from previous sessions
 
-#folder = r'P:\18S FitFiles\Leiden_wt'
-folder = r'N:\Rick\Fit Files\15x197 H1 Best Traces'
+###############################################################################
+###########   How to use:
+###########   1) Put all the .fit & .log files you want to analyse in one folder
+###########   2) Copy-Paste the foldername down below
+###########   3) Set the data handles correctly
+###############################################################################
 
-newpath = folder+r'\Figures_NewBTFactor'                                                   #New path to save the figures
+folder =  r'N:\Rick\Fit Files\15x197 H1 Best Traces'
+#folder = r'P:\18S FitFiles\Leiden_wt'
+
+newpath = folder+r'\Figures'                                                   #New path to save the figures
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
@@ -30,22 +37,25 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = False                                                         #Choose to plot selected only
+PlotSelected = False                                                           #Choose to analyse the data selected in labview only
 
-Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=True, Onepull=False, MedFilt=False)
-steps , stacks = [],[]                                                          #used to save data (T-test)
-Steps , Stacks = [],[]                                                          #used to save data (Smoothening)
+Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=True, Onepull=True, MedFilt=False)
+steps , stacks = [],[]
+Steps , Stacks = [],[]                                                          #used to save data
 F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps
-
 BT_Ruptures = np.empty((0,3))                                                   #Brower-Toland
 BT_Ruptures_Stacks = np.empty((0,3)) 
-
 Fignum = 1                                                                      #Used for output line
 
-Filenames = []                                                                  #All .fit files    
+Filenames = []                                                                  #All .fit files in folder  
 for filename in filenames:
     if filename[-4:] == '.fit':
         Filenames.append(filename)
+
+#%%
+###############################################################################
+#############   Main script that runs thourgh all fitfiles in folder  #########
+###############################################################################
 
 for Filenum, Filename in enumerate(Filenames):
     plt.close('all')
@@ -94,7 +104,7 @@ for Filenum, Filename in enumerate(Filenames):
 
     ax2 = fig1.add_subplot(1, 2, 2)
     ax2.set_title(r'Probability Landscape')
-    ax2.set_xlabel(r'Contour Length (bp)') #(nm) should be removed
+    ax2.set_xlabel(r'Contour Length (bp)') 
     ax2.set_ylabel(r'Probability (AU)')
     ax2.plot(PossibleStates, ProbSum/np.sum(ProbSum), label='ProbSum')
     ax2.scatter(States, Peak/np.sum(ProbSum))
@@ -113,8 +123,9 @@ for Filenum, Filename in enumerate(Filenames):
     ax4 = fig2.add_subplot(1, 2, 2, sharey=ax3)
     ax4.set_title(r'Probability Landscape')
     ax4.set_xlabel(r'Probability (AU)')
-    ax4.plot(ProbSum,PossibleStates*Pars['DNAds_nm'])
-    ax4.scatter(Peak, States*Pars['DNAds_nm'], color='blue')
+    ax4.set_ylim([0, np.max(ProbSum)])
+    ax4.plot(ProbSum/np.sum(ProbSum),PossibleStates*Pars['DNAds_nm'])
+    ax4.scatter(Peak/np.sum(ProbSum), States*Pars['DNAds_nm'], color='blue')
 
     ax3.set_xlim([np.min(T_Selected)-0.1*np.max(T_Selected), np.max(T_Selected)+0.1*np.max(T_Selected)])
     ax3.set_ylim([np.min(Z_Selected)-0.1*np.max(Z_Selected), np.max(Z_Selected)+0.1*np.max(Z_Selected)])
@@ -122,8 +133,10 @@ for Filenum, Filename in enumerate(Filenames):
     if len(States) <1:
         print("<<<<<<<<<<<", Filename,'==> No States were found>>>>>>>>>>>>')
         continue
+    
 ##############################################################################################
-######## Begin Plotting Different States  
+######## Plotting Different States  
+##############################################################################################
         
     States = NewStates
     Statemask = NewStateMask
@@ -133,7 +146,7 @@ for Filenum, Filename in enumerate(Filenames):
     dX = 10                                                                     #Offset for text in plot
 
     #Calculate the rupture forces using a median filter    
-    a, b, c, d = func.RuptureForces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
+    a, b, c, d = func.rupture_forces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
     F_Rup_up.extend(a)
     Step_up.extend(b)
     F_Rup_down.extend(c)    
@@ -159,13 +172,13 @@ for Filenum, Filename in enumerate(Filenames):
         ax1.plot(Fit, F, alpha=0.9, linestyle=':', color=tuple(col)) 
         ax1.scatter(Z_Selected[Mask], F_Selected[Mask], color=tuple(col), s=20, alpha=.6)
     
-        ax2.vlines(States[j], 0, np.max(Peak), linestyle=':', color=tuple(col))
+        ax2.vlines(States[j], 0, np.max(Peak/np.sum(ProbSum)), linestyle=':', color=tuple(col))
         ax2.text(States[j], 0, int(States[j]), fontsize=10, horizontalalignment='center', verticalalignment='top', rotation=90)
         
         ax3.plot(T, Fit, alpha=0.9, linestyle=':', color=tuple(col))
         ax3.scatter(T_Selected[Mask], Z_Selected[Mask], color=tuple(col), s=20, alpha=.6)
         
-        ax4.hlines(States[j]*Pars['DNAds_nm'], 0, np.max(Peak), color=tuple(col), linestyle=':')
+        ax4.hlines(States[j]*Pars['DNAds_nm'], 0, np.max(Peak/np.sum(ProbSum)), color=tuple(col), linestyle=':')
         ax4.text(0, States[j]*Pars['DNAds_nm'], int(States[j]*Pars['DNAds_nm']), fontsize=10, verticalalignment='center', horizontalalignment='right')
 
     Unwrapsteps = []
@@ -179,7 +192,8 @@ for Filenum, Filename in enumerate(Filenames):
     Unwrapsteps = np.diff(np.array(Unwrapsteps))
     if len(Unwrapsteps)>0: Steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
-######################################################################################################################
+
+    #saving figures
     fig1.tight_layout()
     fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.png')
     fig1.show()
@@ -189,6 +203,8 @@ for Filenum, Filename in enumerate(Filenames):
     fig2.show()
 
     Fignum += 2
+
+### Analysis of Brower-Towland and stepsize
 
 try:
     func.plot_brower_toland(BT_Ruptures, Pars, newpath, Steps=True)
@@ -203,7 +219,7 @@ ax6 = fig3.add_subplot(1,2,2)
 Range = [0,400]
 Bins = 50
 n = ax5.hist(Steps,  bins=Bins, range=Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
-ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='green', label='Stacking transitions')
+ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
 
 #Fitting double gaussian over 25nm Steps
 try: 

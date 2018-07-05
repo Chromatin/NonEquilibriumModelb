@@ -58,7 +58,6 @@ for filename in filenames:
 ###############################################################################
 
 for Filenum, Filename in enumerate(Filenames):
-    plt.close('all')
     F, Z, T, Z_Selected = Tools.read_data(Filename)                            #loads the data from the filename
     LogFile = Tools.read_log(Filename[:-4]+'.log')                             #loads the log file with the same name
     if LogFile: Pars = Tools.log_pars(LogFile)                                 #Reads in all the parameters from the logfile
@@ -204,6 +203,7 @@ for Filenum, Filename in enumerate(Filenames):
 
     Fignum += 2
 
+    plt.close("all")
 ### Analysis of Brower-Towland and stepsize
 
 try:
@@ -219,7 +219,7 @@ ax6 = fig3.add_subplot(1,2,2)
 Range = [0,400]
 Bins = 50
 n = ax5.hist(Steps,  bins=Bins, range=Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
-ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
+ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='green', label='Stacking transitions')
 
 #Fitting double gaussian over 25nm Steps
 try: 

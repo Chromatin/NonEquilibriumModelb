@@ -351,7 +351,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         
     Mask = attribute2state(Z_Selected, AllStates_Selected)                #Tels to which state a datapoint belongs
     MedianFilt = signal.medfilt(Mask, 5)
-    import math
+    
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
     k = 10000                                                                   #For the first loop 
     F_Rup = np.empty((0,3)) #np.array([RuptureForce, N-nucl left, dF/dt])
@@ -363,20 +363,13 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
         if k < j and DeltaZ > 20 and DeltaZ < 30 and F_Selected[i] > 12:                               #Only analyse 25 +- 5 nm steps
             IntactNucleosomes = round((wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79) 
-            if round(IntactNucleosomes) > 0            :
+            if IntactNucleosomes > 0:
                 N = (Pars['N_tot']-IntactNucleosomes + 1) / IntactNucleosomes #Number of nucl left at i, rounded to the nearest int.
-#                N_fac = math.factorial(int(round(IntactNucleosomes)))
-#                N_tot = math.factorial(int(Pars['N_tot']))
-#                N_tot_N = math.factorial(int(round(Pars['N_tot']-IntactNucleosomes)))
-#                N = 1/(IntactNucleosomes*(N_fac+N_tot_N)/N_tot)
                 dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
                 F_Rup = np.append(F_Rup, [[F_Selected[i-1], N, dF_dt]], axis=0)    
         k = j
     
-    TotalLifetime *= dt
-    
-#    ax1.plot(NonEqFit, F_Selected, color='blue', lw=2)
-#    ax3.plot(T_Selected, NonEqFit, color='blue', lw=2)
+    #TotalLifetime *= dt                                                       #Calculates lifetime of state, not used ATM
     return F_Rup
 
 def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
@@ -414,28 +407,22 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
     
     TotalLifetime *= dt
     if len(BT[:,1]) > 0:
-        IntactNucleosomes = np.abs(BT[:,1]-np.max(BT[:,1])) + 1                           #Tels how much states are left
-        BT[:,1] = (BT[:,1] + 1) / IntactNucleosomes #Number of nucl left at i, rounded to the nearest int.
-
-#        StackingNumber = BT[:,1][::-1]                              #inverse BT for total number of stacks (I dont understand this, pls hlp)
-#        TotalStackingInteractions = np.max(StackingNumber)
-#        RupturedStacks = TotalStackingInteractions - StackingNumber
-#        CorrectionFactor = (1 + RupturedStacks) / StackingNumber    #BT correctionfactor 1/N with velocity clamp
-#        BT[:,1] = CorrectionFactor                                             #Saves the correctionfactor
+        IntactNucleosomes = np.abs(BT[:,1]-np.max(BT[:,1])) + 1                #Calculates N (BT degeneracy) based on the number of steps found                            
+        BT[:,1] = (BT[:,1] + 1) / IntactNucleosomes                            #Calculates r/N for stacking interactions.
 
 #    ax1.plot(NonEqFit, F_Selected, color='green', lw=2)
 #    ax3.plot(T_Selected, NonEqFit, color='green', lw=2)
     return BT
 
 
-def dG_browertoland(ln_dFdt_N, RFs, Pars):
+def dG_browertoland(ln_dFdt_N, RFs, Pars, K_off = 5e9):
     """ 
     Linear fit of the BT plot (a + bx)
     Calculates d (distance to transition) and K_d0 (energy of transition)
     Calculates errors of the fit and the propagated error in the K_d and d
+    K0 is the 1/tau (lifetime) for the unbound state at 0 force (K_off)
     For error propagation: http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
     """
-    
     Fit = np.polyfit(ln_dFdt_N, RFs, 1, full = False, cov = True)
     a = Fit[0][0]
     b = Fit[0][1]
@@ -455,9 +442,8 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars):
 
     D_err = d_err(a, a_err, Pars)
     K_d0_err = k_D0_err(a, a_err, b, b_err, Pars)
-    
-    K0 = 5e9
-    Delta_G = -np.log(K_d0/K0) #in k_BT    
+
+    Delta_G = -np.log(K_d0/K_off) #in k_BT    
     Delta_G_err = K_d0_err/(K_d0)
     
     return a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err
@@ -465,20 +451,18 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars):
 def plot_brower_toland(BT_Ruptures, Pars, newpath, Steps=True):
     #Brower-Toland Analysis
     RFs = BT_Ruptures[:,0]
-#############################################################################################################
-##########################   Let op, minnetje voor log, anders negatieve slope ##############################
-#############################################################################################################  
-    ln_dFdt_N = -np.log(np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
+    ln_dFdt_N = np.log(BT_Ruptures[:,2])#np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
     #Remove Ruptures at extensions larger than contour length (ln gets nan value)
     RFs = RFs[abs(ln_dFdt_N) < 10e6]
     ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
     x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
-    a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err = dG_browertoland(ln_dFdt_N, RFs, Pars)
+    if Steps==False: K_off = 2e6   # Lifetime tau in sec
+    else: K_off = 5e9
+    a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err = dG_browertoland(ln_dFdt_N, RFs, Pars, K_off)
        
     #BowerToland plot
     fig, ax = plt.subplots()
     ax.plot(x, a*x+b, color='red', lw=2, label='Linear Fit')
-    ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result B-T')
 #    ax.plot(np.log(np.divide(A[:,2],A[:,1])), A[:,0], label='Data', color='red')
     ax.scatter(ln_dFdt_N, RFs, label='Data')
     ax.set_title("Brower-Toland analysis")
@@ -492,6 +476,7 @@ def plot_brower_toland(BT_Ruptures, Pars, newpath, Steps=True):
 #    ax.set_xlim(-4,2)
     ax.legend(loc='best', title='Slope:' + str(np.round(a,1)) + '±' + str(np.round(a_err,1)) + ', intersect:' + str(np.round(b,1)) + '±' + str(np.round(b_err,1)))
     if Steps:    
+        ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result Brower-Toland')
         fig.savefig(newpath+r'\\'+'BT_Steps.png')
     else:
         fig.savefig(newpath+r'\\'+'BT_Stacks.png')

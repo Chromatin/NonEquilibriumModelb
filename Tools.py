@@ -9,16 +9,18 @@ Created on Wed Jan  3 14:52:17 2018
 import numpy as np
 from scipy import signal
 
-def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MinZ=0, MaxZ=False, MedFilt=False):
+def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False):
     """If analysis has to be done on only part of the data, these options can be used"""
     Handles = {}
     Handles['Select'] = Select
     Handles['Pulling'] = Pull
     Handles['DelBreaks'] = DelBreaks
     Handles['MinForce'] = MinForce
+    Handles['MaxForce'] = MaxForce
     Handles['MinZ'] = MinZ
     Handles['MaxZ'] = MaxZ
-    Handles['MedFilt'] = MedFilt 
+    Handles['MedFilt'] = MedFilt
+    Handles['Onepull'] = Onepull
     return Handles
 
 def read_data(Filename):
@@ -28,23 +30,21 @@ def read_data(Filename):
     headers = f.readlines()[0]
     headers = headers.split('\t')
     #get data
-    f.seek(0) #seek to beginning of the file
-    data = f.readlines()[1:]
-    f.close()
-    F = np.array([])
-    Z = np.array([])
-    T = np.array([])
-    Z_Selected = np.array([])
-    for idx,item in enumerate(data):                                            #Get all the data from the fitfile
-        F = np.append(F,float(item.split()[headers.index('F (pN)')]))
-        Z = np.append(Z,float(item.split()[headers.index('z (um)')])*1000)   
-        T = np.append(T,float(item.split()[headers.index('t (s)')]))
-        Z_Selected = np.append(Z_Selected,float(item.split()[headers.index('selected z (um)')])*1000)
+    data = np.genfromtxt(Filename, skip_header = 1)
+    F = data[:,headers.index('F (pN)')]
+    Z = data[:,headers.index('z (um)')]*1000  #Z in nm
+    T = data[:,headers.index('t (s)')]
+    Z_Selected = data[:,headers.index('selected z (um)')]*1000
+
     return F, Z, T, Z_Selected
 
 def read_log(Filename):
-    """Open the corresponding .log files from magnetic tweezers"""
-    f = open(Filename, 'r')
+    """Open the corresponding .log files from magnetic tweezers. Returns False if the file is not found"""
+    try: 
+        f = open(Filename, 'r')
+    except FileNotFoundError: 
+        print(Filename, '========> No valid logfile found')
+        return False   
     lines = f.readlines()
     f.close()
     return lines
@@ -70,7 +70,7 @@ def log_pars(LogFile):
     par['Fiber0_bp'] = par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
     par['LFiber_bp'] = (par['N_tot']-par['N4'])*(par['NRL_bp']-par['Innerwrap_bp'])  #total number of bp in the fiber
     par['FiberStart_bp']  = par['Fiber0_bp']-par['LFiber_bp']
-    par['MeasurementERR (nm)'] = 5
+    par['MeasurementERR (nm)'] = 5                                                #tracking inaccuracy in nm
     return par
 
 def find_param(Logfile, Param):
@@ -102,16 +102,18 @@ def default_pars():
     par['Fiber0_bp']  = par['L_bp']-(par['N_tot']*par['Innerwrap_bp'])  #Transition between fiber and beats on a string
     par['LFiber_bp'] = (par['N_tot']-par['N4'])*(par['NRL_bp']-par['Innerwrap_bp'])  #total number of bp in the fiber
     par['FiberStart_bp'] = par['Fiber0_bp']-par['LFiber_bp'] #DNA handles
-    par['MeasurementERR (nm)'] = 5   
+    par['MeasurementERR (nm)'] = 5     #tracking inaccuracy in nm
     return par
 
 def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
-    """Reads in parameters from the logfile generate by the labview fitting program"""
+    """Can be used to remove data that disrupts proper fitting
+    Please read 'handles' to see the options"""
+    
     if Handles['Select']:                                                       #If only the selected column is use do this
         F_Selected = np.delete(F, np.argwhere(np.isnan(Z_Selected)))
         T_Selected = np.delete(T, np.argwhere(np.isnan(Z_Selected)))
         Z_Selected = np.delete(Z, np.argwhere(np.isnan(Z_Selected))) 
-        if len(Z_Selected)==0: 
+        if len(Z_Selected) == 0: 
             print('==> Nothing Selected!')
             return [], [], []
         else:
@@ -122,49 +124,56 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
         Z_Selected = Z
         T_Selected = T
     
-    if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, 1000)
+    if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, Jump = 1500)
     if Handles['Pulling']: F_Selected, Z_Selected, T_Selected = removerelease(F_Selected, Z_Selected, T_Selected )
     if Handles['MinForce'] > 0: F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
         Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
-        F_Selected, Z_Selected, T_Selected = maxextention(F_Selected,Z_Selected, T_Selected , Handles['MaxZ']) #remove data above Z=1.1*LC
+        F_Selected, Z_Selected, T_Selected = maxextention(F_Selected, Z_Selected, T_Selected , Handles['MaxZ']) #remove data above Z=1.1*LC
+    if Handles['Onepull']: F_Selected, Z_Selected, T_Selected = onepull(F_Selected, Z_Selected, T_Selected, 10)
     if Handles['MedFilt']: Z_Selected = signal.medfilt(Z_Selected, Window)
     return F_Selected, Z_Selected, T_Selected
 
-def breaks(F, Z, T, test=500):
+def breaks(F, Z, T, Jump=1000):
     """Removes the data after a jump in z, presumably indicating the bead broke lose"""
-    test = Z[0]
-    for i,x in enumerate(Z[1:]):
-        if abs(x - test) > 500 :
+    LowPass = signal.medfilt(Z,3)
+    extra = 0
+    for i,x in enumerate(LowPass[1:]):
+        change = abs(x - LowPass[i]) + extra
+        if change > Jump :
             F = F[:i]
             Z = Z[:i] 
             T = T[:i] 
             break
-        test = x
+        if abs(x - LowPass[i]) > 100:
+            extra = change
+        else: extra = 0
     return F, Z, T
 
 def removerelease(F, Z, T):
     """Removes the release curve from the selected data"""
-    test = 0
-    Pullingtest = np.array([])
-    for i,x in enumerate(F):
-        if x < test:
-            Pullingtest = np.append(Pullingtest,i)
-        test = x
-    F = np.delete(F, Pullingtest)
-    Z = np.delete(Z, Pullingtest)
-    T = np.delete(T, Pullingtest)
-    return F, Z, T 
+    F_diff = np.diff(F)
+    F_diff = np.insert(F_diff,0,0)
+    F = F[F_diff>=0]
+    Z = Z[F_diff>=0]
+    T = T[F_diff>=0]
+    return F, Z, T
+
+def maxforce(F, Z, T,  Max_Force=10):
+    """Removes the data above Max force given"""
+    T = T[F<Max_Force]
+    Z = Z[F<Max_Force]
+    F = F[F<Max_Force]
+    return F, Z, T
 
 def minforce(F, Z,  T, Min_Force=2):
     """Removes the data below minimum force given"""
-    Mask = F > Min_Force
-    Z = Z[Mask]
-    F = F[Mask]
-    T = T[Mask]
+    Z = Z[F>Min_Force]
+    T = T[F>Min_Force]
+    F = F[F>Min_Force]
     return F, Z, T
 
-def maxextention(F, Z, T, Max_Extension):   #Does not work yet
+def maxextention(F, Z, T, Max_Extension): 
     """Removes the data above maximum extension given"""
     Mask = Z < Max_Extension
     Z = Z[Mask]
@@ -172,7 +181,17 @@ def maxextention(F, Z, T, Max_Extension):   #Does not work yet
     T = T[Mask]
     return F, Z ,T
 
-
+def onepull(F, Z, T, Jump=10):
+    """Selects only the last pulling curve"""
+    T_Jump = np.diff(T)
+    mask = T_Jump > Jump
+    ind = np.where(mask)[0]
+    if len(ind)>0:    
+        F = F[ind[-1]+1:]
+        Z = Z[ind[-1]+1:]
+        T = T[ind[-1]+1:]
+    return F, Z, T
+    
 """
 #This function is not used atm
             

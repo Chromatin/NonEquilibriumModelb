@@ -9,7 +9,6 @@ import matplotlib
 matplotlib.rcParams['figure.figsize'] = (16, 9)
 import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib.mlab as mlab
 import Functions as func
 import Tools
 import time
@@ -27,7 +26,7 @@ plt.close('all')                                                                
 folder =  r'N:\Artur\analysis\2018\final 167 twisting analysis\all selected'
 #folder = r'P:\18S FitFiles\Leiden_wt'
 
-newpath = folder+r'\FiguresFinal'                                                   #New path to save the figures
+newpath = folder+r'\FiguresStepCutoff'                                                   #New path to save the figures
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
@@ -225,21 +224,19 @@ ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orang
 try: 
     Mode="triple"
     Norm =  Range[-1]/Bins
-    D_Gaus = func.fit_gauss(Steps, Step=80, Amp1=30, Amp2=10, Sigma=15, Mode=Mode)
-    mu = D_Gaus[0]
+    cut=0
+    Steps = np.array(Steps)
+    D_Gaus,cov = func.fit_gauss(Steps[Steps>cut]-cut, Step=80-cut, Amp1=len(Steps[Steps>cut])/3, Amp2=len(Steps[Steps>cut])/9, Sigma=15, Mode=Mode)
+    mu = D_Gaus[0]+cut
     sigma = D_Gaus[1]
-    x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
-    ax5.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[2]*2*Norm, color='red', lw=4, zorder=10, label = 'Gaussian fit')
-    mu = 2*mu
-    x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100)
-    ax5.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[3]*2*Norm, color='red', lw=4, zorder=10)
-    ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean1:'+str(int(D_Gaus[0])), verticalalignment='bottom')
-    #ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean2:'+str(int(2*D_Gaus[0])), verticalalignment='top')
-    if Mode=="triple":
-        mu = 1.5*mu
-        x = np.linspace(mu - 3*sigma, mu + 3*sigma, 100) 
-        ax5.plot(x,mlab.normpdf(x, mu, sigma)*D_Gaus[4]*2*Norm, color='red', lw=4, zorder=10)
-
+    y=0
+    for i,amp in enumerate(D_Gaus[2:]):
+        i += 1
+        x = np.linspace(0, np.max(Steps), 300) 
+        y += y + func.gaus(x, amp, i*mu, sigma)/Norm
+    ax5.plot(x,y, color='red', lw=4, zorder=10, label = 'Gaussian fit')
+    ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean1:'+str(int(D_Gaus[0]+cut)), verticalalignment='bottom')
+   
 except ValueError:
     print('>>No 25 nm steps to fit gauss')
     

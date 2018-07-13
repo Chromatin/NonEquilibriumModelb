@@ -273,13 +273,15 @@ def fit_gauss(Steps, Step=80, Amp1=30, Amp2=10, Amp3=3, Sigma=15, Mode="triple")
     Steps = np.sort(Steps)
     PDF = np.arange(len(Steps))
     if Mode=="single":
-        popt, pcov = curve_fit(single_gauss, Steps, PDF, p0=[Step, Sigma, Amp1])
+        popt, pcov = curve_fit(single_gauss, Steps, PDF, p0=[Step, Sigma, Amp1], bounds=[[Step-20,5,0],[Step+20,100,len(Steps)]])
     if Mode=="double":
-        popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2])
+        popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2],bounds=[[Step-20,5,0,0],[Step+20,100,len(Steps),len(Steps)]])
     if Mode=="triple":
-        popt, pcov = curve_fit(triple_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2, Amp3])
-    else: print(">>>>>No guassian fit selected, see Functions")
-    return popt
+        popt, pcov = curve_fit(triple_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2, Amp3],bounds=[[Step-20,5,0,0,0],[Step+20,100,len(Steps),len(Steps),len(Steps)]])
+    else: 
+        print(">>>>>No guassian fit selected, see Functions")
+        return
+    return popt,pcov
 
 def attribute2state(Z, States_Selected):
     """Calculates for each datapoint which state it most likely belongs too

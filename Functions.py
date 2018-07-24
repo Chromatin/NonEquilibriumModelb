@@ -7,6 +7,7 @@ Created on Wed Jan  3 13:44:01 2018
 import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
+from scipy.stats import truncnorm
 
 def wlc(force,Pars): #in nm/pN, as fraction of L
     """Calculates WLC in nm/pN, as a fraction the Contour Length.
@@ -252,22 +253,29 @@ def z_score(Z_Selected, Z_States, std, States):
 def single_gauss(x, step=75, Sigma=15, a1=1):
     return a1*(1+erfaprox((x-step)/(Sigma*np.sqrt(2))))
 
-def double_gauss(x, step=75, Sigma=15, a1=1, a2=1):
+def err_cdf(x,Sigma,Amp):
+    """CDF, x = data - step (normalized around 0)"""
+    return Amp*(1+erfaprox((x)/(Sigma*np.sqrt(2))))
+    
+def triple_gauss_cutoff(x, step=75, Sigma=15, a1=1, a2=1, a3=1, cutoff=55):
+    """Use this one for unequal Sigma in the first normal distribution
+    Cuts off the normal distribution at cutoff, because small steps will not be
+    found due to measurement error """
+    a, b = (cutoff-75)/20, (400-75)/20                                         #Cutoff values are defined as function of mean and std
+    return a1*2*truncnorm.cdf(x, a, b, loc=step, scale=Sigma) + err_cdf(x-step*2,Sigma,a2) + err_cdf(x-step*3,Sigma,a3)    
+
+def double_gauss(x, step=75, Sigma=15, a1=1, a2=1, cutoff=55):
     """Double gaussian with mean2 = 2*mean1"""
-    return a1*(1+erfaprox((x-step)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-(step*2))/(Sigma*np.sqrt(2))))
-
-def triple_gauss(x, step=75, Sigma=15, a1=1, a2=1, a3=1):
-    """Triple gaussian with mean2 = 2*mean1 etc"""
-    return a1*(1+erfaprox((x-step)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-(step*2))/(Sigma*np.sqrt(2))))+a3*(1+erfaprox((x-(step*3))/(Sigma*np.sqrt(2))))
-
+    a, b = (cutoff-75)/20, (400-75)/20                                          #Cutoff values are defined as function of mean and std
+    return a1*2*truncnorm.cdf(x, a, b, loc=step, scale=Sigma)+a2*(1+erfaprox((x-(step*2))/(Sigma*np.sqrt(2))))
+            
 def double_indep_gauss(x, step1=80, step2=160, Sigma=15, a1=1, a2=1):
     """Double gaussian with independent means"""
     return a1*(1+erfaprox((x-step1)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-step2)))/(Sigma*np.sqrt(2))
 
-def fit_gauss(Steps, Step=80, Amp1=30, Amp2=10, Amp3=3, Sigma=15, Mode="triple"):
-    """Function to fit 25nm steps with a double gauss, as a PDF
-    Mode can be single, double and triple
-    """
+def fit_gauss(Steps, Step=75, Amp1=30, Amp2=10, Amp3=3, Sigma=15, Mode="triple"):
+    """Function to fit 25nm steps with a multiple gauss, as a PDF
+    Mode can be single, double and triple"""
     from scipy.optimize import curve_fit
     Steps = np.array(Steps)
     Steps = np.sort(Steps)
@@ -277,7 +285,7 @@ def fit_gauss(Steps, Step=80, Amp1=30, Amp2=10, Amp3=3, Sigma=15, Mode="triple")
     if Mode=="double":
         popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2],bounds=[[Step-20,5,0,0],[Step+20,100,len(Steps),len(Steps)]])
     if Mode=="triple":
-        popt, pcov = curve_fit(triple_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2, Amp3],bounds=[[Step-20,5,0,0,0],[Step+20,100,len(Steps),len(Steps),len(Steps)]])
+        popt, pcov = curve_fit(triple_gauss_cutoff, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2, Amp3],bounds=[[Step-25,0,0,0,0],[Step+25,50,len(Steps),len(Steps),len(Steps)]])
     else: 
         print(">>>>>No guassian fit selected, see Functions")
         return
@@ -450,15 +458,14 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars, K_off = 5e9):
     
     return a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err
 
-def plot_brower_toland(BT_Ruptures, Pars, newpath, Steps=True):
+def plot_brower_toland(BT_Ruptures, Pars, newpath):
     #Brower-Toland Analysis, the degenracy
     ln_dFdt_N = -np.log(np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
     #Remove Ruptures at extensions larger than contour length (ln gets nan value)
     RFs = BT_Ruptures[:,0][abs(ln_dFdt_N) < 10e6]
     ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
     x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
-    if Steps==False: K_off = 2e6   # Lifetime tau in sec
-    else: K_off = 5e9
+    K_off = 1e10
     a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err = dG_browertoland(ln_dFdt_N, RFs, Pars, K_off)
        
     #BowerToland plot
@@ -476,7 +483,7 @@ def plot_brower_toland(BT_Ruptures, Pars, newpath, Steps=True):
 #    ax.set_ylim(5,40)
 #    ax.set_xlim(-4,2)
     ax.legend(loc='best', title='Slope:' + str(np.round(a,1)) + '±' + str(np.round(a_err,1)) + ', intersect:' + str(np.round(b,1)) + '±' + str(np.round(b_err,1)))
-    if Steps:    
+    if np.max(RFs)>20:    
         ax.plot(x, 1.3*x+19, color='green', lw=2, label='Result Brower-Toland')
         fig.savefig(newpath+r'\\'+'BT_Steps.png')
     else:

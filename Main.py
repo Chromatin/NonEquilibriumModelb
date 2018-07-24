@@ -36,7 +36,7 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = True                                                           #Choose to analyse the data selected in labview only
+PlotSelected = True                                                          #Choose to analyse the data selected in labview only
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=True, Onepull=True, MedFilt=False)
 steps , stacks = [],[]
@@ -192,24 +192,24 @@ for Filenum, Filename in enumerate(Filenames):
     if len(Unwrapsteps)>0: Steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
 
-    #saving figures
-    fig1.tight_layout()
-    fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.png')
-    fig1.show()
-    
-    fig2.tight_layout()
-    fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.png')    
-    fig2.show()
+#    #saving figures
+#    fig1.tight_layout()
+#    fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.png')
+#    fig1.show()
+#    
+#    fig2.tight_layout()
+#    fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.png')    
+#    fig2.show()
 
     Fignum += 2
 
 ### Analysis of Brower-Towland and stepsize
 
 try:
-    func.plot_brower_toland(BT_Ruptures, Pars, newpath, Steps=True)
+    func.plot_brower_toland(BT_Ruptures, Pars, newpath)
 except ValueError:
     print(">>>>>>>>>> Warning, no 25 nm steps were found")
-func.plot_brower_toland(BT_Ruptures_Stacks, Pars, newpath, Steps=False)
+func.plot_brower_toland(BT_Ruptures_Stacks, Pars, newpath)
 
 #Plotting a histogram of the stepsizes
 fig3 = plt.figure()

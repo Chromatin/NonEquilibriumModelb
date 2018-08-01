@@ -55,7 +55,7 @@ def erfaprox(x):
     b = -x**2*(4/np.pi+a*x**2)/(1+a*x**2)
     return np.sign(x) * np.sqrt(1-np.exp(b))
 
-def gaus(x, amp, x0, sigma):
+def gauss(x, amp, x0, sigma):
     """1D Gaussian"""
     return amp*np.exp(-(x-x0)**2/(2*sigma**2))
 
@@ -250,13 +250,13 @@ def z_score(Z_Selected, Z_States, std, States):
         Z_States = np.reshape(Z_States, (len(Z_States),1))
     return np.divide(Z_Selected_New-Z_States, std.T)
 
-def single_gauss(x, step=75, Sigma=15, a1=1):
-    return a1*(1+erfaprox((x-step)/(Sigma*np.sqrt(2))))
-
 def err_cdf(x,Sigma,Amp):
     """CDF, x = data - step (normalized around 0)"""
     return Amp*(1+erfaprox((x)/(Sigma*np.sqrt(2))))
-    
+
+def single_gauss(x, step=75, Sigma=15, a1=1):
+    return err_cdf(x-step,Sigma,a1)    
+
 def triple_gauss_cutoff(x, step=75, Sigma=15, a1=1, a2=1, a3=1, cutoff=55):
     """Use this one for unequal Sigma in the first normal distribution
     Cuts off the normal distribution at cutoff, because small steps will not be
@@ -264,10 +264,14 @@ def triple_gauss_cutoff(x, step=75, Sigma=15, a1=1, a2=1, a3=1, cutoff=55):
     a, b = (cutoff-75)/20, (400-75)/20                                         #Cutoff values are defined as function of mean and std
     return a1*2*truncnorm.cdf(x, a, b, loc=step, scale=Sigma) + err_cdf(x-step*2,Sigma,a2) + err_cdf(x-step*3,Sigma,a3)    
 
+def triple_gauss(x, step=75, Sigma=15, a1=1, a2=1, a3=1):
+    """Double gaussian with mean2 = 2*mean1"""
+    return err_cdf(x-step,Sigma,a1) + err_cdf(x-step*2,Sigma,a2) + err_cdf(x-step*3,Sigma,a3)
+
 def double_gauss(x, step=75, Sigma=15, a1=1, a2=1, cutoff=55):
     """Double gaussian with mean2 = 2*mean1"""
     a, b = (cutoff-75)/20, (400-75)/20                                          #Cutoff values are defined as function of mean and std
-    return a1*2*truncnorm.cdf(x, a, b, loc=step, scale=Sigma)+a2*(1+erfaprox((x-(step*2))/(Sigma*np.sqrt(2))))
+    return a1*2*truncnorm.cdf(x, a, b, loc=step, scale=Sigma)+err_cdf(x-step*2,Sigma,a2)
             
 def double_indep_gauss(x, step1=80, step2=160, Sigma=15, a1=1, a2=1):
     """Double gaussian with independent means"""
@@ -424,7 +428,6 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
 #    ax3.plot(T_Selected, NonEqFit, color='green', lw=2)
     return BT
 
-
 def dG_browertoland(ln_dFdt_N, RFs, Pars, K_off = 5e9):
     """ 
     Linear fit of the BT plot (a + bx)
@@ -433,9 +436,9 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars, K_off = 5e9):
     K0 is the 1/tau (lifetime) for the unbound state at 0 force (K_off)
     For error propagation: http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
     """
-    Fit = np.polyfit(ln_dFdt_N, RFs, 1, full = False, cov = True)
-    a = Fit[0][0]
-    b = Fit[0][1]
+    Fit = np.polyfit(ln_dFdt_N, RFs, 1, full = False, cov = True) #(kt/d) * (np.log(r/N*dFdt)-np.log(kD0*kt/d))
+    a = Fit[0][0]   #=(kt/d)
+    b = Fit[0][1]   #=(kt/d)*(-np.log(kD0*kt/d))
     d = Pars['kBT_pN_nm']/a
     K_d0 = np.exp(-b/a)/a
     
@@ -602,25 +605,3 @@ def peakdetect(y_axis, lookahead = 10, delta=1):
     max_peaks=np.array(max_peaks)
         
     return max_peaks[:,0].astype(int), max_peaks[:,1]
-        
-"""
-def findpeaks(y,n=25):
-#    Peakfinder writen with Thomas Brouwer
-#    Finds y peaks at position x in xy graph
-    y = np.array(y)
-    Yy = np.append(y[:-1],y[::-1])
-    yYy = np.append(y[::-1][:-1],Yy)
-    from scipy.signal import argrelextrema
-    maxInd = argrelextrema(yYy, np.greater,order=n)
-    r = np.array(yYy)[maxInd] 
-    a = maxInd[0]
-    #discard all peaks for negative dimers
-    peaks_index=[]
-    peaks_height=[]
-    for n,i in enumerate(a):
-        i=1+i-len(y)
-        if i >= 0 and i <= len(y):
-            peaks_height.append(r[n])
-            peaks_index.append(i)
-    return peaks_index, peaks_height
-"""

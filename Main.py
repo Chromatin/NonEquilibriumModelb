@@ -192,17 +192,18 @@ for Filenum, Filename in enumerate(Filenames):
     if len(Unwrapsteps)>0: Steps.extend(Unwrapsteps)
     if len(Stacksteps)>0: Stacks.extend(Stacksteps)
 
-#    #saving figures
-#    fig1.tight_layout()
-#    fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.png')
-#    fig1.show()
-#    
-#    fig2.tight_layout()
-#    fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.png')    
-#    fig2.show()
+    #saving figures
+    fig1.tight_layout()
+    fig1.savefig(newpath+r'\\'+Filename[0:-4]+'FoEx_all.png')
+    fig1.show()
+    
+    fig2.tight_layout()
+    fig2.savefig(newpath+r'\\'+Filename[0:-4]+'Time_all.png')    
+    fig2.show()
 
     Fignum += 2
 
+#%%
 ### Analysis of Brower-Towland and stepsize
 
 try:
@@ -211,6 +212,7 @@ except ValueError:
     print(">>>>>>>>>> Warning, no 25 nm steps were found")
 func.plot_brower_toland(BT_Ruptures_Stacks, Pars, newpath)
 
+#%%
 #Plotting a histogram of the stepsizes
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,2,1)
@@ -224,18 +226,17 @@ ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orang
 try: 
     Mode="triple"
     Norm =  Range[-1]/Bins
-    cut=0
     Steps = np.array(Steps)
-    D_Gaus,cov = func.fit_gauss(Steps[Steps>cut]-cut, Step=80-cut, Amp1=len(Steps[Steps>cut])/3, Amp2=len(Steps[Steps>cut])/9, Sigma=15, Mode=Mode)
-    mu = D_Gaus[0]+cut
+    D_Gaus,cov = func.fit_gauss(Steps, Step=80, Amp1=len(Steps)/2, Amp2=len(Steps)/3, Sigma=15, Mode=Mode)
+    mu = D_Gaus[0]
     sigma = D_Gaus[1]
     y=0
     for i,amp in enumerate(D_Gaus[2:]):
         i += 1
         x = np.linspace(0, np.max(Steps), 300) 
-        y += y + func.gaus(x, amp, i*mu, sigma)/Norm
+        y += y + func.gauss(x, amp, i*mu, sigma)/Norm
     ax5.plot(x,y, color='red', lw=4, zorder=10, label = 'Gaussian fit')
-    ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean1:'+str(int(D_Gaus[0]+cut)), verticalalignment='bottom')
+    ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean1:'+str(int(D_Gaus[0])), verticalalignment='bottom')
    
 except ValueError:
     print('>>No 25 nm steps to fit gauss')

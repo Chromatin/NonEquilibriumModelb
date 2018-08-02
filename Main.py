@@ -23,7 +23,7 @@ plt.close('all')                                                                
 ###########   3) Set the data handles correctly
 ###############################################################################
 
-folder =  r'N:\Artur\analysis\2018\final 167 twisting analysis\all selected'
+folder =  r'N:\Gert-Jan Kuijntjes\Tweezers\180802 Curve fits\Without pyrocoxin'
 #folder = r'P:\18S FitFiles\Leiden_wt'
 
 newpath = folder+r'\FiguresStepCutoff'                                                   #New path to save the figures
@@ -203,14 +203,6 @@ for Filenum, Filename in enumerate(Filenames):
 
     Fignum += 2
 
-#%%
-### Analysis of Brower-Towland and stepsize
-
-try:
-    func.plot_brower_toland(BT_Ruptures, Pars, newpath)
-except ValueError:
-    print(">>>>>>>>>> Warning, no 25 nm steps were found")
-func.plot_brower_toland(BT_Ruptures_Stacks, Pars, newpath)
 
 #%%
 #Plotting a histogram of the stepsizes
@@ -219,36 +211,50 @@ ax5 = fig3.add_subplot(1,2,1)
 ax6 = fig3.add_subplot(1,2,2)
 Range = [0,400]
 Bins = 50
-n = ax5.hist(Steps,  bins=Bins, range=Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
-ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
 
-#Fitting double gaussian over 25nm Steps
-try: 
-    Mode="triple"
-    Norm =  Range[-1]/Bins
-    Steps = np.array(Steps)
-    D_Gaus,cov = func.fit_gauss(Steps, Step=80, Amp1=len(Steps)/2, Amp2=len(Steps)/3, Sigma=15, Mode=Mode)
-    mu = D_Gaus[0]
-    sigma = D_Gaus[1]
-    y=0
-    for i,amp in enumerate(D_Gaus[2:]):
-        i += 1
-        x = np.linspace(0, np.max(Steps), 300) 
-        y += y + func.gauss(x, amp, i*mu, sigma)/Norm
-    ax5.plot(x,y, color='red', lw=4, zorder=10, label = 'Gaussian fit')
-    ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean1:'+str(int(D_Gaus[0])), verticalalignment='bottom')
-   
-except ValueError:
-    print('>>No 25 nm steps to fit gauss')
+##Analysis and plotting of the 25 nm steps:
+try:
+    ### Analysis of Brower-Towland and stepsize
+    func.plot_brower_toland(BT_Ruptures, Pars, newpath)
+    n = ax5.hist(Steps,  bins=Bins, range=Range, lw=0.5, zorder = 1, color='blue', label='25 nm steps')[0]
+    #Fitting double gaussian over 25nm Steps
+    try: 
+        Mode="triple"
+        Norm =  Range[-1]/Bins
+        Steps = np.array(Steps)
+        D_Gaus,cov = func.fit_gauss(Steps, Step=80, Amp1=len(Steps)/2, Amp2=len(Steps)/3, Sigma=15, Mode=Mode)
+        mu = D_Gaus[0]
+        sigma = D_Gaus[1]
+        y=0
+        for i,amp in enumerate(D_Gaus[2:]):
+            i += 1
+            x = np.linspace(0, np.max(Steps), 300) 
+            y += y + func.gauss(x, amp, i*mu, sigma)/Norm
+        ax5.plot(x,y, color='red', lw=4, zorder=10, label = 'Gaussian fit')
+        ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean1:'+str(int(D_Gaus[0])), verticalalignment='bottom')
+       
+    except ValueError:
+        print('>>No 25 nm steps to fit gauss')
     
-ax5.set_xlabel('stepsize (bp)')
-ax5.set_ylabel('Count')
-ax5.set_title("Histogram stepsizes 25nm steps")
-ax5.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/Bins))+'bp/bin')
-ax6.set_xlabel('stepsize (bp)')
-ax6.set_ylabel('Count')
-ax6.set_title("Histogram stepsizes stacking steps")
-ax6.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/int(Bins/2)))+'bp/bin')
+    ax5.set_xlabel('stepsize (bp)')
+    ax5.set_ylabel('Count')
+    ax5.set_title("Histogram stepsizes 25nm steps")
+    ax5.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/Bins))+'bp/bin')
+except ValueError:
+    print(">>>>>>>>>> Warning, no 25 nm steps were found")
+
+##Analysis and plotting of the stacking interactions:
+try:
+    func.plot_brower_toland(BT_Ruptures_Stacks, Pars, newpath)
+    ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
+    ax6.set_xlabel('stepsize (bp)')
+    ax6.set_ylabel('Count')
+    ax6.set_title("Histogram stepsizes stacking steps")
+    ax6.legend(loc='best', title='#Samples='+str(len(Filenames))+', Binsize='+str(int(np.max(Range)/int(Bins/2)))+'bp/bin')
+except ValueError:
+    print(">>>>>>>>>> Warning, no stacks were found")
+
+
 fig3.tight_layout()
 fig3.savefig(newpath+r'\\'+'Hist.png')
 

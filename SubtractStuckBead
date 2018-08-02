@@ -27,7 +27,7 @@ from scipy import signal
 plt.close()
            
 folder = r'G:\Klaas\Tweezers\Doxo Project\2018_07_09_16x173_Doxo_ForceClamp'
-newpath = folder+r'\CorrectedDat'   
+newpath = folder+"\\" + folder.split("\\")[-1][:-1]+'_CorrectedDat'   
 if not os.path.exists(newpath):
     os.makedirs(newpath)
     

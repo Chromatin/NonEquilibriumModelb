@@ -34,7 +34,7 @@ def fjc(f, Pars):
     b = 3 * Pars['kBT_pN_nm'] / (Pars['k_pN_nm']*Pars['ZFiber_nm'])
     x = f * b / Pars['kBT_pN_nm']
     z = (np.exp(x) + 1 / np.exp(x)) / (np.exp(x) - 1 / np.exp(x)) - 1 / x
-    # coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
+    #coth(x)= (exp(x) + exp(-x)) / (exp(x) - exp(x)) --> see Wikipedia
     #z *= Pars['L_bp']*Pars['DNAds_nm']   #work /dG term not used atm
     #z_df = (Pars['kBT_pN_nm'] / b) * (np.log(np.sinh(x)) - np.log(x))  #*L_nm #  + constant --> integrate over f (finish it
     #w = f * z - z_df
@@ -86,7 +86,7 @@ def model_hookian(F, State, Ratio, Pars, Fmax_Hook=10): #Not used atm
     """Calculates the extension for a state given the model of wlc + Hookian spring"""
     return np.array(np.multiply(wlc(F, Pars),(State*Pars['DNAds_nm'])) + np.multiply(hook(F,Pars['k_pN_nm'],Fmax_Hook),Ratio)*Pars['ZFiber_nm'])
 
-def STD(F, Z, PossibleStates, Pars):
+def st_dev(F, Z, PossibleStates, Pars):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
     Z is the Extension Data (needs to have the same size as F)"""
@@ -101,7 +101,7 @@ def STD(F, Z, PossibleStates, Pars):
     sigma = np.sqrt(Pars['kBT_pN_nm']/LocalStiffness + Pars['MeasurementERR (nm)']**2)    
     return sigma
 
-#Including Hookian    
+
 def probsum(F, Z, PossibleStates, Pars):
     """Calculates the probability landscape of the intermediate states. 
     F is the Force Data, 
@@ -141,7 +141,7 @@ def find_states_prob(F_Selected, Z_Selected, F, Z, Pars, MergeStates=True, Z_Cut
         AllStates[:,i] = Fit        
         AllStates_Selected[:,i] = Fit_Selected        
     
-    std = STD(F_Selected, Z_Selected, States, Pars)
+    std = st_dev(F_Selected, Z_Selected, States, Pars)
     Z_Score = z_score(Z_Selected, AllStates_Selected, std, States)    
     
     StateMask = np.abs(Z_Score) < Z_Cutoff
@@ -190,7 +190,7 @@ def merge(F, F_Selected, Z_Selected, States, StateMask, AllStates, Z_Score, Z_Cu
         MergedStateArr = model_fjc(F, MergedState, Ratio, Pars)
         MergedStateArr_Selected = model_fjc(F_Selected, MergedState, Ratio, Pars)
         
-        Std = STD(F_Selected, Z_Selected, MergedState, Pars)
+        Std = st_dev(F_Selected, Z_Selected, MergedState, Pars)
         Z_Score_MergedState = z_score(Z_Selected, MergedStateArr_Selected, Std, 1).ravel()
         
         MergedStateMask = np.abs(Z_Score_MergedState) < Z_Cutoff
@@ -257,7 +257,7 @@ def err_cdf(x,Sigma,Amp):
 def single_gauss(x, step=75, Sigma=15, a1=1):
     return err_cdf(x-step,Sigma,a1)    
 
-def triple_gauss_cutoff(x, step=75, Sigma=15, a1=1, a2=1, a3=1, cutoff=55):
+def triple_gauss_trunc(x, step=75, Sigma=15, a1=1, a2=1, a3=1, cutoff=55):
     """Use this one for unequal Sigma in the first normal distribution
     Cuts off the normal distribution at cutoff, because small steps will not be
     found due to measurement error """
@@ -277,7 +277,7 @@ def double_indep_gauss(x, step1=80, step2=160, Sigma=15, a1=1, a2=1):
     """Double gaussian with independent means"""
     return a1*(1+erfaprox((x-step1)/(Sigma*np.sqrt(2))))+a2*(1+erfaprox((x-step2)))/(Sigma*np.sqrt(2))
 
-def fit_gauss(Steps, Step=75, Amp1=30, Amp2=10, Amp3=3, Sigma=15, Mode="triple"):
+def fit_gauss(Steps, Step=75, Amp1=30, Amp2=10, Amp3=3, Sigma=15, Mode="triple", cutoff=60):
     """Function to fit 25nm steps with a multiple gauss, as a PDF
     Mode can be single, double and triple"""
     from scipy.optimize import curve_fit
@@ -289,10 +289,23 @@ def fit_gauss(Steps, Step=75, Amp1=30, Amp2=10, Amp3=3, Sigma=15, Mode="triple")
     if Mode=="double":
         popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2],bounds=[[Step-20,5,0,0],[Step+20,100,len(Steps),len(Steps)]])
     if Mode=="triple":
-        popt, pcov = curve_fit(triple_gauss_cutoff, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2, Amp3],bounds=[[Step-25,0,0,0,0],[Step+25,50,len(Steps),len(Steps),len(Steps)]])
+        weight = np.ones(len(Steps))
+        weight[Steps<cutoff] = 100
+        popt, pcov = curve_fit(triple_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2, Amp3],sigma=weight,bounds=[[Step-25,0,0,0,0],[Step+25,50,len(Steps),len(Steps),len(Steps)]])
     else: 
         print(">>>>>No guassian fit selected, see Functions")
         return
+    return popt,pcov
+
+def fit_gauss_trunc(Steps, Step=75, Amp1=30, Amp2=10, Amp3=3, Sigma=15, Mode="triple", cutoff=60):
+    """Function to fit 25nm steps with a multiple gauss, as a PDF
+    Mode can be single, double and triple"""
+    from scipy.optimize import curve_fit
+    Steps = np.array(Steps)
+    Steps = np.sort(Steps)
+    PDF = np.arange(len(Steps))
+    f=lambda x, Step, Sigma, Amp1, Amp2, Amp3 : triple_gauss_trunc(x, Step, Sigma, Amp1, Amp2, Amp3, cutoff=cutoff)
+    popt, pcov = curve_fit(f, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2, Amp3],bounds=[[Step-25,0,0,0,0],[Step+25,50,len(Steps),len(Steps),len(Steps)]])
     return popt,pcov
 
 def attribute2state(Z, States_Selected):
@@ -389,7 +402,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
 def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
     """Returns a 2D-array with coloms 'ruptureforce', 'Number of nucleosomes left', 'dF/dt'"""
 
-    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)                         #Time interval
+    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)                        #Time interval
     
     Mask = Z_Selected < ( Pars['Fiber0_bp']  * Pars['DNAds_nm'] ) + 15  #Only select data up to the start of the bead on the string state, + 1 Std                
     F_Selected = F_Selected[Mask]
@@ -413,9 +426,10 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
         j = int(j)
         TotalLifetime[j] += 1        
         NonEqFit.append(AllStates_Selected[i,j])
-        DeltaZ = AllStates_Selected[i,j]-AllStates_Selected[i,j-1]
-        if k < j and DeltaZ > 0 and F_Selected[i] < 10:                                               #Only analyse Steps larger than 0nm
-            dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
+        DeltaZ = abs(AllStates_Selected[i,j]-AllStates_Selected[i,j-1])
+        interval=10  #interval to calculate dF/dt
+        if k < j and DeltaZ > 0 and F_Selected[i] < 10:                        #Only analyse Steps larger than 0nm
+            dF_dt = (F_Selected[i]-F_Selected[i-interval])/dt*interval
             BT = np.append(BT, [[F_Selected[i-1], j, dF_dt]], axis=0)           
         k = j
     
@@ -463,7 +477,7 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars, K_off = 5e9):
 
 def plot_brower_toland(BT_Ruptures, Pars, newpath):
     #Brower-Toland Analysis, the degenracy
-    ln_dFdt_N = -np.log(np.divide(BT_Ruptures[:,2],BT_Ruptures[:,1]))
+    ln_dFdt_N = -np.log(np.divide(abs(BT_Ruptures[:,2]),BT_Ruptures[:,1]))
     #Remove Ruptures at extensions larger than contour length (ln gets nan value)
     RFs = BT_Ruptures[:,0][abs(ln_dFdt_N) < 10e6]
     ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]

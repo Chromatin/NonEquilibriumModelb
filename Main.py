@@ -23,10 +23,10 @@ plt.close('all')                                                                
 ###########   3) Set the data handles correctly
 ###############################################################################
 
-folder =  r'N:\Gert-Jan Kuijntjes\Tweezers\180802 Curve fits\Without pyrocoxin'
+folder =  r'N:\Artur\analysis\2018\final 167 twisting analysis\all selected nicked'
 #folder = r'P:\18S FitFiles\Leiden_wt'
 
-newpath = folder+r'\FiguresStepCutoff'                                                   #New path to save the figures
+newpath = folder+r'\FiguresKlaas'                                                   #New path to save the figures
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
@@ -36,9 +36,10 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = True                                                          #Choose to analyse the data selected in labview only
+PlotSelected = False        #Choose to analyse the data selected in labview ONLY
+Firstpull = True           #Selects the first pulling curve that exceeds 10 pN                                         
 
-Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, DelBreaks=True, MinForce=2.5, MaxForce=True, MinZ=0, MaxZ=True, Onepull=True, MedFilt=False)
+Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, Release=False, MinForce=1, DelBreaks=True, MaxZ=True, Onepull=False, Firstpull=Firstpull)
 steps , stacks = [],[]
 Steps , Stacks = [],[]                                                          #used to save data
 F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps
@@ -222,7 +223,7 @@ try:
         Mode="triple"
         Norm =  Range[-1]/Bins
         Steps = np.array(Steps)
-        D_Gaus,cov = func.fit_gauss(Steps, Step=80, Amp1=len(Steps)/2, Amp2=len(Steps)/3, Sigma=15, Mode=Mode)
+        D_Gaus,cov = func.fit_gauss(Steps, Step=80, Amp1=len(Steps)/2, Amp2=len(Steps)/3, Sigma=15, Mode=Mode, cutoff=50)
         mu = D_Gaus[0]
         sigma = D_Gaus[1]
         y=0
@@ -246,7 +247,7 @@ except ValueError:
 ##Analysis and plotting of the stacking interactions:
 try:
     func.plot_brower_toland(BT_Ruptures_Stacks, Pars, newpath)
-    ax6.hist(Stacks, bins=int(Bins/2), range=Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
+    ax6.hist(Stacks, bins=int(Bins), range=Range, lw=0.5, zorder = 1, color='orange', label='Stacking transitions')
     ax6.set_xlabel('stepsize (bp)')
     ax6.set_ylabel('Count')
     ax6.set_title("Histogram stepsizes stacking steps")

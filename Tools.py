@@ -9,11 +9,13 @@ Created on Wed Jan  3 14:52:17 2018
 import numpy as np
 from scipy import signal
 
-def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False):
+
+def Define_Handles(Select=True, Pull=True, Release=False, DelBreaks=True, MinForce=2, MaxForce=True, MinZ=0, MaxZ=False, Onepull=True, MedFilt=False, Firstpull=False):
     """If analysis has to be done on only part of the data, these options can be used"""
     Handles = {}
     Handles['Select'] = Select
     Handles['Pulling'] = Pull
+    Handles['Release'] = Release
     Handles['DelBreaks'] = DelBreaks
     Handles['MinForce'] = MinForce
     Handles['MaxForce'] = MaxForce
@@ -21,6 +23,7 @@ def Define_Handles(Select=True, Pull=True, DelBreaks=True, MinForce=2, MaxForce=
     Handles['MaxZ'] = MaxZ
     Handles['MedFilt'] = MedFilt
     Handles['Onepull'] = Onepull
+    Handles['Firstpull'] = Firstpull
     return Handles
 
 def read_data(Filename):
@@ -125,12 +128,17 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
         T_Selected = T
     
     if Handles['DelBreaks']: F_Selected ,Z_Selected, T_Selected = breaks(F_Selected, Z_Selected, T_Selected, Jump = 1500)
+    if Handles['Release']: 
+        F_Selected, Z_Selected, T_Selected = removepull(F_Selected, Z_Selected, T_Selected )
+        F_Selected, Z_Selected, T_Selected = firstrelease(F_Selected, Z_Selected, T_Selected, 8)
+        return F_Selected, Z_Selected, T_Selected
     if Handles['Pulling']: F_Selected, Z_Selected, T_Selected = removerelease(F_Selected, Z_Selected, T_Selected )
     if Handles['MinForce'] > 0: F_Selected, Z_Selected, T_Selected = minforce(F_Selected, Z_Selected, T_Selected , Handles['MinForce'])
     if Handles['MaxZ']:                                                         #Remove all datapoints after max extension
         Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
         F_Selected, Z_Selected, T_Selected = maxextention(F_Selected, Z_Selected, T_Selected , Handles['MaxZ']) #remove data above Z=1.1*LC
     if Handles['Onepull']: F_Selected, Z_Selected, T_Selected = onepull(F_Selected, Z_Selected, T_Selected, 10)
+    if Handles['Firstpull']: F_Selected, Z_Selected, T_Selected = firstpull(F_Selected, Z_Selected, T_Selected, 15)
     if Handles['MedFilt']: Z_Selected = signal.medfilt(Z_Selected, Window)
     return F_Selected, Z_Selected, T_Selected
 
@@ -157,6 +165,15 @@ def removerelease(F, Z, T):
     F = F[F_diff>=0]
     Z = Z[F_diff>=0]
     T = T[F_diff>=0]
+    return F, Z, T
+
+def removepull(F, Z, T):
+    """Removes the release curve from the selected data"""
+    F_diff = np.diff(F)
+    F_diff = np.insert(F_diff,0,0)
+    F = F[F_diff<=0]
+    Z = Z[F_diff<=0]
+    T = T[F_diff<=0]
     return F, Z, T
 
 def maxforce(F, Z, T,  Max_Force=10):
@@ -191,6 +208,42 @@ def onepull(F, Z, T, Jump=10):
         Z = Z[ind[-1]+1:]
         T = T[ind[-1]+1:]
     return F, Z, T
+
+def firstpull(F, Z, T, Start=15):
+    """Selects the first pulling curve that goes over x pN"""
+    mask = np.diff(T) > 1
+    ind = np.where(mask)[0]
+    if len(ind)>0:    
+        y=0
+        ind=np.append(ind,len(F))
+        for x in ind:
+            if max(F[y:x]) > Start:
+                Z = Z[y:x]
+                T = T[y:x]
+                F = F[y:x]
+                #print('time',T[0],T[-1])
+                return F,Z,T
+            y=x+1
+    #print('force',F[0], F[-1])
+    return F,Z,T
+
+def firstrelease(F, Z, T, Start=8):
+    """Selects the first release curve before the chromatin is exposed to over x pN"""
+    mask = np.diff(T) > 1
+    ind = np.where(mask)[0]
+    if len(ind)>0:    
+        y=0
+        ind=np.append(ind,len(F))
+        for x in ind:
+            if max(F[y:x]) < Start:
+                Z = Z[y:x]
+                T = T[y:x]
+                F = F[y:x]
+                #print('time',T[0],T[-1])
+                return F,Z,T
+            y=x+1
+    #print('force',F[0], F[-1])
+    return F,Z,T
     
 """
 #This function is not used atm

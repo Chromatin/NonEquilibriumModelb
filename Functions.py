@@ -261,7 +261,7 @@ def triple_gauss_trunc(x, step=75, Sigma=15, a1=1, a2=1, a3=1, cutoff=55):
     """Use this one for unequal Sigma in the first normal distribution
     Cuts off the normal distribution at cutoff, because small steps will not be
     found due to measurement error """
-    a, b = (cutoff-75)/20, (400-75)/20                                         #Cutoff values are defined as function of mean and std
+    a, b = (cutoff-step)/Sigma, (400-step)/Sigma                                         #Cutoff values are defined as function of mean and std
     return a1*2*truncnorm.cdf(x, a, b, loc=step, scale=Sigma) + err_cdf(x-step*2,Sigma,a2) + err_cdf(x-step*3,Sigma,a3)    
 
 def triple_gauss(x, step=75, Sigma=15, a1=1, a2=1, a3=1):
@@ -290,7 +290,7 @@ def fit_gauss(Steps, Step=75, Amp1=30, Amp2=10, Amp3=3, Sigma=15, Mode="triple",
         popt, pcov = curve_fit(double_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2],bounds=[[Step-20,5,0,0],[Step+20,100,len(Steps),len(Steps)]])
     if Mode=="triple":
         weight = np.ones(len(Steps))
-        weight[Steps<cutoff] = 100
+        weight[Steps<cutoff] = 1000  #Somhow this doesn't give the desired result
         popt, pcov = curve_fit(triple_gauss, Steps, PDF, p0=[Step, Sigma, Amp1, Amp2, Amp3],sigma=weight,bounds=[[Step-25,0,0,0,0],[Step+25,50,len(Steps),len(Steps),len(Steps)]])
     else: 
         print(">>>>>No guassian fit selected, see Functions")
@@ -479,8 +479,10 @@ def plot_brower_toland(BT_Ruptures, Pars, newpath):
     #Brower-Toland Analysis, the degenracy
     ln_dFdt_N = -np.log(np.divide(abs(BT_Ruptures[:,2]),BT_Ruptures[:,1]))
     #Remove Ruptures at extensions larger than contour length (ln gets nan value)
-    RFs = BT_Ruptures[:,0][abs(ln_dFdt_N) < 10e6]
-    ln_dFdt_N = ln_dFdt_N[abs(ln_dFdt_N) < 10e6]
+    RFs = BT_Ruptures[:,0][ln_dFdt_N < 10e6]
+    ln_dFdt_N = ln_dFdt_N[ln_dFdt_N < 10e6]
+    RFs = RFs[ln_dFdt_N > -2]
+    ln_dFdt_N = ln_dFdt_N[ln_dFdt_N > -2]      
     x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
     K_off = 1e10
     a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err = dG_browertoland(ln_dFdt_N, RFs, Pars, K_off)
@@ -495,7 +497,7 @@ def plot_brower_toland(BT_Ruptures, Pars, newpath):
     Subtitle = Subtitle + ", k_D(0) = {:.1e}".format(K_d0) + "±{:.1e}".format(K_d0_err)+" / sec"
     Subtitle = Subtitle + ", Delta G=" + str(Delta_G) + "±" +str(Delta_G_err) + " k_BT"
     fig.suptitle(Subtitle)
-    ax.set_xlabel("ln[(dF/dt)/N (pN/s)]")
+    ax.set_xlabel("ln[(dF/dt) (R/N) (pN/s)]")
     ax.set_ylabel("Force (pN)")
 #    ax.set_ylim(5,40)
 #    ax.set_xlim(-4,2)

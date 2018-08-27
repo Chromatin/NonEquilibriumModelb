@@ -23,7 +23,7 @@ plt.close('all')                                                                
 ###########   3) Set the data handles correctly
 ###############################################################################
 
-folder =  r'N:\Artur\analysis\2018\final 167 twisting analysis\all selected nicked'
+folder =  r'P:\Artur 601 Data\final 167 twisting analysis\all selected'
 #folder = r'P:\18S FitFiles\Leiden_wt'
 
 newpath = folder+r'\FiguresKlaas'                                                   #New path to save the figures
@@ -40,12 +40,6 @@ PlotSelected = False        #Choose to analyse the data selected in labview ONLY
 Firstpull = True           #Selects the first pulling curve that exceeds 10 pN                                         
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, Release=False, MinForce=1, DelBreaks=True, MaxZ=True, Onepull=False, Firstpull=Firstpull)
-steps , stacks = [],[]
-Steps , Stacks = [],[]                                                          #used to save data
-F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps
-BT_Ruptures = np.empty((0,3))                                                   #Brower-Toland
-BT_Ruptures_Stacks = np.empty((0,3)) 
-Fignum = 1                                                                      #Used for output line
 
 Filenames = []                                                                  #All .fit files in folder  
 for filename in filenames:
@@ -56,6 +50,12 @@ for filename in filenames:
 ###############################################################################
 #############   Main script that runs thourgh all fitfiles in folder  #########
 ###############################################################################
+steps , stacks = [],[]
+Steps , Stacks = [],[]                                                          #used to save data
+F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps
+BT_Ruptures = np.empty((0,3))                                                   #Brower-Toland
+BT_Ruptures_Stacks = np.empty((0,3)) 
+Fignum = 1                                                                      #Used for output line
 
 for Filenum, Filename in enumerate(Filenames):
     plt.close('all')
@@ -223,16 +223,20 @@ try:
         Mode="triple"
         Norm =  Range[-1]/Bins
         Steps = np.array(Steps)
-        D_Gaus,cov = func.fit_gauss(Steps, Step=80, Amp1=len(Steps)/2, Amp2=len(Steps)/3, Sigma=15, Mode=Mode, cutoff=50)
+        D_Gaus,cov = func.fit_gauss_trunc(Steps, Step=75, Amp1=len(Steps)/2, Amp2=len(Steps)/3, Sigma=15, Mode=Mode, cutoff=62)
         mu = D_Gaus[0]
         sigma = D_Gaus[1]
         y=0
         for i,amp in enumerate(D_Gaus[2:]):
             i += 1
-            x = np.linspace(0, np.max(Steps), 300) 
-            y += y + func.gauss(x, amp, i*mu, sigma)/Norm
+            x = np.linspace(Range[0], Range[-1], Range[-1]-Range[0]) 
+            y += y + func.gauss(x, amp, i*mu, sigma) / Norm
         ax5.plot(x,y, color='red', lw=4, zorder=10, label = 'Gaussian fit')
-        ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'mean1:'+str(int(D_Gaus[0])), verticalalignment='bottom')
+        ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'Mean:'+str(int(D_Gaus[0])), verticalalignment='bottom')
+        ax5.text(Range[-1]-100, np.max(n)-0.15*np.max(n), 'Sigma:'+str(int(D_Gaus[1])), verticalalignment='bottom')
+        ax5.text(D_Gaus[0], D_Gaus[2]/2, 'Amp1 '+str(int(D_Gaus[2])), verticalalignment='bottom')
+        ax5.text(2*D_Gaus[0], D_Gaus[3]/2, 'Amp2 '+str(int(D_Gaus[3])), verticalalignment='bottom')
+        ax5.text(3*D_Gaus[0], D_Gaus[4]/2, 'Amp3 '+str(int(D_Gaus[4])), verticalalignment='bottom')
        
     except ValueError:
         print('>>No 25 nm steps to fit gauss')

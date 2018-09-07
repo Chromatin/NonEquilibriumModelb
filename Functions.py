@@ -8,6 +8,7 @@ import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
 from scipy.stats import truncnorm
+import pandas as pd
 
 def wlc(force,Pars): #in nm/pN, as fraction of L
     """Calculates WLC in nm/pN, as a fraction the Contour Length.
@@ -211,7 +212,7 @@ def merge(F, F_Selected, Z_Selected, States, StateMask, AllStates, Z_Score, Z_Cu
             NewAllStates    = np.delete(NewAllStates, i, axis=1)
             NewZ_Score      = np.delete(NewZ_Score, i, axis=1)
             #Replace the other state by the new (merged) state
-            NewStates[i]        = MergedState
+            NewStates[i]        = round(MergedState)
             PointsPerState[i]   = MergedSum
             NewStateMask[:,i]   = MergedStateMask
             NewAllStates[:,i]   = MergedStateArr
@@ -360,11 +361,10 @@ def rupture_forces(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
 
     return F_Rup_up, Step_up, F_Rup_down, Step_down
 
-def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
+def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars):
     """Returns a 2D-array with coloms 'ruptureforce', 'Number of nucleosomes left', 'dF/dt'"""
-
-    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)                         #Time interval
     
+    dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)                         #Time interval
     Mask = Z_Selected > ( Pars['Fiber0_bp']  * Pars['DNAds_nm'] ) - 15  #Only select data from the start of the bead on the string state, - 1 Std                
     F_Selected = F_Selected[Mask]
     Z_Selected = Z_Selected[Mask]
@@ -377,29 +377,30 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
         AllStates_Selected[:,i] = Fit_Selected        
         
     Mask = attribute2state(Z_Selected, AllStates_Selected)                #Tels to which state a datapoint belongs
-    MedianFilt = signal.medfilt(Mask, 5)
+    MedianFilt = signal.medfilt(Mask, 7)
     
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
     k = 10000                                                                   #For the first loop 
-    F_Rup = np.empty((0,3)) #np.array([RuptureForce, N-nucl left, dF/dt])
+    F_Rup = np.empty((0,6)) #np.array([RuptureForce, N-nucl left, dF/dt, DeltaZ, IntactNucleosomes])
     TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
         j = int(j)
         TotalLifetime[int(j)] += 1        
         NonEqFit.append(AllStates_Selected[i,int(j)])
-        DeltaZ = AllStates_Selected[i,int(j)]-AllStates_Selected[i,int(j-1)]
-        if k < j and DeltaZ > 20 and DeltaZ < 30 and F_Selected[i] > 12:                               #Only analyse 25 +- 5 nm steps
+        DeltaZ = States[j]-States[j-1]
+        if k < j and DeltaZ%76 < 25 and F_Selected[i] > 3:                               #Only analyse 25 +- 5 nm steps
             IntactNucleosomes = round((wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79) 
             if IntactNucleosomes > 0:
-                N = (Pars['N_tot']-IntactNucleosomes + 1) / IntactNucleosomes #Number of nucl left at i, rounded to the nearest int.
+                R = Pars['N_tot']-IntactNucleosomes + 1 
+                N = IntactNucleosomes #Number of nucl left at i, rounded to the nearest int.
                 dF_dt = (F_Selected[i]-F_Selected[i-1])/dt
-                F_Rup = np.append(F_Rup, [[F_Selected[i-1], N, dF_dt]], axis=0)    
+                F_Rup = np.append(F_Rup, [[F_Selected[i-1], dF_dt, DeltaZ, R, N, Pars['Filename']]], axis=0)
         k = j
-    
+
     #TotalLifetime *= dt                                                       #Calculates lifetime of state, not used ATM
     return F_Rup
 
-def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3):
+def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars):
     """Returns a 2D-array with coloms 'ruptureforce', 'Number of nucleosomes left', 'dF/dt'"""
 
     dt = (T_Selected[-1]-T_Selected[0])/len(T_Selected)                        #Time interval
@@ -420,23 +421,24 @@ def BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, a
  
     NonEqFit = []                                                               #Highlights the occupied state at a given time/force
     k = 10000                                                                   #For the first loop 
-    BT = np.empty((0,3)) #np.array([RuptureForce, N-nucl left, dF/dt])
+    BT = np.empty((0,6)) #np.array([RuptureForce, N-nucl left, dF/dt])
     TotalLifetime = np.zeros([len(States),])
     for i, j in enumerate(MedianFilt):    
         j = int(j)
         TotalLifetime[j] += 1        
         NonEqFit.append(AllStates_Selected[i,j])
-        DeltaZ = abs(AllStates_Selected[i,j]-AllStates_Selected[i,j-1])
-        interval=10  #interval to calculate dF/dt
+        DeltaZ = States[j]-States[j-1]
+        interval=1  #interval to calculate dF/dt
         if k < j and DeltaZ > 0 and F_Selected[i] < 10:                        #Only analyse Steps larger than 0nm
             dF_dt = (F_Selected[i]-F_Selected[i-interval])/dt*interval
-            BT = np.append(BT, [[F_Selected[i-1], j, dF_dt]], axis=0)           
+            BT = np.append(BT, [[F_Selected[i-1], dF_dt, DeltaZ, 1, j, Pars['Filename']]], axis=0)
         k = j
     
     TotalLifetime *= dt
-    if len(BT[:,1]) > 0:
-        IntactNucleosomes = np.abs(BT[:,1]-np.max(BT[:,1])) + 1                #Calculates N (BT degeneracy) based on the number of steps found                            
-        BT[:,1] = (BT[:,1] + 1) / IntactNucleosomes                            #Calculates r/N for stacking interactions.
+    if len(BT[:,4]) > 0:
+        IntactNucleosomes = np.abs(BT[:,4].astype(float)-np.max(BT[:,4].astype(float))) + 1                #Calculates N (BT degeneracy) based on the number of steps found                            
+        BT[:,3] = (BT[:,4].astype(float) + 1)
+        BT[:,4] = IntactNucleosomes                                            #Calculates r/N for stacking interactions.
 
 #    ax1.plot(NonEqFit, F_Selected, color='green', lw=2)
 #    ax3.plot(T_Selected, NonEqFit, color='green', lw=2)
@@ -477,12 +479,13 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars, K_off = 5e9):
 
 def plot_brower_toland(BT_Ruptures, Pars, newpath):
     #Brower-Toland Analysis, the degenracy
-    ln_dFdt_N = -np.log(np.divide(abs(BT_Ruptures[:,2]),BT_Ruptures[:,1]))
+    RN = BT_Ruptures['R'].astype(float) / BT_Ruptures['N'].astype(float)
+    ln_dFdt_N = -np.log(BT_Ruptures['dFdt'].astype(float)/ RN)
     #Remove Ruptures at extensions larger than contour length (ln gets nan value)
-    RFs = BT_Ruptures[:,0][ln_dFdt_N < 10e6]
+    RFs = BT_Ruptures['Force'][ln_dFdt_N < 10e6].astype(float)
     ln_dFdt_N = ln_dFdt_N[ln_dFdt_N < 10e6]
-    RFs = RFs[ln_dFdt_N > -2]
-    ln_dFdt_N = ln_dFdt_N[ln_dFdt_N > -2]      
+    RFs = RFs[ln_dFdt_N > np.min(ln_dFdt_N)]
+    ln_dFdt_N = ln_dFdt_N[ln_dFdt_N > np.min(ln_dFdt_N)]      
     x = np.linspace(np.nanmin(ln_dFdt_N), np.nanmax(ln_dFdt_N), 10)
     K_off = 1e10
     a, a_err, b, b_err, d, D_err, K_d0, K_d0_err, Delta_G, Delta_G_err = dG_browertoland(ln_dFdt_N, RFs, Pars, K_off)

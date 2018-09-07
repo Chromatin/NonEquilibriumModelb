@@ -12,6 +12,7 @@ import numpy as np
 import Functions as func
 import Tools
 import time
+import pandas as pd
 
 start_time = time.time()
 plt.close('all')                                                                #Close all the figures from previous sessions
@@ -23,8 +24,8 @@ plt.close('all')                                                                
 ###########   3) Set the data handles correctly
 ###############################################################################
 
-folder =  r'P:\Artur 601 Data\final 167 twisting analysis\all selected'
-#folder = r'P:\18S FitFiles\Leiden_wt'
+folder =  r'P:\18S FitFiles\18S Fitfiles GJ fits\All fitfiles combined'
+#folder = r'G:\Klaas\Tweezers\Reconstituted chromatin\Misc_601\177'
 
 newpath = folder+r'\FiguresKlaas'                                                   #New path to save the figures
 if not os.path.exists(newpath):
@@ -37,7 +38,7 @@ filenames = os.listdir(folder)
 os.chdir(folder)
 
 PlotSelected = False        #Choose to analyse the data selected in labview ONLY
-Firstpull = True           #Selects the first pulling curve that exceeds 10 pN                                         
+Firstpull = True          #Selects the first pulling curve that exceeds 10 pN                                         
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, Release=False, MinForce=1, DelBreaks=True, MaxZ=True, Onepull=False, Firstpull=Firstpull)
 
@@ -53,8 +54,9 @@ for filename in filenames:
 steps , stacks = [],[]
 Steps , Stacks = [],[]                                                          #used to save data
 F_Rup_up, Step_up, F_Rup_down, Step_down = [], [], [], []                       #Rupture forces and corresponding jumps
-BT_Ruptures = np.empty((0,3))                                                   #Brower-Toland
-BT_Ruptures_Stacks = np.empty((0,3)) 
+Columns=['Force','dFdt','dZ (bp)', 'R', 'N', 'Filename' ]
+BT_Ruptures = np.empty((0,6))                                                   #Store data Brower-Toland
+BT_Ruptures_Stacks = np.empty((0,6)) 
 Fignum = 1                                                                      #Used for output line
 
 for Filenum, Filename in enumerate(Filenames):
@@ -153,11 +155,11 @@ for Filenum, Filename in enumerate(Filenames):
     Step_down.extend(d)
     
     #Brower-Toland analysis    
-    Rups = func.BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
+    Rups = func.BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars)
     BT_Ruptures = np.append(BT_Ruptures, Rups, axis=0)
     
     #Brower-Toland analysis for stacking steps    
-    A = func.BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars, ax1, ax3)
+    A = func.BrowerToland_Stacks(F_Selected, Z_Selected, T_Selected, States, Pars)
     BT_Ruptures_Stacks = np.append(BT_Ruptures_Stacks, A, axis=0)
 
     Sum = np.sum(Statemask, axis=1)        
@@ -204,6 +206,8 @@ for Filenum, Filename in enumerate(Filenames):
 
     Fignum += 2
 
+BT_Ruptures = pd.DataFrame(data = BT_Ruptures, columns=Columns)
+BT_Ruptures_Stacks = pd.DataFrame(data = BT_Ruptures_Stacks, columns=Columns)
 
 #%%
 #Plotting a histogram of the stepsizes
@@ -223,7 +227,7 @@ try:
         Mode="triple"
         Norm =  Range[-1]/Bins
         Steps = np.array(Steps)
-        D_Gaus,cov = func.fit_gauss_trunc(Steps, Step=75, Amp1=len(Steps)/2, Amp2=len(Steps)/3, Sigma=15, Mode=Mode, cutoff=62)
+        D_Gaus,cov = func.fit_gauss(Steps, Step=75, Amp1=len(Steps)/2, Amp2=len(Steps)/3, Sigma=15, Mode=Mode, cutoff=60)
         mu = D_Gaus[0]
         sigma = D_Gaus[1]
         y=0
@@ -273,5 +277,8 @@ ax7.set_ylabel('Stepsize (bp)')
 ax7.set_title("Rupture forces versus stepsize")
 ax7.legend(loc='best')
 fig4.savefig(newpath+r'\\'+'RF.png')
+
+BT_Ruptures.to_csv(newpath+r'\\'+'steps.csv')
+BT_Ruptures_Stacks.to_csv(newpath+r'\\'+'stacks.csv')
 
 print("DONE! Runtime:", np.round(time.time()-start_time, 1), 's',sep='')

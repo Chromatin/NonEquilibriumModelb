@@ -8,7 +8,6 @@ import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
 from scipy.stats import truncnorm
-import pandas as pd
 
 def wlc(force,Pars): #in nm/pN, as fraction of L
     """Calculates WLC in nm/pN, as a fraction the Contour Length.
@@ -388,7 +387,7 @@ def BrowerToland(F_Selected, Z_Selected, T_Selected, States, Pars):
         TotalLifetime[int(j)] += 1        
         NonEqFit.append(AllStates_Selected[i,int(j)])
         DeltaZ = States[j]-States[j-1]
-        if k < j and DeltaZ%76 < 25 and F_Selected[i] > 3:                               #Only analyse 25 +- 5 nm steps
+        if k < j: #and DeltaZ%76 < 25 and F_Selected[i] > 3:                               #Only analyse 25 +- 5 nm steps
             IntactNucleosomes = round((wlc(F_Selected[i-1], Pars)*Pars['L_bp']-Z_Selected[i]/Pars['DNAds_nm'])/79) 
             if IntactNucleosomes > 0:
                 R = Pars['N_tot']-IntactNucleosomes + 1 
@@ -458,7 +457,7 @@ def dG_browertoland(ln_dFdt_N, RFs, Pars, K_off = 5e9):
     d = Pars['kBT_pN_nm']/a
     K_d0 = np.exp(-b/a)/a
     
-    def d_err(a, d_a, Pars):
+    def d_err(a, d_a, Pars): #For error propagation: http://teacher.nsrl.rochester.edu/phy_labs/AppendixB/AppendixB.html
         return Pars['kBT_pN_nm']/a*(d_a/a) 
         
     def k_D0_err(a, d_a, b, d_b, Pars):
@@ -481,6 +480,10 @@ def plot_brower_toland(BT_Ruptures, Pars, newpath):
     #Brower-Toland Analysis, the degenracy
     RN = BT_Ruptures['R'].astype(float) / BT_Ruptures['N'].astype(float)
     ln_dFdt_N = -np.log(BT_Ruptures['dFdt'].astype(float)/ RN)
+    #Remove steps that are not 25 nm or multiples
+    #ExpectedStepsize=75
+    #ln_dFdt_N[abs(BT_Ruptures['dZ (bp)'].astype(float)%ExpectedStepsize)-ExpectedStepsize/2 > 15]
+    #RN[abs(BT_Ruptures['dZ (bp)'].astype(float)%ExpectedStepsize)-ExpectedStepsize/2 > 15]
     #Remove Ruptures at extensions larger than contour length (ln gets nan value)
     RFs = BT_Ruptures['Force'][ln_dFdt_N < 10e6].astype(float)
     ln_dFdt_N = ln_dFdt_N[ln_dFdt_N < 10e6]
@@ -498,7 +501,7 @@ def plot_brower_toland(BT_Ruptures, Pars, newpath):
     ax.set_title("Brower-Toland analysis")
     Subtitle = "d = " + str(np.round(d,1)) + "±" + str(np.round(D_err,1)) + " nm"
     Subtitle = Subtitle + ", k_D(0) = {:.1e}".format(K_d0) + "±{:.1e}".format(K_d0_err)+" / sec"
-    Subtitle = Subtitle + ", Delta G=" + str(Delta_G) + "±" +str(Delta_G_err) + " k_BT"
+    Subtitle = Subtitle + ", Delta G=" + str(round(Delta_G,2)) + "±" +str(round(Delta_G_err,2)) + " k_BT"
     fig.suptitle(Subtitle)
     ax.set_xlabel("ln[(dF/dt) (R/N) (pN/s)]")
     ax.set_ylabel("Force (pN)")

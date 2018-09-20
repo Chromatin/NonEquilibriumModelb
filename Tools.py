@@ -32,29 +32,32 @@ def read_data(Filename):
     #get headers
     headers = f.readlines()[0]
     headers = headers.split('\t')
+    f.close()
     #get data
     data = np.genfromtxt(Filename, skip_header = 1)
     F = data[:,headers.index('F (pN)')]
     Z = data[:,headers.index('z (um)')]*1000  #Z in nm
     T = data[:,headers.index('t (s)')]
     Z_Selected = data[:,headers.index('selected z (um)')]*1000
-
     return F, Z, T, Z_Selected
 
 def read_log(Filename):
     """Open the corresponding .log files from magnetic tweezers. Returns False if the file is not found"""
+    #lines = [Filename]
     try: 
         f = open(Filename, 'r')
     except FileNotFoundError: 
         print(Filename, '========> No valid logfile found')
         return False   
-    lines = f.readlines()
+    lines=f.readlines()
+    lines.insert(0,Filename[:-4])
     f.close()
     return lines
 
 def log_pars(LogFile):
     """Reads in parameters from the logfile generate by the labview fitting program, returns a {dict} with 'key'= paramvalue"""
     par = {}
+    par['Filename'] = LogFile[0]
     par['L_bp'] = float(find_param(LogFile, 'L DNA (bp)'))
     par['P_nm'] = float(find_param(LogFile, 'p DNA (nm)'))
     par['S_pN'] = float(find_param(LogFile, 'S DNA (pN)'))
@@ -138,7 +141,7 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
         Handles['MaxZ'] = (Pars['L_bp']+100)*Pars['DNAds_nm']
         F_Selected, Z_Selected, T_Selected = maxextention(F_Selected, Z_Selected, T_Selected , Handles['MaxZ']) #remove data above Z=1.1*LC
     if Handles['Onepull']: F_Selected, Z_Selected, T_Selected = onepull(F_Selected, Z_Selected, T_Selected, 10)
-    if Handles['Firstpull']: F_Selected, Z_Selected, T_Selected = firstpull(F_Selected, Z_Selected, T_Selected, 15)
+    if Handles['Firstpull']: F_Selected, Z_Selected, T_Selected = firstpull(F_Selected, Z_Selected, T_Selected, Start=15)
     if Handles['MedFilt']: Z_Selected = signal.medfilt(Z_Selected, Window)
     return F_Selected, Z_Selected, T_Selected
 
@@ -149,13 +152,18 @@ def breaks(F, Z, T, Jump=1000):
     for i,x in enumerate(LowPass[1:]):
         change = abs(x - LowPass[i]) + extra
         if change > Jump :
-            F = F[:i]
-            Z = Z[:i] 
-            T = T[:i] 
+            F = F[:i-1]
+            Z = Z[:i-1] 
+            T = T[:i-1] 
             break
         if abs(x - LowPass[i]) > 100:
             extra = change
-        else: extra = 0
+        if x < -1000:
+            F = F[:i-1]
+            Z = Z[:i-1] 
+            T = T[:i-1]
+            break
+        else: extra = 0   
     return F, Z, T
 
 def removerelease(F, Z, T):

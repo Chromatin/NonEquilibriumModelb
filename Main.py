@@ -25,7 +25,7 @@ plt.close('all')                                                                
 ###############################################################################
 
 folder =  r'P:\18S FitFiles\18S Fitfiles GJ fits\All_Wt'
-#folder = r'P:\Artur 601 Data\final 167 twisting analysis\all selected'
+#folder = r'N:\Artur\analysis\2018\hannah\601 - fit_check_AK'
 
 newpath = folder+r'\FiguresKlaas'                                                   #New path to save the figures
 if not os.path.exists(newpath):
@@ -37,7 +37,7 @@ print('Destination folder:', newpath)
 filenames = os.listdir(folder)
 os.chdir(folder)
 
-PlotSelected = True        #Choose to analyse the data selected in labview ONLY
+PlotSelected = True       #Choose to analyse the data selected in labview ONLY
 Firstpull = False        #Selects the first pulling curve that exceeds 10 pN                                         
 
 Handles = Tools.Define_Handles(Select=PlotSelected, Pull=True, Release=False, MinForce=1, DelBreaks=True, MaxZ=True, Onepull=False, Firstpull=Firstpull)
@@ -214,11 +214,11 @@ BT_Ruptures_Stacks = pd.DataFrame(data = BT_Ruptures_Stacks, columns=Columns)
 fig3 = plt.figure()
 ax5 = fig3.add_subplot(1,1,1)
 #ax6 = fig3.add_subplot(1,2,2)
-Range = [0,300]
+Range = [20,300]
 Bins = 60
 
 ##Analysis and plotting of the 25 nm steps:
-cutoff=50
+cutoff=60
 try:
     ### Analysis of Brower-Towland and stepsize
     func.plot_brower_toland(BT_Ruptures, Pars, newpath)
@@ -227,16 +227,18 @@ try:
     try: 
         Mode="triple"
         Norm =  Range[-1]/Bins
-        Steps = np.array(Steps)
-        D_Gaus,cov = func.fit_gauss(Steps, Step=75, Amp1=len(Steps)/2, Amp2=len(Steps)/3, Sigma=15, Mode=Mode, cutoff=cutoff)
+        steps = np.array(Steps)
+        steps = steps[steps<Range[1]]
+        D_Gaus,cov = func.fit_gauss_trunc(steps, Step=75, Amp1=len(steps)/2, Amp2=len(steps)/3, Sigma=15, Mode=Mode, cutoff=cutoff)
         mu = D_Gaus[0]
         sigma = D_Gaus[1]
         y=0
         for i,amp in enumerate(D_Gaus[2:]):
             i += 1
             x = np.linspace(Range[0], Range[-1], Range[-1]-Range[0]) 
-            y += y + func.gauss(x, amp, i*mu, sigma) 
-        ax5.plot(x,y/Norm*.4, color='red', lw=4, zorder=10, label = 'Gaussian fit')
+            y = y + amp * np.exp(-((x - i*mu)**2 / (2*sigma**2)))
+            #y += y + func.gauss(x, amp/2, i*mu, sigma) 
+        ax5.plot(x,y/Norm, color='red', lw=4, zorder=10, label = 'Gaussian fit')
         ax5.text(Range[-1]-100, np.max(n)-0.1*np.max(n), 'Mean:'+str(int(D_Gaus[0])), verticalalignment='bottom')
         ax5.text(Range[-1]-100, np.max(n)-0.15*np.max(n), 'Sigma:'+str(int(D_Gaus[1])), verticalalignment='bottom')
         ax5.text(D_Gaus[0], D_Gaus[2]/2, 'Amp1 '+str(int(D_Gaus[2])), verticalalignment='bottom')

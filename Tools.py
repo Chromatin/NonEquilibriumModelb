@@ -116,9 +116,9 @@ def handle_data(F, Z, T, Z_Selected, Handles, Pars=default_pars(), Window=5):
     Please read 'handles' to see the options"""
     
     if Handles['Select']:                                                       #If only the selected column is use do this
-        F_Selected = np.delete(F, np.argwhere(np.isnan(Z_Selected)))
-        T_Selected = np.delete(T, np.argwhere(np.isnan(Z_Selected)))
-        Z_Selected = np.delete(Z, np.argwhere(np.isnan(Z_Selected))) 
+        F_Selected = np.array(F[np.isnan(Z_Selected)==False])
+        T_Selected = np.array(T[np.isnan(Z_Selected)==False])
+        Z_Selected = np.array(Z[np.isnan(Z_Selected)==False])
         if len(Z_Selected) == 0: 
             print('==> Nothing Selected!')
             return [], [], []
@@ -253,17 +253,3 @@ def firstrelease(F, Z, T, Start=8):
     #print('force',F[0], F[-1])
     return F,Z,T
     
-"""
-#This function is not used atm
-            
-def write_data(Filename,Headers,Data):
-    f = open(Filename, 'a')
-#    import json
-#    json.dump(str(Data),f)
-    Headers='\t'.join(map(str,Headers))+'\n'
-    f.write(Headers)
-    Data='\t'.join(map(str,Data))+'\n'
-    f.write(Data)
-    f.close()
-    return "resultsfile generated"
-"""

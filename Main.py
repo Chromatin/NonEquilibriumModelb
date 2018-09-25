@@ -5,9 +5,9 @@ Created on Mon Jan 22 11:52:49 2018
 @author: nhermans & rrodrigues
 """
 import os 
-import matplotlib
-matplotlib.rcParams['figure.figsize'] = (16, 9)
 import matplotlib.pyplot as plt
+plt.rcParams['figure.figsize'] = (16, 9)
+plt.rcParams.update({'font.size': 22})
 import numpy as np
 import Functions as func
 import Tools
@@ -24,7 +24,7 @@ plt.close('all')                                                                
 ###########   3) Set the data handles correctly
 ###############################################################################
 
-folder =  r'P:\18S FitFiles\18S Fitfiles GJ fits\All_Wt'
+folder =  r'P:\18S FitFiles\18S Fitfiles GJ fits\All_Wt\ExampleTraces'
 #folder = r'N:\Artur\analysis\2018\hannah\601 - fit_check_AK'
 
 newpath = folder+r'\FiguresKlaas'                                                   #New path to save the figures
@@ -60,7 +60,7 @@ BT_Ruptures_Stacks = np.empty((0,6))
 Fignum = 1                                                                      #Used for output line
 
 for Filenum, Filename in enumerate(Filenames):
-    plt.close('all')
+    #plt.close('all')
     F, Z, T, Z_Selected = Tools.read_data(Filename)                            #loads the data from the filename
     LogFile = Tools.read_log(Filename[:-4]+'.log')                             #loads the log file with the same name
     if LogFile: Pars = Tools.log_pars(LogFile)                                 #Reads in all the parameters from the logfile

@@ -27,7 +27,7 @@ plt.close('all')                                                                
 folder =  r'P:\18S FitFiles\18S Fitfiles GJ fits\All_Wt\ExampleTraces'
 #folder = r'N:\Artur\analysis\2018\hannah\601 - fit_check_AK'
 
-newpath = folder+r'\FiguresKlaas'                                                   #New path to save the figures
+newpath = folder+r'\FiguresKlaas'                                              #New path to save the figures
 if not os.path.exists(newpath):
     os.makedirs(newpath)
 
